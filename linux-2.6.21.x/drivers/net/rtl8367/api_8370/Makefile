@@ -2,6 +2,10 @@
 
 EXTRA_CFLAGS += -D_LITTLE_ENDIAN
 
+ifeq ($(CONFIG_RTL8367_CIF_MDIO),y)
+EXTRA_CFLAGS += -DMDC_MDIO_OPERATION
+endif
+
 obj-$(CONFIG_RTL8367_API_8370)		+= rtl8370_asicdrv.o
 obj-$(CONFIG_RTL8367_API_8370)		+= rtl8370_asicdrv_acl.o
 obj-$(CONFIG_RTL8367_API_8370)		+= rtl8370_asicdrv_cputag.o
