@@ -1,7 +1,7 @@
 /**************************************************************************
  *
  *  BRIEF MODULE DESCRIPTION
- *     EHCI/OHCI init for Ralink RT3xxx
+ *     Ralink USB device init.
  *
  *  Copyright 2009 Ralink Inc. (yyhuang@ralinktech.com.tw)
  *
@@ -39,25 +39,12 @@
 
 #include <asm/rt2880/surfboardint.h>
 
-#if defined(CONFIG_RT3XXX_EHCI_OHCI)
-#define IRQ_RT3XXX_USB SURFBOARDINT_UHST
-static struct resource rt3xxx_ehci_resources[] = {
+#if defined(CONFIG_USB_GADGET_RT)
+#define IRQ_RT3XXX_USB SURFBOARDINT_UDEV
+static struct resource rt3xxx_udc_resources[] = {
 	[0] = {
-		.start  = 0x101c0000,
-		.end    = 0x101c0fff,
-		.flags  = IORESOURCE_MEM,
-	},
-	[1] = {
-		.start  = IRQ_RT3XXX_USB,
-		.end    = IRQ_RT3XXX_USB,
-		.flags  = IORESOURCE_IRQ,
-	},
-};
-
-static struct resource rt3xxx_ohci_resources[] = {
-	[0] = {
-		.start  = 0x101c1000,
-		.end    = 0x101c1fff,
+		.start  = 0x10120000,
+		.end    = 0x10121400,
 		.flags  = IORESOURCE_MEM,
 	},
 	[1] = {
@@ -68,45 +55,29 @@ static struct resource rt3xxx_ohci_resources[] = {
 };
 
 /*
- * EHCI/OHCI Host controller.
+ * RT3xxx UDC (CUSB2/PDMA) controller.
  */
-static u64 rt3xxx_ehci_dmamask = ~(u32)0;
-static struct platform_device rt3xxx_ehci_device = {
-	.name           = "rt3xxx-ehci",
+static u64 rt3xxx_udc_dmamask = ~(u32)0;
+static struct platform_device rt3xxx_udc_device = {
+	.name           = "rt_udc",
 	.id             = -1,
 	.dev            = {
-		.dma_mask       = &rt3xxx_ehci_dmamask,
+		.dma_mask       = &rt3xxx_udc_dmamask,
 		.coherent_dma_mask  = 0xffffffff,
 	},
 	.num_resources  = 2,
-	.resource       = rt3xxx_ehci_resources,
-};
-
-static u64 rt3xxx_ohci_dmamask = ~(u32)0;
-
-static struct platform_device rt3xxx_ohci_device = {
-	.name           = "rt3xxx-ohci",
-	.id             = -1,
-	.dev            = {
-		.dma_mask       = &rt3xxx_ohci_dmamask,
-		.coherent_dma_mask  = 0xffffffff,
-	},
-	.num_resources  = 2,
-	.resource       = rt3xxx_ohci_resources,
+	.resource       = rt3xxx_udc_resources,
 };
 
 static struct platform_device *rt3xxx_devices[] __initdata = {
-	&rt3xxx_ehci_device,
-	&rt3xxx_ohci_device,
+	&rt3xxx_udc_device,
 };
 
-int __init init_rt3xxx_ehci_ohci(void)
+int __init init_rt3xxx_udc(void)
 {
-	printk("RT3xxx EHCI/OHCI init.\n");
+	printk("Ralink USB Device init.\n");
 	platform_add_devices(rt3xxx_devices, ARRAY_SIZE(rt3xxx_devices));
 	return 0;
 }
-
-device_initcall(init_rt3xxx_ehci_ohci);
-#endif /* CONFIG_RT3XXX_EHCI_OHCI */
-
+device_initcall(init_rt3xxx_udc);
+#endif

@@ -36,12 +36,50 @@
  **************************************************************************
  */
 
+#if defined (CONFIG_RALINK_MT7621)
+#define RT2880_UART_RBR_OFFSET  0x00
+#define RT2880_UART_TBR_OFFSET  0x00
+#define RT2880_UART_IER_OFFSET  0x04
+#define RT2880_UART_IIR_OFFSET  0x08
+#define RT2880_UART_FCR_OFFSET  0x08
+#define RT2880_UART_LCR_OFFSET  0x0C
+#define RT2880_UART_MCR_OFFSET  0x10
+#define RT2880_UART_LSR_OFFSET  0x14
+#define RT2880_UART_DLL_OFFSET  0x00
+#define RT2880_UART_DLM_OFFSET  0x04
+#else
+#define RT2880_UART_RBR_OFFSET  0x00
+#define RT2880_UART_TBR_OFFSET  0x04
+#define RT2880_UART_IER_OFFSET  0x08
+#define RT2880_UART_IIR_OFFSET  0x0C
+#define RT2880_UART_FCR_OFFSET  0x10
+#define RT2880_UART_LCR_OFFSET  0x14
+#define RT2880_UART_MCR_OFFSET  0x18
+#define RT2880_UART_LSR_OFFSET  0x1C
+#define RT2880_UART_DLF_OFFSET  0x28
+#define RT2880_UART_DLL_OFFSET  0x2C
+#define RT2880_UART_DLM_OFFSET  0x30
+#endif
+
+#define RBR(x)          *(volatile u32 *)((x)+RT2880_UART_RBR_OFFSET)
+#define TBR(x)          *(volatile u32 *)((x)+RT2880_UART_TBR_OFFSET)
+#define IER(x)          *(volatile u32 *)((x)+RT2880_UART_IER_OFFSET)
+#define IIR(x)          *(volatile u32 *)((x)+RT2880_UART_IIR_OFFSET)
+#define FCR(x)          *(volatile u32 *)((x)+RT2880_UART_FCR_OFFSET)
+#define LCR(x)          *(volatile u32 *)((x)+RT2880_UART_LCR_OFFSET)
+#define MCR(x)          *(volatile u32 *)((x)+RT2880_UART_MCR_OFFSET)
+#define LSR(x)          *(volatile u32 *)((x)+RT2880_UART_LSR_OFFSET)
+#define DLF(x)          *(volatile u32 *)((x)+RT2880_UART_DLF_OFFSET)
+#define DLL(x)          *(volatile u32 *)((x)+RT2880_UART_DLL_OFFSET)
+#define DLM(x)          *(volatile u32 *)((x)+RT2880_UART_DLM_OFFSET)
+
 #if defined (CONFIG_RALINK_RT2880) || \
     defined (CONFIG_RALINK_RT2883) || \
     defined (CONFIG_RALINK_RT3883) || \
+    defined (CONFIG_RALINK_RT3052) || \
     defined (CONFIG_RALINK_RT3352) || \
     defined (CONFIG_RALINK_RT5350) || \
-    defined (CONFIG_RALINK_RT3052)
+    defined (CONFIG_RALINK_MT7620)
 
 #define UART_RX		0	/* In:  Receive buffer (DLAB=0) */
 
@@ -67,11 +105,11 @@
 #define UART_LSR	28	/* In:  Line Status Register */
 #define UART_MSR	32	/* In:  Modem Status Register */
 #define UART_SCR	36	/* I/O: Scratch Register */
-#define UART_DLL	40	/* Out: Divisor Latch Low (DLAB=1) */
+#define UART_DLL	44	/* Out: Divisor Latch Low (DLAB=1) */
 /* Since surfboard uart cannot be accessed by byte, using UART_DLM will cause
  * unpredictable values to be written to the Divisor Latch
  */
-#define UART_DLM	41	/* Out: Divisor Latch High (DLAB=1) */
+#define UART_DLM	48	/* Out: Divisor Latch High (DLAB=1) */
 
 #else
 
@@ -82,20 +120,20 @@
 				 * In: Fifo count
 				 * Out: Fifo custom trigger levels */
 
-#define UART_DLM	1	/* Out: Divisor Latch High */
-#define UART_IER	1	/* Out: Interrupt Enable Register */
-#define UART_FCTR	1	/* Feature Control Register */
+#define UART_DLM	4	/* Out: Divisor Latch High */
+#define UART_IER	4	/* Out: Interrupt Enable Register */
+#define UART_FCTR	4	/* Feature Control Register */
 
-#define UART_IIR	2	/* In:  Interrupt ID Register */
-#define UART_FCR	2	/* Out: FIFO Control Register */
-#define UART_EFR	2	/* I/O: Extended Features Register */
+#define UART_IIR	8	/* In:  Interrupt ID Register */
+#define UART_FCR	8	/* Out: FIFO Control Register */
+#define UART_EFR	8	/* I/O: Extended Features Register */
 
-#define UART_LCR	3	/* Out: Line Control Register */
-#define UART_MCR	4	/* Out: Modem Control Register */
-#define UART_LSR	5	/* In:  Line Status Register */
-#define UART_MSR	6	/* In:  Modem Status Register */
-#define UART_SCR	7	/* I/O: Scratch Register */
-#define UART_EMSR	7	/* Extended Mode Select Register */
+#define UART_LCR	12	/* Out: Line Control Register */
+#define UART_MCR	16	/* Out: Modem Control Register */
+#define UART_LSR	20	/* In:  Line Status Register */
+#define UART_MSR	24	/* In:  Modem Status Register */
+#define UART_SCR	28	/* I/O: Scratch Register */
+#define UART_EMSR	28	/* Extended Mode Select Register */
 
 #endif
 /*
