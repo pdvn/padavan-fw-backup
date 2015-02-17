@@ -1915,7 +1915,11 @@ int mtk_nand_read_oob_hw(struct mtd_info *mtd, struct nand_chip *chip, int page)
 	return 0;
 }
 
+#if LINUX_VERSION_CODE > KERNEL_VERSION(3,4,0)
 static int mtk_nand_read_oob(struct mtd_info *mtd, struct nand_chip *chip, int page)
+#else
+static int mtk_nand_read_oob(struct mtd_info *mtd, struct nand_chip *chip, int page, int sndcmd)
+#endif
 {
 	int page_per_block = 1 << (chip->phys_erase_shift - chip->page_shift);
 	int block = page / page_per_block;
@@ -2074,7 +2078,9 @@ static void mtk_nand_update_hw(struct mtd_info *mtd)
 	}
 
 	mtd->oobsize = spare_per_sector * (mtd->writesize / NFI_NAND_SECTOR_SIZE);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0)
 	chip->ecc.strength = ecc_bit;
+#endif
 
 	MSG(INIT, "%s: ecc bit: %d, oobsize: %d, spare_per_sector: %d\n", MTK_NAND_MODULE_TEXT, ecc_bit, mtd->oobsize, spare_per_sector);
 
@@ -2245,7 +2251,9 @@ static int mtk_nand_probe(struct platform_device *pdev)
 
 #if ECC_ENABLE
 	chip->ecc.mode = NAND_ECC_HW;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0)
 	chip->ecc.strength = 4;
+#endif
 #else
 	chip->ecc.mode = NAND_ECC_NONE;
 #endif
