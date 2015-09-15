@@ -1,8 +1,8 @@
-RT_DRV_DIR  := rt5392
+RT_DRV_DIR  := rt5592
 RT_DRV_PATH := ../$(RT_DRV_DIR)
-RT_DRV_NAME := rt5392_ap
+RT_DRV_NAME := rt5592_ap
 
-obj-$(CONFIG_RT5392_AP) += $(RT_DRV_NAME).o
+obj-$(CONFIG_RT5592_AP) += $(RT_DRV_NAME).o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/crypt_md5.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/crypt_sha2.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/crypt_hmac.o
@@ -22,6 +22,7 @@ $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/cmm_sanity.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/cmm_info.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/cmm_cfg.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/cmm_wpa.o
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/cmm_radar.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/spectrum.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/rtmp_timer.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/rt_channel.o
@@ -63,54 +64,39 @@ $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/os/linux/rt_rbus_pci_drv.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/os/linux/ap_ioctl.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/os/linux/pci_main_dev.o
 
-### RT5392
+### RT5592
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/chips/rtmp_chip.o
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/chips/rt3090.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/chips/rt30xx.o
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/chips/rt3390.o
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/chips/rt33xx.o
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/chips/rt5390.o
-ifeq ($(CONFIG_RT5392_AP_ATE),y)
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/chips/rt5592.o
+ifeq ($(CONFIG_RT_ATE),y)
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/ate/chips/rt30xx_ate.o
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/ate/chips/rt33xx_ate.o
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/ate/chips/rt5390_ate.o
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/ate/chips/rt5592_ate.o
 endif
 
-ifeq ($(CONFIG_RT5392_AP_ATE),y)
+ifeq ($(CONFIG_RT_ATE),y)
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/ate/common/rt_ate.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/ate/common/ate_pci.o
-ifeq ($(CONFIG_RT5392_AP_QA),y)
+ifeq ($(CONFIG_RT_QA),y)
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/ate/common/rt_qa.o
 endif
 endif
 
-ifeq ($(CONFIG_RT5392_AP_LED),y)
+ifeq ($(CONFIG_RT5592_AP_LED),y)
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/rt_led.o
 endif
 
-ifeq ($(CONFIG_RT5392_AP_WSC),y)
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wsc.o
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wsc_tlv.o
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/crypt_dh.o
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wsc_ufd.o
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/crypt_biginteger.o
-ifeq ($(CONFIG_RT5392_AP_WSC_V2),y)
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wsc_v2.o
-endif
-endif
-
-ifeq ($(CONFIG_RT5392_AP_WDS),y)
+ifeq ($(CONFIG_RT5592_AP_WDS),y)
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/ap/ap_wds.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/ap/ap_wds_inf.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/client_wds.o
 endif
 
-ifeq ($(CONFIG_RT5392_AP_MBSS),y)
+ifeq ($(CONFIG_RT5592_AP_MBSS),y)
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/ap/ap_mbss.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/ap/ap_mbss_inf.o
 endif
 
-ifeq ($(CONFIG_RT5392_AP_APCLI),y)
+ifeq ($(CONFIG_RT5592_AP_APCLI),y)
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/ap/ap_apcli.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/ap/ap_apcli_inf.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/ap/apcli_assoc.o
@@ -123,49 +109,60 @@ $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/cmm_mat_pppoe.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/cmm_mat_ipv6.o
 endif
 
-ifeq ($(CONFIG_RT5392_AP_IGMP_SNOOP),y)
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/igmp_snoop.o
-endif
-
-ifeq ($(CONFIG_RT5392_AP_NETIF_BLOCK),y)
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/netif_block.o
-endif
-
-ifeq ($(CONFIG_RT5392_AP_DLS),y)
+ifeq ($(CONFIG_RT5592_AP_DLS),y)
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/ap/ap_dls.o
 endif
 
-ifeq ($(CONFIG_RT5392_AP_IDS),y)
+ifeq ($(CONFIG_RT5592_AP_IDS),y)
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/ap/ap_ids.o
 endif
 
-ifeq ($(CONFIG_RT5392_AP_WAPI),y)
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wapi.o
+ifeq ($(CONFIG_RT5592_AP_DFS),y)
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/cmm_dfs.o
 endif
 
-ifeq ($(CONFIG_RT5392_AP_CARRIER),y)
+ifeq ($(CONFIG_RT5592_AP_CARRIER),y)
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/cmm_cs.o
 endif
 
-ifeq ($(CONFIG_RT5392_AP_BRIDGE_FASTPATH),y)
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/br_ftph.o
+ifeq ($(CONFIG_RT_WSC),y)
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wsc.o
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wsc_tlv.o
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/crypt_dh.o
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wsc_ufd.o
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/crypt_biginteger.o
+ifeq ($(CONFIG_RT_WSC_V2),y)
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wsc_v2.o
+endif
 endif
 
-ifeq ($(CONFIG_RT5392_AP_VIDEO_TURBINE),y)
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/cmm_video.o
+ifeq ($(CONFIG_RT_WAPI),y)
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wapi.o
 endif
 
-ifeq ($(CONFIG_RT5392_AP_BAND_STEERING),y)
+ifeq ($(CONFIG_RT_IGMP_SNOOP),y)
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/igmp_snoop.o
+endif
+
+ifeq ($(CONFIG_RT_NETIF_BLOCK),y)
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/netif_block.o
+endif
+
+ifeq ($(CONFIG_RT_BAND_STEERING),y)
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/ap/ap_band_steering.o
+endif
+
+ifeq ($(CONFIG_RT_VIDEO_TURBINE),y)
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/cmm_video.o
 endif
 
 ###################
 #  CFLAGS
 ###################
 EXTRA_CFLAGS  = -Wall -Wstrict-prototypes -Wno-trigraphs
-EXTRA_CFLAGS += -Idrivers/net/wireless/$(RT_DRV_DIR)/include
-ifeq ($(CONFIG_RT5392_AP_ATE),y)
-EXTRA_CFLAGS += -Idrivers/net/wireless/$(RT_DRV_DIR)/ate/include
+EXTRA_CFLAGS += -Idrivers/net/wireless/ralink/$(RT_DRV_DIR)/include
+ifeq ($(CONFIG_RT_ATE),y)
+EXTRA_CFLAGS += -Idrivers/net/wireless/ralink/$(RT_DRV_DIR)/ate/include
 endif
 EXTRA_CFLAGS += -DAGGREGATION_SUPPORT -DPIGGYBACK_SUPPORT -DWMM_SUPPORT -DLINUX
 EXTRA_CFLAGS += -DCONFIG_AP_SUPPORT -DAP_SCAN_SUPPORT -DUAPSD_SUPPORT -DDOT11_N_SUPPORT -DDOT1X_SUPPORT
@@ -178,7 +175,7 @@ ifeq ($(CONFIG_RT_FIRST_CARD),2860)
 EXTRA_CFLAGS += -DRT_SOC_SUPPORT
 endif
 
-ifeq ($(CONFIG_RT_FIRST_CARD),5392)
+ifeq ($(CONFIG_RT_FIRST_CARD),5592)
 EXTRA_CFLAGS += -DRT_IFNAME_1ST
 ifeq ($(CONFIG_RT_FIRST_CARD_EEPROM),"efuse")
 EXTRA_CFLAGS += -DRTMP_EFUSE_SUPPORT
@@ -193,15 +190,12 @@ EXTRA_CFLAGS += -DRTMP_FLASH_SUPPORT
 endif
 endif
 
-ifeq ($(CONFIG_RT5392_AP_READ_MAC_FROM_MTD),y)
+ifeq ($(CONFIG_RT_READ_MAC_FROM_MTD),y)
 EXTRA_CFLAGS += -DREAD_MAC_FROM_EEPROM
 endif
 
 # do not lock CountryRegion from EEPROM
 EXTRA_CFLAGS += -DEEPROM_COUNTRY_UNLOCK
-
-# provide roaming support
-#EXTRA_CFLAGS += -DIAPP_SUPPORT
 
 # provide information on the current STA population and traffic levels in the QBSS
 #EXTRA_CFLAGS += -DAP_QLOAD_SUPPORT -DQLOAD_FUNC_BUSY_TIME_STATS
@@ -214,119 +208,120 @@ ifeq ($(CONFIG_RA_NETWORK_WORKQUEUE_BH),y)
 EXTRA_CFLAGS += -DWORKQUEUE_BH
 endif
 
-### RT5392
-EXTRA_CFLAGS += -DRT30xx -DRT3090 -DRT33xx -DRT3390 -DRT53xx -DRT5390
+### RT5592
+EXTRA_CFLAGS += -DRT30xx -DRT5592
+EXTRA_CFLAGS += -DA_BAND_SUPPORT
+EXTRA_CFLAGS += -DRX_DMA_SCATTER
 EXTRA_CFLAGS += -DVCORECAL_SUPPORT
-EXTRA_CFLAGS += -DRTMP_INTERNAL_TX_ALC
-EXTRA_CFLAGS += -DRTMP_FREQ_CALIBRATION_SUPPORT
 EXTRA_CFLAGS += -DIQ_CAL_SUPPORT
 EXTRA_CFLAGS += -DRTMP_TEMPERATURE_COMPENSATION
 #EXTRA_CFLAGS += -DSPECIFIC_BCN_BUF_SUPPORT
+ifeq ($(CONFIG_RT5592_AP_EP_SUPPORT),y)
+EXTRA_CFLAGS += -DRT5592EP_SUPPORT
+endif
 
-ifeq ($(CONFIG_RT5392_AP_DBG),y)
+#EXTRA_CFLAGS += -DEXT_BUILD_CHANNEL_LIST
+
+ifeq ($(CONFIG_RT_DEBUG),y)
 EXTRA_CFLAGS += -DDBG
 EXTRA_CFLAGS += -DSYSTEM_LOG_SUPPORT
 endif
 
-ifeq ($(CONFIG_RT5392_AP_ATE),y)
+ifeq ($(CONFIG_RT_ATE),y)
 EXTRA_CFLAGS += -DRALINK_ATE -DCONFIG_RT2880_ATE_CMD_NEW
-ifeq ($(CONFIG_RT5392_AP_QA),y)
+ifeq ($(CONFIG_RT_QA),y)
 EXTRA_CFLAGS += -DRALINK_QA
 endif
 endif
 
-ifeq ($(CONFIG_RT5392_AP_DLS),y)
+ifeq ($(CONFIG_RT5592_AP_DLS),y)
 EXTRA_CFLAGS += -DQOS_DLS_SUPPORT
 endif
 
-ifeq ($(CONFIG_RT5392_AP_IDS),y)
+ifeq ($(CONFIG_RT5592_AP_IDS),y)
 EXTRA_CFLAGS += -DIDS_SUPPORT
 endif
 
-ifeq ($(CONFIG_RT5392_AP_WAPI),y)
-EXTRA_CFLAGS += -DWAPI_SUPPORT -DEXPORT_SYMTAB
-endif
-
-ifeq ($(CONFIG_RT5392_AP_GREENAP),y)
+ifeq ($(CONFIG_RT5592_AP_GREENAP),y)
 EXTRA_CFLAGS += -DGREENAP_SUPPORT
 endif
 
-ifeq ($(CONFIG_RT5392_AP_MCAST_RATE_SPECIFIC),y)
-EXTRA_CFLAGS += -DMCAST_RATE_SPECIFIC
-endif
-
-ifeq ($(CONFIG_RT5392_AP_80211N_DRAFT3),y)
-EXTRA_CFLAGS += -DDOT11N_DRAFT3
-endif
-
-ifeq ($(CONFIG_RT5392_AP_LED),y)
+ifeq ($(CONFIG_RT5592_AP_LED),y)
 EXTRA_CFLAGS += -DLED_CONTROL_SUPPORT
-endif
-
-ifeq ($(CONFIG_RT5392_AP_WSC),y)
-EXTRA_CFLAGS += -DWSC_AP_SUPPORT
-ifeq ($(CONFIG_RT5392_AP_WSC_V2),y)
-EXTRA_CFLAGS += -DWSC_V2_SUPPORT
-endif
-ifeq ($(CONFIG_RT5392_AP_LED),y)
+ifeq ($(CONFIG_RT_WSC),y)
 EXTRA_CFLAGS += -DWSC_LED_SUPPORT
 endif
 endif
 
-ifeq ($(CONFIG_RT5392_AP_LLTD),y)
+ifeq ($(CONFIG_RT5592_AP_LED_SOFT),y)
+EXTRA_CFLAGS += -DLED_SOFT_SUPPORT
+EXTRA_CFLAGS += -DLED_SOFT_BLINK_GPIO=$(CONFIG_RT5592_AP_LED_SOFT_GPIO)
+endif
+
+ifeq ($(CONFIG_RT5592_AP_LLTD),y)
 EXTRA_CFLAGS += -DLLTD_SUPPORT
 endif
 
-ifeq ($(CONFIG_RT5392_AP_WDS),y)
+ifeq ($(CONFIG_RT5592_AP_WDS),y)
 EXTRA_CFLAGS += -DWDS_SUPPORT
 endif
 
-ifeq ($(CONFIG_RT5392_AP_MBSS),y)
+ifeq ($(CONFIG_RT5592_AP_MBSS),y)
 EXTRA_CFLAGS += -DMBSS_SUPPORT
-ifeq ($(CONFIG_RT5392_AP_MBSS_NEW_MBSSID_MODE),y)
+ifeq ($(CONFIG_RT5592_AP_MBSS_NEW_MBSSID_MODE),y)
 EXTRA_CFLAGS += -DNEW_MBSSID_MODE
 endif
 endif
 
-ifeq ($(CONFIG_RT5392_AP_APCLI),y)
+ifeq ($(CONFIG_RT5592_AP_APCLI),y)
 EXTRA_CFLAGS += -DAPCLI_SUPPORT -DMAT_SUPPORT
 EXTRA_CFLAGS += -DAPCLI_AUTO_CONNECT_SUPPORT
 endif
 
-ifeq ($(CONFIG_RT5392_AP_IGMP_SNOOP),y)
+ifeq ($(CONFIG_RT_WSC),y)
+EXTRA_CFLAGS += -DWSC_AP_SUPPORT
+ifeq ($(CONFIG_RT_WSC_V2),y)
+EXTRA_CFLAGS += -DWSC_V2_SUPPORT
+endif
+endif
+
+ifeq ($(CONFIG_RT_80211N_DRAFT3),y)
+EXTRA_CFLAGS += -DDOT11N_DRAFT3
+endif
+
+ifeq ($(CONFIG_RT_WAPI),y)
+EXTRA_CFLAGS += -DWAPI_SUPPORT -DEXPORT_SYMTAB
+endif
+
+ifeq ($(CONFIG_RT_IGMP_SNOOP),y)
 EXTRA_CFLAGS += -DIGMP_SNOOP_SUPPORT
 endif
 
-ifeq ($(CONFIG_RT5392_AP_NETIF_BLOCK),y)
+ifeq ($(CONFIG_RT_MCAST_RATE_SPECIFIC),y)
+EXTRA_CFLAGS += -DMCAST_RATE_SPECIFIC
+endif
+
+ifeq ($(CONFIG_RT_NETIF_BLOCK),y)
 EXTRA_CFLAGS += -DBLOCK_NET_IF
 endif
 
-ifeq ($(CONFIG_RT5392_AP_VIDEO_TURBINE),y)
+ifeq ($(CONFIG_RT_VIDEO_TURBINE),y)
 EXTRA_CFLAGS += -DVIDEO_TURBINE_SUPPORT
 endif
 
-ifeq ($(CONFIG_RT5392_AP_BAND_STEERING),y)
+ifeq ($(CONFIG_RT_BAND_STEERING),y)
 EXTRA_CFLAGS += -DBAND_STEERING
 endif
 
-ifeq ($(CONFIG_RT5392_AP_EXT_CHANNEL_LIST),y)
-EXTRA_CFLAGS += -DEXT_BUILD_CHANNEL_LIST
+ifeq ($(CONFIG_RT_SNMP),y)
+EXTRA_CFLAGS += -DSNMP_SUPPORT
 endif
 
-ifeq ($(CONFIG_RT5392_AP_SINGLE_SKU),y)
+ifeq ($(CONFIG_RT_SINGLE_SKU),y)
 EXTRA_CFLAGS += -DSINGLE_SKU
 endif
 
-ifeq ($(CONFIG_RT5392_AP_MC_SUPPORT),y)
+ifeq ($(CONFIG_RT_MC_SUPPORT),y)
 EXTRA_CFLAGS += -DMULTIPLE_CARD_SUPPORT
 endif
 
-ifeq ($(CONFIG_RT5392_AP_BRIDGE_FASTPATH),y)
-EXTRA_CFLAGS += -DBG_FT_SUPPORT
-endif
-
-
-clean:
-	@rm -f `find ./ -name "*.o.cmd"`
-	@rm -f `find ./ -name "*.ko"`
-	@rm -f `find ./ -name "*.o"`

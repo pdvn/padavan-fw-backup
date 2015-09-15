@@ -93,7 +93,6 @@ $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/os/linux/rt_rbus_pci_util.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/os/linux/rt_pci_rbus.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/os/linux/multi_main_dev.o
 
-
 ### MT7620 (RBUS)
 ifeq ($(CHIP_MT7620),y)
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/chips/rt6352.o
@@ -105,7 +104,7 @@ $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/phy/rlt_rf.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/phy/rtmp_phy.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/mac/ral_omac.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/os/linux/rbus_main_dev.o
-ifeq ($(CONFIG_MT76X2_AP_ATE),y)
+ifeq ($(CONFIG_RT_ATE),y)
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/ate/chips/rt6352_ate.o
 endif
 endif
@@ -119,44 +118,21 @@ $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/phy/mt_rf.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/phy/rlt_phy.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/mac/ral_nmac.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/os/linux/pci_main_dev.o
-ifeq ($(CONFIG_MT76X2_AP_ATE),y)
+ifeq ($(CONFIG_RT_ATE),y)
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/ate/chips/mt76x2_ate.o
 endif
 endif
 
-ifeq ($(CONFIG_MT76X2_AP_ATE),y)
+ifeq ($(CONFIG_RT_ATE),y)
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/ate/common/rt_ate.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/ate/common/ate_pci.o
-ifeq ($(CONFIG_MT76X2_AP_QA),y)
+ifeq ($(CONFIG_RT_QA),y)
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/ate/common/rt_qa.o
 endif
 endif
 
 ifeq ($(CONFIG_MT76X2_AP_LED),y)
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/rt_led.o
-endif
-
-ifeq ($(CONFIG_MT76X2_AP_80211AC_VHT),y)
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/vht.o
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/mgmt/mgmt_vht.o
-endif
-
-ifeq ($(CONFIG_MT76X2_AP_80211W_PMF),y)
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/pmf.o
-endif
-
-ifeq ($(CONFIG_MT76X2_AP_WSC),y)
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wsc.o
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wsc_tlv.o
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/crypt_dh.o
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wsc_ufd.o
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/crypt_biginteger.o
-ifeq ($(CONFIG_MT76X2_AP_WSC_V2),y)
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wsc_v2.o
-endif
-ifeq ($(CONFIG_MT76X2_AP_WSC_NFC_SUPPORT),y)
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/nfc.o
-endif
 endif
 
 ifeq ($(CONFIG_MT76X2_AP_WDS),y)
@@ -186,16 +162,13 @@ $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/ap/ap_repeater.o
 endif
 endif
 
+ifeq ($(CONFIG_MT76X2_AP_80211AC_VHT),y)
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/vht.o
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/mgmt/mgmt_vht.o
+endif
+
 ifeq ($(CONFIG_MT76X2_AP_GREENAP),y)
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/hw_ctrl/greenap.o
-endif
-
-ifeq ($(CONFIG_MT76X2_AP_IGMP_SNOOP),y)
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/igmp_snoop.o
-endif
-
-ifeq ($(CONFIG_MT76X2_AP_NETIF_BLOCK),y)
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/netif_block.o
 endif
 
 ifeq ($(CONFIG_MT76X2_AP_DLS),y)
@@ -204,12 +177,6 @@ endif
 
 ifeq ($(CONFIG_MT76X2_AP_IDS),y)
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/ap/ap_ids.o
-endif
-
-ifeq ($(CONFIG_MT76X2_AP_WAPI),y)
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wapi.o
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wapi_sms4.o
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wapi_crypt.o
 endif
 
 ifeq ($(CONFIG_MT76X2_AP_DFS),y)
@@ -225,19 +192,77 @@ $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/cmm_txbf.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/cmm_txbf_cal.o
 endif
 
-ifeq ($(CONFIG_MT76X2_AP_CSO),y)
+ifeq ($(CONFIG_RT_WSC),y)
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wsc.o
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wsc_tlv.o
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/crypt_dh.o
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wsc_ufd.o
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/crypt_biginteger.o
+ifeq ($(CONFIG_RT_WSC_V2),y)
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wsc_v2.o
+endif
+ifeq ($(CONFIG_RT_WSC_NFC),y)
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/nfc.o
+endif
+endif
+
+ifeq ($(CONFIG_RT_WAPI),y)
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wapi.o
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wapi_sms4.o
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wapi_crypt.o
+endif
+
+ifeq ($(CONFIG_RT_80211W_PMF),y)
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/pmf.o
+endif
+
+ifeq ($(CONFIG_RT_IGMP_SNOOP),y)
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/igmp_snoop.o
+endif
+
+ifeq ($(CONFIG_RT_NETIF_BLOCK),y)
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/netif_block.o
+endif
+
+ifeq ($(CONFIG_RT_CSO),y)
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/naf/net_acc.o
 endif
 
-ifeq ($(CONFIG_MT76X2_AP_VIDEO_TURBINE),y)
+ifeq ($(CONFIG_RT_VIDEO_TURBINE),y)
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/cmm_video.o
 endif
 
-ifeq ($(CONFIG_MT76X2_AP_BAND_STEERING),y)
+ifeq ($(CONFIG_RT_BAND_STEERING),y)
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/ap/ap_band_steering.o
 endif
 
-ifeq ($(CONFIG_MT76X2_AP_DBG),y)
+ifeq ($(CONFIG_RT_DOT11R_FT),y)
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/ft.o
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/ft_tlv.o
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/ft_iocl.o
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/ft_rc.o
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/ap/ap_ftkd.o
+endif
+
+ifeq ($(CONFIG_RT_DOT11K_RRM),y)
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/rrm_tlv.o
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/rrm_sanity.o
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/rrm.o
+endif
+
+ifeq ($(CONFIG_RT_CFG80211),y)
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/os/linux/cfg80211/cfg80211_scan.o
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/os/linux/cfg80211/cfg80211_rx.o
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/os/linux/cfg80211/cfg80211_tx.o
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/os/linux/cfg80211/cfg80211_inf.o
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/os/linux/cfg80211/cfg80211_p2p.o
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/os/linux/cfg80211/cfg80211_ap.o
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/os/linux/cfg80211/cfg80211drv.o
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/os/linux/cfg80211/cfg80211_util.o
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/os/linux/cfg80211/cfg80211.o
+endif
+
+ifeq ($(CONFIG_RT_DEBUG),y)
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/sys_log.o
 endif
 
@@ -246,9 +271,9 @@ endif
 ##################
 
 EXTRA_CFLAGS  = -Wall -Wstrict-prototypes -Wno-trigraphs -Wno-unused -Wno-declaration-after-statement
-EXTRA_CFLAGS += -Idrivers/net/wireless/$(RT_DRV_DIR)/include
-ifeq ($(CONFIG_MT76X2_AP_ATE),y)
-EXTRA_CFLAGS += -Idrivers/net/wireless/$(RT_DRV_DIR)/ate/include
+EXTRA_CFLAGS += -Idrivers/net/wireless/ralink/$(RT_DRV_DIR)/include
+ifeq ($(CONFIG_RT_ATE),y)
+EXTRA_CFLAGS += -Idrivers/net/wireless/ralink/$(RT_DRV_DIR)/ate/include
 endif
 EXTRA_CFLAGS += -DAGGREGATION_SUPPORT -DPIGGYBACK_SUPPORT -DWMM_SUPPORT -DLINUX
 EXTRA_CFLAGS += -DCONFIG_AP_SUPPORT -DUAPSD_SUPPORT -DDOT11_N_SUPPORT -DDOT1X_SUPPORT
@@ -270,9 +295,6 @@ EXTRA_CFLAGS += -DRTMP_FLASH_SUPPORT
 
 # provide internal eFuse memory support
 #EXTRA_CFLAGS += -DRTMP_EFUSE_SUPPORT -DCAL_FREE_IC_SUPPORT
-
-# provide roaming support
-#EXTRA_CFLAGS += -DIAPP_SUPPORT
 
 # provide information on the current STA population and traffic levels in the QBSS
 #EXTRA_CFLAGS += -DAP_QLOAD_SUPPORT -DQLOAD_FUNC_BUSY_TIME_STATS
@@ -344,20 +366,20 @@ EXTRA_CFLAGS += -DMULTI_INF_SUPPORT
 endif
 endif
 
-ifeq ($(CONFIG_MT76X2_AP_READ_MAC_FROM_MTD),y)
+ifeq ($(CONFIG_RT_READ_MAC_FROM_MTD),y)
 EXTRA_CFLAGS += -DREAD_MAC_FROM_EEPROM
 endif
 
-ifeq ($(CONFIG_MT76X2_AP_DBG),y)
+ifeq ($(CONFIG_RT_DEBUG),y)
 EXTRA_CFLAGS += -DDBG
 #EXTRA_CFLAGS += -DDBG_DIAGNOSE -DDBG_RX_MCS -DDBG_TX_MCS
 EXTRA_CFLAGS += -DSYSTEM_LOG_SUPPORT
 endif
 
-ifeq ($(CONFIG_MT76X2_AP_ATE),y)
+ifeq ($(CONFIG_RT_ATE),y)
 EXTRA_CFLAGS += -DRALINK_ATE -DCONFIG_RT2880_ATE_CMD_NEW
 EXTRA_CFLAGS += -DRTMP_EFUSE_SUPPORT -DCAL_FREE_IC_SUPPORT
-ifeq ($(CONFIG_MT76X2_AP_QA),y)
+ifeq ($(CONFIG_RT_QA),y)
 EXTRA_CFLAGS += -DRALINK_QA
 endif
 endif
@@ -378,24 +400,8 @@ ifeq ($(CONFIG_MT76X2_AP_CARRIER),y)
 EXTRA_CFLAGS += -DCARRIER_DETECTION_SUPPORT
 endif
 
-ifeq ($(CONFIG_MT76X2_AP_ED_MONITOR),y)
-EXTRA_CFLAGS += -DED_MONITOR -DED_SMART
-endif
-
-ifeq ($(CONFIG_MT76X2_AP_WAPI),y)
-EXTRA_CFLAGS += -DWAPI_SUPPORT
-endif
-
 ifeq ($(CONFIG_MT76X2_AP_GREENAP),y)
 EXTRA_CFLAGS += -DGREENAP_SUPPORT
-endif
-
-ifeq ($(CONFIG_MT76X2_AP_MCAST_RATE_SPECIFIC),y)
-EXTRA_CFLAGS += -DMCAST_RATE_SPECIFIC
-endif
-
-ifeq ($(CONFIG_MT76X2_AP_80211N_DRAFT3),y)
-EXTRA_CFLAGS += -DDOT11N_DRAFT3
 endif
 
 ifeq ($(CONFIG_MT76X2_AP_80211AC_VHT),y)
@@ -406,30 +412,16 @@ ifeq ($(CONFIG_MT76X2_AP_TXBF_SUPPORT),y)
 EXTRA_CFLAGS += -DMCS_LUT_SUPPORT -DTXBF_SUPPORT -DVHT_TXBF_SUPPORT
 endif
 
-ifeq ($(CONFIG_MT76X2_AP_80211W_PMF),y)
-EXTRA_CFLAGS += -DDOT11W_PMF_SUPPORT -DSOFT_ENCRYPT
-endif
-
 ifeq ($(CONFIG_MT76X2_AP_LED),y)
 EXTRA_CFLAGS += -DLED_CONTROL_SUPPORT
-ifeq ($(CONFIG_MT76X2_AP_WSC),y)
+ifeq ($(CONFIG_RT_WSC),y)
 EXTRA_CFLAGS += -DWSC_LED_SUPPORT
-endif
-ifeq ($(CONFIG_MT76X2_AP_WSC_NFC_SUPPORT),y)
-EXTRA_CFLAGS += -DWSC_NFC_SUPPORT
 endif
 endif
 
 ifeq ($(CONFIG_MT76X2_AP_LED_SOFT),y)
 EXTRA_CFLAGS += -DLED_SOFT_SUPPORT
 EXTRA_CFLAGS += -DLED_SOFT_BLINK_GPIO=$(CONFIG_MT76X2_AP_LED_SOFT_GPIO)
-endif
-
-ifeq ($(CONFIG_MT76X2_AP_WSC),y)
-EXTRA_CFLAGS += -DWSC_AP_SUPPORT
-ifeq ($(CONFIG_MT76X2_AP_WSC_V2),y)
-EXTRA_CFLAGS += -DWSC_V2_SUPPORT
-endif
 endif
 
 ifeq ($(CONFIG_MT76X2_AP_LLTD),y)
@@ -463,54 +455,93 @@ EXTRA_CFLAGS += -DCON_WPS -DCON_WPS_AP_SAME_UUID
 endif
 endif
 
-ifeq ($(CONFIG_MT76X2_AP_IGMP_SNOOP),y)
+ifeq ($(CONFIG_RT_WSC),y)
+EXTRA_CFLAGS += -DWSC_AP_SUPPORT
+ifeq ($(CONFIG_RT_WSC_V2),y)
+EXTRA_CFLAGS += -DWSC_V2_SUPPORT
+endif
+ifeq ($(CONFIG_RT_WSC_NFC),y)
+EXTRA_CFLAGS += -DWSC_NFC_SUPPORT
+endif
+endif
+
+ifeq ($(CONFIG_RT_80211N_DRAFT3),y)
+EXTRA_CFLAGS += -DDOT11N_DRAFT3
+endif
+
+ifeq ($(CONFIG_RT_WAPI),y)
+EXTRA_CFLAGS += -DWAPI_SUPPORT
+endif
+
+ifeq ($(CONFIG_RT_80211W_PMF),y)
+EXTRA_CFLAGS += -DDOT11W_PMF_SUPPORT -DSOFT_ENCRYPT
+endif
+
+ifeq ($(CONFIG_RT_ED_MONITOR),y)
+EXTRA_CFLAGS += -DED_MONITOR -DED_SMART
+endif
+
+ifeq ($(CONFIG_RT_IGMP_SNOOP),y)
 EXTRA_CFLAGS += -DIGMP_SNOOP_SUPPORT
 endif
 
-ifeq ($(CONFIG_MT76X2_AP_NETIF_BLOCK),y)
-EXTRA_CFLAGS += -DBLOCK_NET_IF
+ifeq ($(CONFIG_RT_MCAST_RATE_SPECIFIC),y)
+EXTRA_CFLAGS += -DMCAST_RATE_SPECIFIC
 endif
 
-ifeq ($(CONFIG_MT76X2_AP_VIDEO_TURBINE),y)
+ifeq ($(CONFIG_RT_VIDEO_TURBINE),y)
 EXTRA_CFLAGS += -DVIDEO_TURBINE_SUPPORT
 endif
 
-ifeq ($(CONFIG_MT76X2_AP_BAND_STEERING),y)
+ifeq ($(CONFIG_RT_BAND_STEERING),y)
 EXTRA_CFLAGS += -DBAND_STEERING
 endif
 
-ifeq ($(CONFIG_MT76X2_AP_HDR_TRANS),y)
+ifeq ($(CONFIG_RT_DOT11R_FT),y)
+EXTRA_CFLAGS += -DDOT11R_FT_SUPPORT -DIAPP_SUPPORT
+endif
+
+ifeq ($(CONFIG_RT_DOT11K_RRM),y)
+EXTRA_CFLAGS += -DDOT11K_RRM_SUPPORT -DAPPLE_11K_IOT
+endif
+
+ifeq ($(CONFIG_RT_HDR_TRANS),y)
 EXTRA_CFLAGS += -DHDR_TRANS_SUPPORT
 endif
 
-ifeq ($(CONFIG_MT76X2_AP_CSO),y)
+ifeq ($(CONFIG_RT_CSO),y)
 EXTRA_CFLAGS += -DCONFIG_CSO_SUPPORT -DCONFIG_TSO_SUPPORT
 endif
 
-ifeq ($(CONFIG_MT76X2_AP_DELAYED_TCP_ACK),y)
+ifeq ($(CONFIG_RT_DELAYED_TCP_ACK),y)
 EXTRA_CFLAGS += -DDELAYED_TCP_ACK
 endif
 
-ifeq ($(CONFIG_MT76X2_AP_EXT_CHANNEL_LIST),y)
-EXTRA_CFLAGS += -DEXT_BUILD_CHANNEL_LIST
-endif
-
-ifeq ($(CONFIG_MT76X2_AP_SINGLE_SKU),y)
+ifeq ($(CONFIG_RT_SINGLE_SKU),y)
 EXTRA_CFLAGS += -DSINGLE_SKU_V2
 endif
 
-ifeq ($(CONFIG_MT76X2_AP_MEMORY_OPTIMIZATION),y)
+ifeq ($(CONFIG_RT_MEMORY_OPTIMIZATION),y)
 EXTRA_CFLAGS += -DMEMORY_OPTIMIZATION
 endif
 
-ifeq ($(CONFIG_MT76X2_AP_SNMP),y)
+ifeq ($(CONFIG_RT_NETIF_BLOCK),y)
+EXTRA_CFLAGS += -DBLOCK_NET_IF
+endif
+
+ifeq ($(CONFIG_RT_SNMP),y)
 EXTRA_CFLAGS += -DSNMP_SUPPORT
 endif
 
-ifeq ($(CONFIG_MT76X2_AP_BIG_ENDIAN),y)
+ifeq ($(CONFIG_RT_CFG80211),y)
+EXTRA_CFLAGS += -DRT_CFG80211_SUPPORT -DEXT_BUILD_CHANNEL_LIST
+endif
+
+ifeq ($(CONFIG_RT_BIG_ENDIAN),y)
 EXTRA_CFLAGS += -DRT_BIG_ENDIAN
 endif
 
-ifeq ($(CONFIG_MT76X2_AP_MC_SUPPORT),y)
+ifeq ($(CONFIG_RT_MC_SUPPORT),y)
 EXTRA_CFLAGS += -DMULTIPLE_CARD_SUPPORT
 endif
+

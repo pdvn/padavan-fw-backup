@@ -68,38 +68,27 @@ $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/chips/rtmp_chip.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/chips/rt3090.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/chips/rt30xx.o
 ifeq ($(CONFIG_RT3090_AP_RT3390),y)
-rt3390_ap-objs += $(RT_DRV_PATH)/chips/rt3390.o
-rt3390_ap-objs += $(RT_DRV_PATH)/chips/rt33xx.o
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/chips/rt3390.o
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/chips/rt33xx.o
 endif
 
-ifeq ($(CONFIG_RT3090_AP_ATE),y)
+ifeq ($(CONFIG_RT_ATE),y)
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/ate/chips/rt30xx_ate.o
 ifeq ($(CONFIG_RT3090_AP_RT3390),y)
-rt3390_ap-objs += $(RT_DRV_PATH)/ate/chips/rt33xx_ate.o
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/ate/chips/rt33xx_ate.o
 endif
 endif
 
-ifeq ($(CONFIG_RT3090_AP_ATE),y)
+ifeq ($(CONFIG_RT_ATE),y)
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/ate/common/rt_ate.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/ate/common/ate_pci.o
-ifeq ($(CONFIG_RT3090_AP_QA),y)
+ifeq ($(CONFIG_RT_QA),y)
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/ate/common/rt_qa.o
 endif
 endif
 
 ifeq ($(CONFIG_RT3090_AP_LED),y)
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/rt_led.o
-endif
-
-ifeq ($(CONFIG_RT3090_AP_WSC),y)
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wsc.o
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wsc_tlv.o
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/crypt_dh.o
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wsc_ufd.o
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/crypt_biginteger.o
-ifeq ($(CONFIG_RT3090_AP_WSC_V2),y)
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wsc_v2.o
-endif
 endif
 
 ifeq ($(CONFIG_RT3090_AP_WDS),y)
@@ -126,14 +115,6 @@ $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/cmm_mat_pppoe.o
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/cmm_mat_ipv6.o
 endif
 
-ifeq ($(CONFIG_RT3090_AP_IGMP_SNOOP),y)
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/igmp_snoop.o
-endif
-
-ifeq ($(CONFIG_RT3090_AP_NETIF_BLOCK),y)
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/netif_block.o
-endif
-
 ifeq ($(CONFIG_RT3090_AP_DLS),y)
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/ap/ap_dls.o
 endif
@@ -142,33 +123,48 @@ ifeq ($(CONFIG_RT3090_AP_IDS),y)
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/ap/ap_ids.o
 endif
 
-ifeq ($(CONFIG_RT3090_AP_WAPI),y)
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wapi.o
-endif
-
 ifeq ($(CONFIG_RT3090_AP_CARRIER),y)
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/cmm_cs.o
 endif
 
-ifeq ($(CONFIG_RT3090_AP_BRIDGE_FASTPATH),y)
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/br_ftph.o
+ifeq ($(CONFIG_RT_WSC),y)
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wsc.o
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wsc_tlv.o
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/crypt_dh.o
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wsc_ufd.o
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/crypt_biginteger.o
+ifeq ($(CONFIG_RT_WSC_V2),y)
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wsc_v2.o
+endif
 endif
 
-ifeq ($(CONFIG_RT3090_AP_VIDEO_TURBINE),y)
-$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/cmm_video.o
+ifeq ($(CONFIG_RT_NETIF_BLOCK),y)
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/netif_block.o
 endif
 
-ifeq ($(CONFIG_RT3090_AP_BAND_STEERING),y)
+ifeq ($(CONFIG_RT_WAPI),y)
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/wapi.o
+endif
+
+ifeq ($(CONFIG_RT_IGMP_SNOOP),y)
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/igmp_snoop.o
+endif
+
+ifeq ($(CONFIG_RT_BAND_STEERING),y)
 $(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/ap/ap_band_steering.o
+endif
+
+ifeq ($(CONFIG_RT_VIDEO_TURBINE),y)
+$(RT_DRV_NAME)-objs += $(RT_DRV_PATH)/common/cmm_video.o
 endif
 
 ###################
 #  CFLAGS
 ###################
 EXTRA_CFLAGS  = -Wall -Wstrict-prototypes -Wno-trigraphs
-EXTRA_CFLAGS += -Idrivers/net/wireless/$(RT_DRV_DIR)/include
-ifeq ($(CONFIG_RT3090_AP_ATE),y)
-EXTRA_CFLAGS += -Idrivers/net/wireless/$(RT_DRV_DIR)/ate/include
+EXTRA_CFLAGS += -Idrivers/net/wireless/ralink/$(RT_DRV_DIR)/include
+ifeq ($(CONFIG_RT_ATE),y)
+EXTRA_CFLAGS += -Idrivers/net/wireless/ralink/$(RT_DRV_DIR)/ate/include
 endif
 EXTRA_CFLAGS += -DAGGREGATION_SUPPORT -DPIGGYBACK_SUPPORT -DWMM_SUPPORT -DLINUX
 EXTRA_CFLAGS += -DCONFIG_AP_SUPPORT -DAP_SCAN_SUPPORT -DUAPSD_SUPPORT -DDOT11_N_SUPPORT -DDOT1X_SUPPORT
@@ -196,15 +192,12 @@ EXTRA_CFLAGS += -DRTMP_FLASH_SUPPORT
 endif
 endif
 
-ifeq ($(CONFIG_RT3090_AP_READ_MAC_FROM_MTD),y)
+ifeq ($(CONFIG_RT_READ_MAC_FROM_MTD),y)
 EXTRA_CFLAGS += -DREAD_MAC_FROM_EEPROM
 endif
 
 # do not lock CountryRegion from EEPROM
 EXTRA_CFLAGS += -DEEPROM_COUNTRY_UNLOCK
-
-# provide roaming support
-#EXTRA_CFLAGS += -DIAPP_SUPPORT
 
 # provide information on the current STA population and traffic levels in the QBSS
 #EXTRA_CFLAGS += -DAP_QLOAD_SUPPORT -DQLOAD_FUNC_BUSY_TIME_STATS
@@ -225,14 +218,16 @@ EXTRA_CFLAGS += -DRT33xx -DRT3390
 EXTRA_CFLAGS += -DRTMP_INTERNAL_TX_ALC
 endif
 
-ifeq ($(CONFIG_RT3090_AP_DBG),y)
+#EXTRA_CFLAGS += -DEXT_BUILD_CHANNEL_LIST
+
+ifeq ($(CONFIG_RT_DEBUG),y)
 EXTRA_CFLAGS += -DDBG
 EXTRA_CFLAGS += -DSYSTEM_LOG_SUPPORT
 endif
 
-ifeq ($(CONFIG_RT3090_AP_ATE),y)
+ifeq ($(CONFIG_RT_ATE),y)
 EXTRA_CFLAGS += -DRALINK_ATE -DCONFIG_RT2880_ATE_CMD_NEW
-ifeq ($(CONFIG_RT3090_AP_QA),y)
+ifeq ($(CONFIG_RT_QA),y)
 EXTRA_CFLAGS += -DRALINK_QA
 endif
 endif
@@ -245,32 +240,13 @@ ifeq ($(CONFIG_RT3090_AP_IDS),y)
 EXTRA_CFLAGS += -DIDS_SUPPORT
 endif
 
-ifeq ($(CONFIG_RT3090_AP_WAPI),y)
-EXTRA_CFLAGS += -DWAPI_SUPPORT -DEXPORT_SYMTAB
-endif
-
 ifeq ($(CONFIG_RT3090_AP_GREENAP),y)
 EXTRA_CFLAGS += -DGREENAP_SUPPORT
 endif
 
-ifeq ($(CONFIG_RT3090_AP_MCAST_RATE_SPECIFIC),y)
-EXTRA_CFLAGS += -DMCAST_RATE_SPECIFIC
-endif
-
-ifeq ($(CONFIG_RT3090_AP_80211N_DRAFT3),y)
-EXTRA_CFLAGS += -DDOT11N_DRAFT3
-endif
-
 ifeq ($(CONFIG_RT3090_AP_LED),y)
 EXTRA_CFLAGS += -DLED_CONTROL_SUPPORT
-endif
-
-ifeq ($(CONFIG_RT3090_AP_WSC),y)
-EXTRA_CFLAGS += -DWSC_AP_SUPPORT
-ifeq ($(CONFIG_RT3090_AP_WSC_V2),y)
-EXTRA_CFLAGS += -DWSC_V2_SUPPORT
-endif
-ifeq ($(CONFIG_RT3090_AP_LED),y)
+ifeq ($(CONFIG_RT_WSC),y)
 EXTRA_CFLAGS += -DWSC_LED_SUPPORT
 endif
 endif
@@ -295,36 +271,46 @@ EXTRA_CFLAGS += -DAPCLI_SUPPORT -DMAT_SUPPORT
 EXTRA_CFLAGS += -DAPCLI_AUTO_CONNECT_SUPPORT
 endif
 
-ifeq ($(CONFIG_RT3090_AP_IGMP_SNOOP),y)
+ifeq ($(CONFIG_RT_WSC),y)
+EXTRA_CFLAGS += -DWSC_AP_SUPPORT
+ifeq ($(CONFIG_RT_WSC_V2),y)
+EXTRA_CFLAGS += -DWSC_V2_SUPPORT
+endif
+endif
+
+ifeq ($(CONFIG_RT_80211N_DRAFT3),y)
+EXTRA_CFLAGS += -DDOT11N_DRAFT3
+endif
+
+ifeq ($(CONFIG_RT_WAPI),y)
+EXTRA_CFLAGS += -DWAPI_SUPPORT -DEXPORT_SYMTAB
+endif
+
+ifeq ($(CONFIG_RT_IGMP_SNOOP),y)
 EXTRA_CFLAGS += -DIGMP_SNOOP_SUPPORT
 endif
 
-ifeq ($(CONFIG_RT3090_AP_NETIF_BLOCK),y)
+ifeq ($(CONFIG_RT_MCAST_RATE_SPECIFIC),y)
+EXTRA_CFLAGS += -DMCAST_RATE_SPECIFIC
+endif
+
+ifeq ($(CONFIG_RT_NETIF_BLOCK),y)
 EXTRA_CFLAGS += -DBLOCK_NET_IF
 endif
 
-ifeq ($(CONFIG_RT3090_AP_VIDEO_TURBINE),y)
+ifeq ($(CONFIG_RT_VIDEO_TURBINE),y)
 EXTRA_CFLAGS += -DVIDEO_TURBINE_SUPPORT
 endif
 
-ifeq ($(CONFIG_RT3090_AP_BAND_STEERING),y)
+ifeq ($(CONFIG_RT_BAND_STEERING),y)
 EXTRA_CFLAGS += -DBAND_STEERING
 endif
 
-ifeq ($(CONFIG_RT3090_AP_EXT_CHANNEL_LIST),y)
-EXTRA_CFLAGS += -DEXT_BUILD_CHANNEL_LIST
+ifeq ($(CONFIG_RT_SNMP),y)
+EXTRA_CFLAGS += -DSNMP_SUPPORT
 endif
 
-ifeq ($(CONFIG_RT3090_AP_MC_SUPPORT),y)
+ifeq ($(CONFIG_RT_MC_SUPPORT),y)
 EXTRA_CFLAGS += -DMULTIPLE_CARD_SUPPORT
 endif
 
-ifeq ($(CONFIG_RT3090_AP_BRIDGE_FASTPATH),y)
-EXTRA_CFLAGS += -DBG_FT_SUPPORT
-endif
-
-
-clean:
-	@rm -f `find ./ -name "*.o.cmd"`
-	@rm -f `find ./ -name "*.ko"`
-	@rm -f `find ./ -name "*.o"`
