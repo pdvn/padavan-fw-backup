@@ -9,7 +9,7 @@ kernel_tf=""
 uclibc_id="0.9.33.2"
 uclibc_cf=""
 uclibc_tf="$ROOTDIR/libc/uClibc-${uclibc_id}/.config"
-busybox_id="1.24.x"
+busybox_id="1.28.1"
 busybox_cf="$ROOTDIR/configs/boards/busybox.config"
 busybox_tf="$ROOTDIR/user/busybox/busybox-${busybox_id}/.config"
 board_h=""
@@ -303,7 +303,8 @@ if [ "$CONFIG_FIRMWARE_ENABLE_USB" != "y" ] || [ -z "$CONFIG_USB_SUPPORT" ] ; th
 	func_disable_busybox_param "CONFIG_EJECT"
 	func_disable_busybox_param "CONFIG_FEATURE_EJECT_SCSI"
 	func_disable_busybox_param "CONFIG_MKSWAP"
-	func_disable_busybox_param "CONFIG_SWAPONOFF"
+	func_disable_busybox_param "CONFIG_SWAPON"
+	func_disable_busybox_param "CONFIG_SWAPOFF"
 	func_disable_busybox_param "CONFIG_FEATURE_VOLUMEID_FAT"
 	func_disable_busybox_param "CONFIG_FEATURE_VOLUMEID_EXFAT"
 	func_disable_busybox_param "CONFIG_FEATURE_VOLUMEID_NTFS"
@@ -361,7 +362,8 @@ fi
 if [ "$CONFIG_FIRMWARE_ENABLE_SWAP" != "y" ] ; then
 	func_disable_kernel_param "CONFIG_SWAP"
 	func_disable_busybox_param "CONFIG_MKSWAP"
-	func_disable_busybox_param "CONFIG_SWAPONOFF"
+	func_disable_busybox_param "CONFIG_SWAPON"
+	func_disable_busybox_param "CONFIG_SWAPOFF"
 fi
 ############################# NFSD ####################################
 if [ "$CONFIG_FIRMWARE_INCLUDE_NFSD" != "y" ] ; then

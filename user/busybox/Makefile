@@ -1,4 +1,4 @@
-SRC_NAME=busybox-1.24.x
+SRC_NAME=busybox-1.28.1
 
 all:
 	$(MAKE) -C $(SRC_NAME)
