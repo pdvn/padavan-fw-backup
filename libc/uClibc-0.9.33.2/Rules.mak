@@ -56,7 +56,7 @@ TAR        = tar
 SED        = sed
 AWK        = awk
 
-STRIP_FLAGS ?= -x -R .note -R .comment
+STRIP_FLAGS ?= -x -R .note -R .comment -R .pdr -R .mdebug.abi32 -R .note.gnu.build-id -R .gnu.attributes -R .reginfo -g --strip-unneeded
 
 ## unused? if yes, remove after 0.9.31
 ## UNIFDEF := $(top_builddir)extra/scripts/unifdef
