@@ -65,11 +65,6 @@ fi
 # load project root config
 . $ROOTDIR/.config
 
-if [ ! -f "$ROOTDIR/vendors/Ralink/$CONFIG_PRODUCT/config.arch" ] ; then
-	echo "Project product dir ($CONFIG_PRODUCT) not found! Terminate."
-	exit 1
-fi
-
 if [ ! -d "$ROOTDIR/linux-$kernel_id" ] ; then
 	echo "Project Linux Kernel dir (linux-$kernel_id) not found! Terminate."
 	exit 1
@@ -122,7 +117,6 @@ mkdir -p $ROOTDIR/images
 
 echo --------------------------COPY-CONFIG-----------------------------
 ######################### FOR-ALL-DEVICES #############################
-ln -sf vendors/Ralink/$CONFIG_PRODUCT/config.arch config.arch
 cp -fL "$kernel_cf" "$kernel_tf"
 cp -fL "$uclibc_cf" "$uclibc_tf"
 cp -fL "$busybox_cf" "$busybox_tf"
