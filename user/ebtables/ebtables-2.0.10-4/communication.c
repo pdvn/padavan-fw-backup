@@ -254,16 +254,16 @@ free_repl:
 	}
 }
 
-static int store_counters_in_file(char *filename, struct ebt_u_replace *repl)
+static void store_counters_in_file(char *filename, struct ebt_u_replace *repl)
 {
-	int size = repl->nentries * sizeof(struct ebt_counter), ret = 0;
+	int size = repl->nentries * sizeof(struct ebt_counter);
 	unsigned int entries_size;
 	struct ebt_replace hlp;
 	FILE *file;
 
 	if (!(file = fopen(filename, "r+b"))) {
 		ebt_print_error("Could not open file %s", filename);
-		return -1;
+		return;
 	}
 	/* Find out entries_size and then set the file pointer to the
 	 * counters */
@@ -272,17 +272,15 @@ static int store_counters_in_file(char *filename, struct ebt_u_replace *repl)
 	   sizeof(unsigned int) ||
 	   fseek(file, entries_size + sizeof(struct ebt_replace), SEEK_SET)) {
 		ebt_print_error("File %s is corrupt", filename);
-		ret = -1;
 		goto close_file;
 	}
 	if (fwrite(repl->counters, sizeof(char), size, file) != size) {
 		ebt_print_error("Could not write everything to file %s",
 				filename);
-		ret = -1;
 	}
 close_file:
 	fclose(file);
-	return 0;
+	return;
 }
 
 /* Gets executed after ebt_deliver_table. Delivers the counters to the kernel
