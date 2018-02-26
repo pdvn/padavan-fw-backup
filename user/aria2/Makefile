@@ -1,4 +1,4 @@
-SRC_NAME=aria2-1.15.2
+SRC_NAME=aria2-1.17.1
 
 CFLAGS  += -ffunction-sections -fdata-sections
 CXXFLAGS += -ffunction-sections -fdata-sections
