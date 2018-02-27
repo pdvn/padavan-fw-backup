@@ -14,11 +14,12 @@
 # License along with MiniDLNA; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 # USA.
-AC_INIT(MiniDLNA,1.1.5,,minidlna)
+AC_INIT(MiniDLNA,1.1.3,,minidlna)
 #LT_INIT
 
 AC_CANONICAL_TARGET
-AM_INIT_AUTOMAKE
+AM_INIT_AUTOMAKE([subdir-objects])
+AM_MAINTAINER_MODE([disable])
 AC_CONFIG_HEADERS([config.h])
 AM_SILENT_RULES([yes])
 
@@ -33,6 +34,7 @@ AM_GNU_GETTEXT_VERSION(0.18)
 # Checks for programs.
 AC_PROG_AWK
 AC_PROG_CC
+AM_PROG_CC_C_O
 AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_MAKE_SET
@@ -101,6 +103,8 @@ AC_TRY_COMPILE([#include <netinet/in.h>], [
 case $host in
     *-*-darwin*)
         DARWIN_OS=1
+        SEARCH_DIR="/opt/local"
+        INCLUDE_DIR="$SEARCH_DIR/include"
         ;;
     *-*-solaris*)
         AC_DEFINE([SOLARIS], [1], [we are on solaris])
@@ -115,6 +119,9 @@ case $host in
         OPENBSD_OS=1
         ;;
     *-*-linux*)
+        if test -f /etc/redhat-release; then
+            INCLUDE_DIR="/usr/include/ffmpeg"
+        fi
         ;;
 esac
 
@@ -448,12 +455,11 @@ AC_CHECK_LIB(pthread, pthread_create)
 # prior versions had ov_open_callbacks in libvorbis, test that, too.
 AC_CHECK_LIB(vorbisfile, ov_open_callbacks,
         [AC_CHECK_HEADERS([vorbis/vorbisfile.h],
-          AM_CONDITIONAL(HAVE_VORBISFILE, true)
-          AC_DEFINE(HAVE_VORBISFILE,1,[Have vorbisfile]),
-          AM_CONDITIONAL(HAVE_VORBISFILE, false)
-          AC_DEFINE(HAVE_VORBISFILE,0,[lacking vorbisfile]))],
-          AM_CONDITIONAL(HAVE_VORBISFILE, false),
-          -lvorbis -logg)
+         AM_CONDITIONAL(HAVE_VORBISFILE, true)
+         AC_DEFINE(HAVE_VORBISFILE,1,[Have vorbisfile]),
+         AM_CONDITIONAL(HAVE_VORBISFILE, false))],
+         AM_CONDITIONAL(HAVE_VORBISFILE, false),
+         -lvorbis -logg)
 AC_CHECK_LIB(FLAC, FLAC__stream_decoder_init_stream,
         [AC_CHECK_HEADERS([FLAC/all.h],
          AM_CONDITIONAL(HAVE_FLAC, true)
@@ -471,6 +477,14 @@ AC_CHECK_LIB(vorbisfile, vorbis_comment_query,
         AM_CONDITIONAL(NEED_VORBIS, false),
         AM_CONDITIONAL(NEED_VORBIS, true),
         -logg)
+
+AC_CHECK_LIB(avahi-client, avahi_threaded_poll_new,
+        [AC_CHECK_HEADERS([avahi-common/thread-watch.h],
+         AM_CONDITIONAL(HAVE_AVAHI, true)
+         AC_DEFINE(HAVE_AVAHI,1,[Have avahi]),
+         AM_CONDITIONAL(HAVE_AVAHI, false))],
+         AM_CONDITIONAL(HAVE_AVAHI, false),
+        -lavahi-client -lavahi-common)
 
 ################################################################################################################
 ### Header checks
@@ -534,11 +548,14 @@ AC_ARG_ENABLE(tivo,
 	[  --enable-tivo           enable TiVo support],[
 	if test "$enableval" = "yes"; then
 		AC_DEFINE(TIVO_SUPPORT, 1, [Define to 1 if you want to enable TiVo support])
+		AM_CONDITIONAL(TIVO_SUPPORT, true)
 		AC_MSG_RESULT([yes])
 	else
+		AM_CONDITIONAL(TIVO_SUPPORT, false)
 		AC_MSG_RESULT([no])
 	fi
 	],[
+		AM_CONDITIONAL(TIVO_SUPPORT, false)
 		AC_MSG_RESULT([no])
 	]
 )
@@ -548,11 +565,14 @@ AC_ARG_ENABLE(asus,
 	[  --enable-asus           enable ASUS support],[
 	if test "$enableval" = "yes"; then
 		AC_DEFINE(ASUS_SUPPORT, 1, [Define to 1 if you want to enable ASUS support])
+		AM_CONDITIONAL(ASUS_SUPPORT, true)
 		AC_MSG_RESULT([yes])
 	else
+		AM_CONDITIONAL(ASUS_SUPPORT, false)
 		AC_MSG_RESULT([no])
 	fi
 	],[
+		AM_CONDITIONAL(ASUS_SUPPORT, false)
 		AC_MSG_RESULT([no])
 	]
 )
@@ -588,13 +608,14 @@ AC_ARG_ENABLE(readynas,
 		AC_DEFINE_UNQUOTED([ROOTDEV_MANUFACTURER],"NETGEAR")
 		AC_DEFINE_UNQUOTED([ROOTDEV_MODELNAME],"Windows Media Connect compatible (ReadyDLNA)")
 		AC_DEFINE_UNQUOTED([ROOTDEV_MODELDESCRIPTION],"ReadyDLNA")
-                AC_MSG_RESULT([yes])
-        else
-                AC_MSG_RESULT([no])
-        fi
-        ],[
-                AC_MSG_RESULT([no])
-        ]
+		AM_CONDITIONAL(TIVO_SUPPORT, true)
+		AC_MSG_RESULT([yes])
+	else
+		AC_MSG_RESULT([no])
+	fi
+	],[
+		AC_MSG_RESULT([no])
+	]
 )
 
 AC_MSG_CHECKING([whether to build a static binary executable])

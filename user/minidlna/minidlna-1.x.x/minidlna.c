@@ -90,10 +90,11 @@
 #include "process.h"
 #include "upnpevents.h"
 #include "scanner.h"
-#include "inotify.h"
+#include "monitor.h"
 #include "log.h"
 #include "tivo_beacon.h"
 #include "tivo_utils.h"
+#include "avahi.h"
 
 #if SQLITE_VERSION_NUMBER < 3005001
 # warning "Your SQLite3 library appears to be too old!  Please use 3.5.1 or newer."
@@ -134,7 +135,7 @@ OpenAndConfHTTPSocket(unsigned short port)
 		return -1;
 	}
 
-	if (listen(s, 6) < 0)
+	if (listen(s, 16) < 0)
 	{
 		DPRINTF(E_ERROR, L_GENERAL, "listen(http): %s\n", strerror(errno));
 		close(s);
@@ -254,6 +255,18 @@ getfriendlyname(char *buf, int len)
 #endif
 }
 
+static time_t
+_get_dbtime(void)
+{
+	char path[PATH_MAX];
+	struct stat st;
+
+	snprintf(path, sizeof(path), "%s/files.db", db_path);
+	if (stat(path, &st) != 0)
+		return 0;
+	return st.st_mtime;
+}
+
 static int
 open_db(sqlite3 **sq3)
 {
@@ -279,17 +292,14 @@ open_db(sqlite3 **sq3)
 	return new_db;
 }
 
-//#define MD_CHECK_MP 1
-
 static void
 check_db(sqlite3 *db, int new_db, pid_t *scanner_pid)
 {
-	char cmd[PATH_MAX*2];
-	int ret;
-#ifdef MD_CHECK_MP
 	struct media_dir_s *media_path = NULL;
+	char cmd[PATH_MAX*2];
 	char **result;
 	int i, rows = 0;
+	int ret;
 
 	if (!new_db)
 	{
@@ -297,7 +307,8 @@ check_db(sqlite3 *db, int new_db, pid_t *scanner_pid)
 		media_path = media_dirs;
 		while (media_path)
 		{
-			ret = sql_get_int_field(db, "SELECT TIMESTAMP from DETAILS where PATH = %Q", media_path->path);
+			ret = sql_get_int_field(db, "SELECT TIMESTAMP as TYPE from DETAILS where PATH = %Q",
+						media_path->path);
 			if (ret != media_path->types)
 			{
 				ret = 1;
@@ -325,25 +336,21 @@ check_db(sqlite3 *db, int new_db, pid_t *scanner_pid)
 		}
 		sqlite3_free_table(result);
 	}
-#endif
+
 	ret = db_upgrade(db);
-	if ((ret != 0) || (GETFLAG(UPDATE_SCAN_MASK)))
+
+	if (ret != 0)
 	{
-		if (ret != 0)
-		{
-#ifdef MD_CHECK_MP
 rescan:
-#endif
+		CLEARFLAG(RESCAN_MASK);
 		if (ret < 0)
 			DPRINTF(E_WARN, L_GENERAL, "Creating new database at %s/files.db\n", db_path);
-#ifdef MD_CHECK_MP
 		else if (ret == 1)
-			DPRINTF(E_WARN, L_GENERAL, "New media_dir detected; rescanning...\n");
+			DPRINTF(E_WARN, L_GENERAL, "New media_dir detected; rebuilding...\n");
 		else if (ret == 2)
-			DPRINTF(E_WARN, L_GENERAL, "Removed media_dir detected; rescanning...\n");
-#endif
+			DPRINTF(E_WARN, L_GENERAL, "Removed media_dir detected; rebuilding...\n");
 		else
-			DPRINTF(E_WARN, L_GENERAL, "Database version mismatch (%d=>%d); need to recreate...\n",
+			DPRINTF(E_WARN, L_GENERAL, "Database version mismatch (%d => %d); need to recreate...\n",
 				ret, DB_VERSION);
 		sqlite3_close(db);
 
@@ -354,9 +361,11 @@ rescan:
 		open_db(&db);
 		if (CreateDatabase() != 0)
 			DPRINTF(E_FATAL, L_GENERAL, "ERROR: Failed to create sqlite database!  Exiting...\n");
-		}
+	}
+	if (ret || GETFLAG(RESCAN_MASK) || GETFLAG(UPDATE_SCAN_MASK))
+	{
 #if USE_FORK
-		scanning = 1;
+		SETFLAG(SCANNING_MASK);
 		sqlite3_close(db);
 		*scanner_pid = fork();
 		open_db(&db);
@@ -366,6 +375,7 @@ rescan:
 			sqlite3_close(db);
 			log_close();
 			freeoptions();
+			free(children);
 			exit(EXIT_SUCCESS);
 		}
 		else if (*scanner_pid < 0)
@@ -597,7 +607,7 @@ init(int argc, char **argv)
 					else if (*path == 'V' || *path == 'v')
 						types |= TYPE_VIDEO;
 					else if (*path == 'P' || *path == 'p')
-						types |= TYPE_IMAGES;
+						types |= TYPE_IMAGE;
 					else
 						DPRINTF(E_FATAL, L_GENERAL, "Media directory entry not understood [%s]\n",
 							ary_options[i].value);
@@ -739,6 +749,10 @@ init(int argc, char **argv)
 			if (strtobool(ary_options[i].value))
 				SETFLAG(WIDE_LINKS_MASK);
 			break;
+		case TIVO_DISCOVERY:
+			if (strcasecmp(ary_options[i].value, "beacon") == 0)
+				CLEARFLAG(TIVO_BONJOUR_MASK);
+			break;
 		default:
 			DPRINTF(E_ERROR, L_GENERAL, "Unknown option in file %s\n",
 				optionsfile);
@@ -838,6 +852,9 @@ init(int argc, char **argv)
 		case 'h':
 			runtime_vars.port = -1; // triggers help display
 			break;
+		case 'r':
+			SETFLAG(RESCAN_MASK);
+			break;
 		case 'R':
 			snprintf(buf, sizeof(buf), "rm -rf %s/files.db %s/art_cache", db_path, db_path);
 			if (system(buf) != 0)
@@ -887,9 +904,9 @@ init(int argc, char **argv)
 			"\t\t[-t notify_interval] [-P pid_filename]\n"
 			"\t\t[-s serial] [-m model_number]\n"
 #ifdef __linux__
-			"\t\t[-w url] [-R] [-L] [-S] [-V] [-h]\n"
+			"\t\t[-w url] [-r] [-R] [-L] [-S] [-V] [-h]\n"
 #else
-			"\t\t[-w url] [-R] [-L] [-V] [-h]\n"
+			"\t\t[-w url] [-r] [-R] [-L] [-V] [-h]\n"
 #endif
 			"\nNotes:\n\tNotify interval is in seconds. Default is 895 seconds.\n"
 			"\tDefault pid file is %s.\n"
@@ -897,7 +914,8 @@ init(int argc, char **argv)
 			"\t-w sets the presentation url. Default is http address on port 80\n"
 			"\t-v enables verbose output\n"
 			"\t-h displays this text\n"
-			"\t-R forces a full rescan\n"
+			"\t-r forces a rescan\n"
+			"\t-R forces a rebuild\n"
 			"\t-L do not create playlists\n"
 #ifdef __linux__
 			"\t-S changes behaviour for systemd\n"
@@ -1012,7 +1030,7 @@ main(int argc, char **argv)
 	fd_set readset;	/* for select() */
 	fd_set writeset;
 	struct timeval timeout, timeofday, lastnotifytime = {0, 0};
-	time_t lastupdatetime = 0;
+	time_t lastupdatetime = 0, lastdbtime = 0;
 	int max_fd = -1;
 	int last_changecnt = 0;
 	pid_t scanner_pid = 0;
@@ -1048,6 +1066,7 @@ main(int argc, char **argv)
 			ret = -1;
 	}
 	check_db(db, ret, &scanner_pid);
+	lastdbtime = _get_dbtime();
 #ifdef HAVE_INOTIFY
 	if( GETFLAG(INOTIFY_MASK) )
 	{
@@ -1082,14 +1101,21 @@ main(int argc, char **argv)
 		ret = sqlite3_create_function(db, "tivorandom", 1, SQLITE_UTF8, NULL, &TiVoRandomSeedFunc, NULL, NULL);
 		if (ret != SQLITE_OK)
 			DPRINTF(E_ERROR, L_TIVO, "ERROR: Failed to add sqlite randomize function for TiVo!\n");
-		/* open socket for sending Tivo notifications */
-		sbeacon = OpenAndConfTivoBeaconSocket();
-		if(sbeacon < 0)
-			DPRINTF(E_FATAL, L_GENERAL, "Failed to open sockets for sending Tivo beacon notify "
-				"messages. EXITING\n");
-		tivo_bcast.sin_family = AF_INET;
-		tivo_bcast.sin_addr.s_addr = htonl(getBcastAddress());
-		tivo_bcast.sin_port = htons(2190);
+		if (GETFLAG(TIVO_BONJOUR_MASK))
+		{
+			tivo_bonjour_register();
+		}
+		else
+		{
+			/* open socket for sending Tivo notifications */
+			sbeacon = OpenAndConfTivoBeaconSocket();
+			if(sbeacon < 0)
+				DPRINTF(E_FATAL, L_GENERAL, "Failed to open sockets for sending Tivo beacon notify "
+					"messages. EXITING\n");
+			tivo_bcast.sin_family = AF_INET;
+			tivo_bcast.sin_addr.s_addr = htonl(getBcastAddress());
+			tivo_bcast.sin_port = htons(2190);
+		}
 	}
 #endif
 
@@ -1158,12 +1184,13 @@ main(int argc, char **argv)
 #endif
 		}
 
-		if (scanning)
+		if (GETFLAG(SCANNING_MASK))
 		{
 			if (!scanner_pid || kill(scanner_pid, 0) != 0)
 			{
-				scanning = 0;
-				updateID++;
+				CLEARFLAG(SCANNING_MASK);
+				if (_get_dbtime() != lastdbtime)
+					updateID++;
 			}
 		}
 
@@ -1237,7 +1264,16 @@ main(int argc, char **argv)
 		 * and if there is an active HTTP connection, at most once every 2 seconds */
 		if (i && (timeofday.tv_sec >= (lastupdatetime + 2)))
 		{
-			if (scanning || sqlite3_total_changes(db) != last_changecnt)
+			if (GETFLAG(SCANNING_MASK))
+			{
+				time_t dbtime = _get_dbtime();
+				if (dbtime != lastdbtime)
+				{
+					lastdbtime = dbtime;
+					last_changecnt = -1;
+				}
+			}
+			if (sqlite3_total_changes(db) != last_changecnt)
 			{
 				updateID++;
 				last_changecnt = sqlite3_total_changes(db);
@@ -1301,7 +1337,7 @@ main(int argc, char **argv)
 
 shutdown:
 	/* kill the scanner */
-	if (scanning && scanner_pid)
+	if (GETFLAG(SCANNING_MASK) && scanner_pid)
 		kill(scanner_pid, SIGKILL);
 
 	/* close out open sockets */
@@ -1319,6 +1355,8 @@ shutdown:
 	if (sbeacon >= 0)
 		close(sbeacon);
 #endif
+	if (smonitor >= 0)
+		close(smonitor);
 	
 	for (i = 0; i < n_lan_addr; i++)
 	{
@@ -1327,7 +1365,10 @@ shutdown:
 	}
 
 	if (inotify_thread)
+	{
+		pthread_kill(inotify_thread, SIGCHLD);
 		pthread_join(inotify_thread, NULL);
+	}
 
 	/* kill other child processes */
 	process_reap_children();
