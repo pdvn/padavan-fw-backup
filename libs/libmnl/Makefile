@@ -1,4 +1,4 @@
-SRC_NAME=libmnl-1.0.3
+SRC_NAME=libmnl-1.0.4
 
 all: config_test
 	$(MAKE) -C $(SRC_NAME)
