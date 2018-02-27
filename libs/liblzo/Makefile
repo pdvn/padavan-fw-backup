@@ -1,4 +1,4 @@
-SRC_NAME=lzo-2.09
+SRC_NAME=lzo-2.10
 
 CFLAGS += -O2
 
