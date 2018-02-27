@@ -1,4 +1,4 @@
-SRC_NAME1="nfs-utils-1.2.3"
+SRC_NAME1="nfs-utils-1.2.8"
 SRC_NAME2="portmap_6.0"
 
 CFLAGS += -ffunction-sections -fdata-sections
@@ -36,11 +36,16 @@ configure:
 		--disable-tirpc \
 		--disable-mount \
 		--disable-libmount \
+		--disable-mountconfig \
+		--disable-nfsdcltrack \
+		--disable-ldap \
 		--disable-nfsv4 \
 		--disable-nfsv41 \
 		--disable-uuid \
 		--disable-gss \
+		--without-gssglue \
 		--without-krb5 \
+		--without-systemd \
 		--without-tcp-wrappers \
 		--host=$(HOST_TARGET) \
 		--build=$(HOST_BUILD) ; \
