@@ -1,4 +1,4 @@
-SRC_NAME=libexif-0.6.20
+SRC_NAME=libexif-0.6.21
 
 all: config_test
 	$(MAKE) -C $(SRC_NAME)
