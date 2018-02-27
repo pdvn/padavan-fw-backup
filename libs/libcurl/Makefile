@@ -1,4 +1,4 @@
-SRC_NAME=curl-7.37.x
+SRC_NAME=curl-7.58.0
 
 all: config_test
 	$(MAKE) -C $(SRC_NAME)
@@ -23,6 +23,7 @@ configure:
 		--disable-rtsp \
 		--disable-telnet \
 		--disable-tftp \
+		--disable-smb \
 		--disable-smtp \
 		--disable-pop3 \
 		--disable-imap \
@@ -36,12 +37,26 @@ configure:
 		--disable-tls-srp \
 		--disable-libcurl-option \
 		--disable-threaded-resolver \
+		--without-axtls \
 		--without-gnutls \
+		--without-ca-path \
+		--without-ca-fallback \
 		--without-ca-bundle \
+		--without-cyassl \
+		--without-darwinssl \
 		--without-libidn \
+		--without-libmetalink \
+		--without-libpsl \
+		--without-librtmp \
 		--without-libssh2 \
 		--without-krb4 \
+		--without-nghttp2 \
 		--without-nss \
+		--without-mbedtls \
+		--without-polarssl \
+		--without-winidn \
+		--without-winssl \
+		--without-zsh-functions-dir \
 		--with-random=/dev/urandom \
 		--with-zlib=$(STAGEDIR) \
 		--with-ssl=$(STAGEDIR) \
