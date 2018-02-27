@@ -1,4 +1,4 @@
-SRC_NAME=libevent-2.0.21-stable
+SRC_NAME=libevent-2.1.8-stable
 
 all: config_test
 	$(MAKE) -C $(SRC_NAME)
@@ -17,6 +17,7 @@ configure:
 		--enable-static \
 		--disable-shared \
 		--disable-debug-mode \
+		--disable-openssl \
 		--host=$(HOST_TARGET) \
 		--build=$(HOST_BUILD) ; \
 	)
