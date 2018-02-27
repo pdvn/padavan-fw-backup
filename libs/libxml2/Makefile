@@ -1,4 +1,4 @@
-SRC_NAME=libxml2-2.7.8
+SRC_NAME=libxml2-2.9.7
 
 all: config_test
 	$(MAKE) -C $(SRC_NAME)
@@ -23,6 +23,7 @@ configure:
 		--without-ftp \
 		--without-http \
 		--without-legacy \
+		--without-lzma \
 		--without-pattern \
 		--without-push \
 		--without-python \
