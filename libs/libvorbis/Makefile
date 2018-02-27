@@ -1,4 +1,4 @@
-SRC_NAME=libvorbis-1.3.2
+SRC_NAME=libvorbis-1.3.5
 
 all: config_test
 	$(MAKE) -C $(SRC_NAME)
