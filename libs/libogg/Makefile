@@ -1,4 +1,4 @@
-SRC_NAME=libogg-1.2.2
+SRC_NAME=libogg-1.3.3
 
 all: config_test
 	$(MAKE) -C $(SRC_NAME)
