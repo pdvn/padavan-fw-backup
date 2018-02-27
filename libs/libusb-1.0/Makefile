@@ -1,4 +1,4 @@
-SRC_NAME=libusb-1.0.9
+SRC_NAME=libusb-1.0.21
 
 all: config_test
 	$(MAKE) -C $(SRC_NAME)
@@ -17,6 +17,10 @@ configure:
 		--prefix=$(STAGEDIR) \
 		--disable-static \
 		--disable-log \
+		--disable-udev \
+		--disable-timerfd \
+		--disable-examples-build \
+		--disable-tests-build \
 		--host=$(HOST_TARGET) \
 		--build=$(HOST_BUILD) ; \
 	)
