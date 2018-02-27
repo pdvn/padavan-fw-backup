@@ -1,4 +1,4 @@
-SRC_NAME=flac-1.2.1
+SRC_NAME=flac-1.3.2
 
 all: config_test
 	$(MAKE) -C $(SRC_NAME)
@@ -18,9 +18,7 @@ configure:
 		$(if $(LIBS_BUILD_SHARED),--enable-shared,--disable-shared) \
 		--disable-cpplibs \
 		--disable-sse \
-		--disable-3dnow \
 		--disable-altivec \
-		--disable-doxgen-docs \
 		--disable-local-xmms-plugin \
 		--disable-xmms-plugin \
 		--disable-ogg \
