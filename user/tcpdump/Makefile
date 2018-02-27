@@ -1,4 +1,4 @@
-SRC_NAME=tcpdump-4.4.0
+SRC_NAME=tcpdump-4.9.2
 
 CFLAGS += -Os -ffunction-sections -fdata-sections -DTCPDUMP_MINI
 LDFLAGS += -Wl,--gc-sections
@@ -22,6 +22,7 @@ configure:
 		--prefix=/usr \
 		--without-crypto \
 		--without-smi \
+		--without-cap-ng \
 		--disable-smb \
 		$(if $(CONFIG_IPV6),--enable-ipv6,--disable-ipv6) \
 		--host=$(HOST_TARGET) \
