@@ -1,4 +1,4 @@
-SRC_NAME=zlib-1.2.8
+SRC_NAME=zlib-1.2.11
 
 all: config_test
 	$(MAKE) -C $(SRC_NAME)
