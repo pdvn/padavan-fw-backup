@@ -1,4 +1,4 @@
-SRC_NAME=ntfsprogs-2014.2.15
+SRC_NAME=ntfs-3g_ntfsprogs-2017.3.23
 
 CFLAGS += -O2 -ffunction-sections -fdata-sections
 LDFLAGS += -Wl,--gc-sections
