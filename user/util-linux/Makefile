@@ -1,4 +1,4 @@
-SRC_NAME=util-linux-2.21.2
+SRC_NAME=util-linux-2.3X.X
 
 THISDIR = $(shell pwd)
 
@@ -24,39 +24,38 @@ configure:
 	scanf_cv_type_modifier=no \
 	./configure \
 		--prefix= \
-		--without-pam \
-		--without-ncurses \
-		--without-slang \
-		--without-selinux \
 		--without-audit \
+		--without-btrfs \
+		--without-libz \
+		--without-ncurses \
+		--without-ncursesw \
+		--without-python \
+		--without-readline \
+		--without-selinux \
+		--without-slang \
+		--without-smack \
+		--without-systemd \
+		--without-tinfo \
 		--without-udev \
-		--disable-nls \
+		--without-user \
+		--without-utempter \
+		--without-util \
+		--disable-all-programs \
+		--disable-bash-completion \
+		--disable-colors-default \
+		--disable-libfdisk \
 		--disable-libmount \
-		--disable-mount \
-		--disable-losetup \
-		--disable-fsck \
-		--disable-partx \
-		--disable-uuidd \
-		--disable-mountpoint \
-		--disable-fallocate \
-		--disable-unshare \
-		--disable-eject \
-		--disable-agetty \
-		--disable-cramfs \
-		--disable-wdctl \
-		--disable-switch_root \
-		--disable-pivot_root \
-		--disable-kill \
-		--disable-utmpdump \
-		--disable-rename \
-		--disable-login \
-		--disable-sulogin \
-		--disable-su \
-		--disable-schedutils \
-		--disable-wall \
-		--disable-use-tty-group \
+		--disable-libsmartcols \
 		--disable-makeinstall-chown \
 		--disable-makeinstall-setuid \
+		--disable-nls \
+		--disable-plymouth_support \
+		--disable-rpath \
+		--disable-use-tty-group \
+		--disable-widechar \
+		--enable-libblkid \
+		--enable-libuuid \
+		--enable-blkid \
 		--host=$(HOST_TARGET) \
 		--build=$(HOST_BUILD) ; \
 	)
