@@ -35,29 +35,29 @@ function gametrailers_updatefeed(feed,friendly_name)
 --    local x=gametrailers_rss_parse_feed(feed_url)
 
     if x then
-        local dfd=io.open(tmp_m3u_path,'w+')
-        if dfd then
-            dfd:write('#EXTM3U name=\"',friendly_name or feed_name,'\" type=mp4 plugin=gametrailers\n')
+            local dfd=io.open(tmp_m3u_path,'w+')
+            if dfd then
+                dfd:write('#EXTM3U name=\"',friendly_name or feed_name,'\" type=mp4 plugin=gametrailers\n')
 
             for i,j in ipairs(x) do
                 if j.logo then
                     dfd:write('#EXTINF:0 logo=',j.logo,' ,',j.title,'\n',j.link,'\n')
-                else
+                            else
                     dfd:write('#EXTINF:0 ,',j.title,'\n',j.link,'\n')
+                    end
                 end
-            end
-            dfd:close()
+                dfd:close()
 
-            if util.md5(tmp_m3u_path)~=util.md5(feed_m3u_path) then
-                if os.execute(string.format('mv %s %s',tmp_m3u_path,feed_m3u_path))==0 then
-                    if cfg.debug>0 then print('GameTrailers feed \''..feed_name..'\' updated') end
-                    rc=true
+                if util.md5(tmp_m3u_path)~=util.md5(feed_m3u_path) then
+                    if os.execute(string.format('mv %s %s',tmp_m3u_path,feed_m3u_path))==0 then
+                        if cfg.debug>0 then print('GameTrailers feed \''..feed_name..'\' updated') end
+                        rc=true
+                    end
+                else
+                    util.unlink(tmp_m3u_path)
                 end
-            else
-                util.unlink(tmp_m3u_path)
             end
         end
-    end
 
     return rc
 end
@@ -80,13 +80,13 @@ function gametrailers_sendurl(gametrailers_url,range)
 
             clip_page=http.download(u)
 
-            if clip_page then
+    if clip_page then
                 local x=json.decode(clip_page)
 
-                clip_page=nil
+        clip_page=nil
 
                 if x and x.url then url=x.url end
-            end
+        end
         end
 
 

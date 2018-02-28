@@ -15,7 +15,7 @@ function playlist_item_type(pls)
         extras='*'
     else
         if pls.dlna_extras then extras=dlna_org_extras[pls.dlna_extras] end
-        if not extras then extras=mtype[5] end
+        if not extras and mtype then extras=mtype[5] end
         if pls.path and extras~='*' then extras=string.gsub(extras,'DLNA.ORG_OP=%d%d','DLNA.ORG_OP=01') end
     end
 
@@ -29,10 +29,10 @@ function playlist_get_url(pls)
     elseif pls.plugin then
         url=string.format('%s/proxy/%s.%s',www_location,pls.objid,pls.type)
     elseif cfg.proxy>0 then
-        if cfg.proxy>1 or mtype[1]==2 then
-            url=string.format('%s/proxy/%s.%s',www_location,pls.objid,pls.type)
+            if cfg.proxy>1 or mtype[1]==2 then
+                url=string.format('%s/proxy/%s.%s',www_location,pls.objid,pls.type)
+            end
         end
-    end
     return url
 end
 
@@ -111,7 +111,7 @@ function get_playlist_item_parent(s)
     local t={}
 
     for i in string.gmatch(s,'(%w+)_') do table.insert(t,i) end
-    
+
     return table.concat(t,'_')
 end
 
@@ -262,6 +262,15 @@ end
 
 function services.cms.GetProtocolInfo()
     local protocols={}
+
+    if cfg.dlna_extras==true then
+        for i,mtype in pairs(mime) do
+            if mtype[5]~='*' then
+                local dlna_pn=string.gsub(mtype[5],';.*','')
+                table.insert(protocols,mtype[4]..dlna_pn)
+            end
+        end
+    end
 
     for i,j in pairs(upnp_proto) do table.insert(protocols,j..'*') end
 

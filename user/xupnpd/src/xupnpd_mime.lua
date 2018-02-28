@@ -13,7 +13,7 @@ upnp_class=
 {
     ['video']     = 'object.item.videoItem',
     ['audio']     = 'object.item.audioItem.musicTrack'
-}                
+}
 
 
 upnp_proto=
@@ -83,24 +83,24 @@ dlna_org_extras=
 
 mime=
 {
-    ['avi']    = { upnp_type.video, upnp_class.video, 'video/avi',       upnp_proto.avi,   dlna_org_extras.divx5 },
-    ['asf']    = { upnp_type.video, upnp_class.video, 'video/x-ms-asf',  upnp_proto.asf,   dlna_org_extras.asf_mpeg4_sp },
-    ['wmv']    = { upnp_type.video, upnp_class.video, 'video/x-ms-wmv',  upnp_proto.wmv,   dlna_org_extras.wmv_med_full },
-    ['mp4']    = { upnp_type.video, upnp_class.video, 'video/mp4',       upnp_proto.mp4,   dlna_org_extras.none },
-    ['mpeg']   = { upnp_type.video, upnp_class.video, 'video/mpeg',      upnp_proto.mpeg,  dlna_org_extras.mpeg_ps_pal },        -- video/x-mpeg
+    ['avi']   = { upnp_type.video, upnp_class.video, 'video/avi',       upnp_proto.avi,   dlna_org_extras.divx5 },
+    ['asf']   = { upnp_type.video, upnp_class.video, 'video/x-ms-asf',  upnp_proto.asf,   dlna_org_extras.asf_mpeg4_sp },
+    ['wmv']   = { upnp_type.video, upnp_class.video, 'video/x-ms-wmv',  upnp_proto.wmv,   dlna_org_extras.wmv_med_full },
+    ['mp4']   = { upnp_type.video, upnp_class.video, 'video/mp4',       upnp_proto.mp4,   dlna_org_extras.none },
+    ['mpeg']  = { upnp_type.video, upnp_class.video, 'video/mpeg',      upnp_proto.mpeg,  dlna_org_extras.mpeg_ps_pal },        -- video/x-mpeg
     ['mpeg_ts']= { upnp_type.video, upnp_class.video, 'video/mpeg',      upnp_proto.mpeg,  dlna_org_extras.mpeg_ts_sd },         -- for Sharp
-    ['mpeg1']  = { upnp_type.video, upnp_class.video, 'video/mpeg',      upnp_proto.mpeg,  dlna_org_extras.mpeg1 },
-    ['mpeg2']  = { upnp_type.video, upnp_class.video, 'video/mpeg2',     upnp_proto.mpeg2, dlna_org_extras.mpeg_ps_pal },
-    ['ts']     = { upnp_type.video, upnp_class.video, 'video/mp2t',      upnp_proto.mp2t,  dlna_org_extras.mpeg_ts_hd },
-    ['mp2t']   = { upnp_type.video, upnp_class.video, 'video/mp2t',      upnp_proto.mp2t,  dlna_org_extras.mpeg_ts_hd },
-    ['mp2p']   = { upnp_type.video, upnp_class.video, 'video/mp2p',      upnp_proto.mp2p,  dlna_org_extras.mpeg_ps_pal },
-    ['mov']    = { upnp_type.video, upnp_class.video, 'video/quicktime', upnp_proto.mov,   dlna_org_extras.none },
+    ['mpeg1'] = { upnp_type.video, upnp_class.video, 'video/mpeg',      upnp_proto.mpeg,  dlna_org_extras.mpeg1 },
+    ['mpeg2'] = { upnp_type.video, upnp_class.video, 'video/mpeg2',     upnp_proto.mpeg2, dlna_org_extras.mpeg_ps_pal },
+    ['ts']    = { upnp_type.video, upnp_class.video, 'video/mp2t',      upnp_proto.mp2t,  dlna_org_extras.mpeg_ts_hd },
+    ['mp2t']  = { upnp_type.video, upnp_class.video, 'video/mp2t',      upnp_proto.mp2t,  dlna_org_extras.mpeg_ts_hd },
+    ['mp2p']  = { upnp_type.video, upnp_class.video, 'video/mp2p',      upnp_proto.mp2p,  dlna_org_extras.mpeg_ps_pal },
+    ['mov']   = { upnp_type.video, upnp_class.video, 'video/quicktime', upnp_proto.mov,   dlna_org_extras.none },
     ['mkv']    = { upnp_type.video, upnp_class.video, 'video/x-mkv',     upnp_proto.mkv,   dlna_org_extras.none },               -- video/x-matroska
-    ['3gp']    = { upnp_type.video, upnp_class.video, 'video/3gpp',      upnp_proto['3gp'],dlna_org_extras.none },
-    ['flv']    = { upnp_type.video, upnp_class.video, 'video/x-flv',     upnp_proto.flv,   dlna_org_extras.none },
-    ['aac']    = { upnp_type.audio, upnp_class.audio, 'audio/x-aac',     upnp_proto.aac,   dlna_org_extras.none },
-    ['ac3']    = { upnp_type.audio, upnp_class.audio, 'audio/x-ac3',     upnp_proto.ac3,   dlna_org_extras.ac3 },
-    ['mp3']    = { upnp_type.audio, upnp_class.audio, 'audio/mpeg',      upnp_proto.mp3,   dlna_org_extras.mp3 },
-    ['ogg']    = { upnp_type.audio, upnp_class.audio, 'application/ogg', upnp_proto.ogg,   dlna_org_extras.none },
-    ['wma']    = { upnp_type.audio, upnp_class.audio, 'audio/x-ms-wma',  upnp_proto.wma,   dlna_org_extras.wma_full }
+    ['3gp']   = { upnp_type.video, upnp_class.video, 'video/3gpp',      upnp_proto['3gp'],dlna_org_extras.none },
+    ['flv']   = { upnp_type.video, upnp_class.video, 'video/x-flv',     upnp_proto.flv,   dlna_org_extras.none },
+    ['aac']   = { upnp_type.audio, upnp_class.audio, 'audio/x-aac',     upnp_proto.aac,   dlna_org_extras.none },
+    ['ac3']   = { upnp_type.audio, upnp_class.audio, 'audio/x-ac3',     upnp_proto.ac3,   dlna_org_extras.ac3 },
+    ['mp3']   = { upnp_type.audio, upnp_class.audio, 'audio/mpeg',      upnp_proto.mp3,   dlna_org_extras.mp3 },
+    ['ogg']   = { upnp_type.audio, upnp_class.audio, 'application/ogg', upnp_proto.ogg,   dlna_org_extras.none },
+    ['wma']   = { upnp_type.audio, upnp_class.audio, 'audio/x-ms-wma',  upnp_proto.wma,   dlna_org_extras.wma_full }
 }

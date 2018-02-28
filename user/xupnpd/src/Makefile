@@ -1,8 +1,10 @@
-LUA      = lua-5.1.4
+LUA      = lua-5.1.x
 #LUA      = lua-5.2.0
 STATIC   = false
 CFLAGS   = -O2 -Wall
+CFLAGS  += -I$(STAGEDIR)/include -L$(STAGEDIR)/lib
 CPPFLAGS = -O2 -fno-exceptions -fno-rtti -I$(LUA) -L$(LUA)
+CPPFLAGS+= -I$(STAGEDIR)/include -L$(STAGEDIR)/lib
 SRC      = main.cpp soap.cpp mem.cpp mcast.cpp luaxlib.cpp luaxcore.cpp luajson.cpp luajson_parser.cpp
 LUAMYCFLAGS = -DLUA_USE_LINUX
 
@@ -19,7 +21,7 @@ LDFLAGS += -Wl,--gc-sections
 embedded:
 	make -C $(LUA) a MYCFLAGS='$(LUAMYCFLAGS)'
 	$(CC) $(CFLAGS) -c -o md5.o md5c.c
-	$(CC) $(CPPFLAGS) $(LDFLAGS) -DWITH_URANDOM -o xupnpd $(SRC) md5.o -llua -lm -ldl
+	$(CC) $(CPPFLAGS) $(LDFLAGS) -DWITH_URANDOM -o xupnpd $(SRC) md5.o -llua -lm -ldl -lssl -lcrypto
 
 clean:
 	make -C $(LUA) clean

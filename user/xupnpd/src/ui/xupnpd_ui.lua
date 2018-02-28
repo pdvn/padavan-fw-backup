@@ -18,9 +18,9 @@ function ui_downloads()
     http.send('<h3>Downloads</h3>')
     http.send('<br/><table class="table">')
     if playlist_data.elements[1] then
-        for i,j in ipairs(playlist_data.elements[1].elements) do
-            http.send(string.format('<tr><td><a href="/ui/%s.m3u">%s</a></td></tr>',j.name,j.name))
-        end
+    for i,j in ipairs(playlist_data.elements[1].elements) do
+        http.send(string.format('<tr><td><a href="/ui/%s.m3u">%s</a></td></tr>',j.name,j.name))
+    end
     end
     http.send('</table>')
     http.send('<br/><a class="btn btn-info" href="/ui">Back</a>')
@@ -62,11 +62,11 @@ function ui_playlists()
 
     function f(path,args)
         local d=util.dir(path)
-        if d then
-            table.sort(d)
-            for i,j in ipairs(d) do
-                if string.find(j,'.+%.m3u$') then
-                    local fname=util.urlencode(j)
+    if d then
+        table.sort(d)
+        for i,j in ipairs(d) do
+            if string.find(j,'.+%.m3u$') then
+                local fname=util.urlencode(j)
                     http.send(string.format('<tr><td><a href=\'/ui/show?fname=%s&%s\'>%s</a> [<a href=\'/ui/remove?fname=%s&%s\'>x</a>]</td></tr>\n',fname,args,j,fname,args))
                 end
             end
@@ -278,7 +278,8 @@ function ui_remove()
             local path=cfg.playlists_path
             if ui_args.feed=='1' then path=cfg.feeds_path end
 
-            if os.remove(path..real_name) then
+--            if os.remove(path..real_name) then
+	    if os.execute(string.format('rm -f %s%s',path,real_name)) then
                 core.sendevent('reload')
                 http.send('<h3>OK</h3>')
             else
@@ -356,7 +357,7 @@ function ui_config()
         if plugin.ui_vars then
             for i,var in ipairs(plugin.ui_vars) do
                 http_vars[ var[1] ]=var[2]
-            end
+    end
         end
     end
 
@@ -398,10 +399,10 @@ function ui_apply()
 
                     if t=="int" or t=="bool" then
                         f:write(string.format('cfg["%s"]=%s\n',var[2],tostring(v)))
-                    else
+    else
                         f:write(string.format('cfg["%s"]="%s"\n',var[2],v))
-                    end
-                end
+    end
+end
             end
         end
 
@@ -531,10 +532,8 @@ function ui_api_call(args)
 end
 
 function ui_restart()
-    if core.restart(cfg.pid_file,"/usr/bin/xupnpd") then http.send('<h3>Attempt to restart...</h3>') else http.send('<h3>Unable to restart.</h3>') end
-
+    http.send('<h3>Use save and reboot from left menu for save parametrs to nvram!</h3>')
     http.send('<br/><form method=get action="/ui"><input class="btn btn-primary" type=submit value=OK></form>')
-
     http.send('<script>setTimeout("document.forms[0].submit()",3000)</script>')
 end
 

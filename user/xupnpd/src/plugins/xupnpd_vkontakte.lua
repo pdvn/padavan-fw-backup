@@ -139,7 +139,7 @@ function vk_sendurl(vk_page_url,range)
 			if private_player_page then
 			    clip_page=http.download(private_player_page)
 				if added_vid then vk_video_delete(added_vid, cfg.vk_api_user_id) end
-			else
+        else
 				if added_vid then vk_video_delete(added_vid, cfg.vk_api_user_id) end
             	if cfg.debug>0 then 
 					print('Workaround for private videos failed')
@@ -156,23 +156,23 @@ function vk_sendurl(vk_page_url,range)
 	end
 
     if clip_page then
-        local host=string.match(clip_page,"video_host%s*=%s*'(.-)'")
-        local uid=string.match(clip_page,"uid%s*=%s*'(%w-)'")
-        local vtag=string.match(clip_page,"vtag%s*=%s*'([%w%-_]-)'")
-        local no_flv=string.match(clip_page,"video_no_flv%s*=%s*(%d-)%D")
-        local max_hd=string.match(clip_page,"video_max_hd%s*=%s*'(%d-)'")	
+            local host=string.match(clip_page,"video_host%s*=%s*'(.-)'")
+            local uid=string.match(clip_page,"uid%s*=%s*'(%w-)'")
+            local vtag=string.match(clip_page,"vtag%s*=%s*'([%w%-_]-)'")
+            local no_flv=string.match(clip_page,"video_no_flv%s*=%s*(%d-)%D")
+            local max_hd=string.match(clip_page,"video_max_hd%s*=%s*'(%d-)'")
         url=vk_video_get_direct_download_link(host, uid, vtag, no_flv, max_hd)
     else
         if cfg.debug>0 then print('VK external player page '..vk_page_url..' can not be downloaded or private') end
     end
 	clip_page=nil
 
-    if url then		
+    if url then
         if cfg.debug>0 then print('VK Clip download URL: '..url) end
 		if url == error_file_video_flash_format_only then
 			plugin_sendfile(error_file_video_flash_format_only)
 		else
-	        plugin_sendurl(vk_page_url,url,range)
+        plugin_sendurl(vk_page_url,url,range)
 		end
     else
         if cfg.debug>0 then print('VK Clip real URL is not found') end
