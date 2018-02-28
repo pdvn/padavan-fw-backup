@@ -16,6 +16,7 @@
 # ------------------------
 # Enable extensions on systems that normally disable them,
 # typically due to standards-conformance issues.
+m4_ifdef([AC_USE_SYSTEM_EXTENSIONS], [], [
 AC_DEFUN([AC_USE_SYSTEM_EXTENSIONS],
 [
   AC_BEFORE([$0], [AC_COMPILE_IFELSE])
@@ -48,7 +49,7 @@ AC_DEFUN([AC_USE_SYSTEM_EXTENSIONS],
     AC_DEFINE([__EXTENSIONS__])
   AC_DEFINE([_POSIX_PTHREAD_SEMANTICS])
   AC_DEFINE([_TANDEM_SOURCE])
-])
+])])
 
 # gl_USE_SYSTEM_EXTENSIONS
 # ------------------------

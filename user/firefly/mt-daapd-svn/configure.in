@@ -1,9 +1,10 @@
-dnl $Id: configure.in 1664 2007-09-14 03:41:51Z rpedde $
+dnl $Id: configure.ac 1664 2007-09-14 03:41:51Z rpedde $
 dnl
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT(config.h.in)
+AC_INIT([mt-daapd],[svn-1696])
+AC_CONFIG_SRCDIR(config.h.in)
+AM_INIT_AUTOMAKE
 AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE(mt-daapd,svn-1696)
 
 ACLOCAL="$ACLOCAL -I m4 $ACLOCAL_FLAGS"
 
@@ -225,7 +226,7 @@ AC_ARG_WITH(howl-libs,
 	[--with-howl-libs[[=DIR]]          use howl lib files in DIR],[
 	if test "$withval" != "no" -a "$withval" != "yes"; then
 	 Z_DIR=$withval
-         LDFLAGS="${LDFLAGS} -L$withval -R$withval"
+         LDFLAGS="${LDFLAGS} -Wl,-L$withval,-R$withval"
 	fi
 ])
 
@@ -241,7 +242,7 @@ AC_ARG_WITH(ssl-libs,
 	[--with-ssl-libs[[=DIR]]           use ssl lib files in DIR],[
 	if test "$withval" != "no" -a "$withval" != "yes"; then
 	 Z_DIR=$withval
-         LDFLAGS="${LDFLAGS} -L$withval -R$withval"
+         LDFLAGS="${LDFLAGS} -Wl,-L$withval,-R$withval"
 	fi
 ])
 
@@ -257,7 +258,7 @@ AC_ARG_WITH(gdbm-libs,
 	[--with-gdbm-libs[[=DIR]]          use gdbm lib files in DIR],[
 	if test "$withval" != "no" -a "$withval" != "yes"; then
 	 Z_DIR=$withval
-         LDFLAGS="${LDFLAGS} -L$withval -R$withval"
+         LDFLAGS="${LDFLAGS} -Wl,-L$withval,-R$withval"
 	fi
 ])
 
@@ -273,7 +274,7 @@ AC_ARG_WITH(sqlite-libs,
 	[--with-sqlite-libs[[=DIR]]          use sqlite lib files in DIR],[
 	if test "$withval" != "no" -a "$withval" != "yes"; then
 	 Z_DIR=$withval
-         LDFLAGS="${LDFLAGS} -L$withval -R$withval" 
+         LDFLAGS="${LDFLAGS} -Wl,-L$withval,-R$withval" 
 	fi
 ])
 
@@ -289,7 +290,7 @@ AC_ARG_WITH(sqlite3-libs,
 	[--with-sqlite3-libs[[=DIR]]       use sqlite3 lib files in DIR],[
 	if test "$withval" != "no" -a "$withval" != "yes"; then
 	 Z_DIR=$withval
-         LDFLAGS="${LDFLAGS} -L$withval -R$withval"
+         LDFLAGS="${LDFLAGS} -Wl,-L$withval,-R$withval"
 	fi
 ])
 
@@ -305,7 +306,7 @@ AC_ARG_WITH(ffmpeg-libs,
 	[--with-ffmpeg-libs[[=DIR]]        use ffmpeg lib files in DIR],[
 	if test "$withval" != "no" -a "$withval" != "yes"; then
 	 Z_DIR=$withval
-         LDFLAGS="${LDFLAGS} -L$withval -R$withval"
+         LDFLAGS="${LDFLAGS} -Wl,-L$withval,-R$withval"
 	fi
 ])
 
@@ -314,7 +315,7 @@ AC_ARG_WITH(id3tag,
 	if test "$withval" != "no" -a "$withval" != "yes"; then
 	  Z_DIR=$withval
 	  CPPFLAGS="${CPPFLAGS} -I$withval/include"
-	  LDFLAGS="${LDFLAGS} -L$withval/lib -R$withval/lib"
+	  LDFLAGS="${LDFLAGS} -Wl,-L$withval/lib,-R$withval/lib"
 	fi
 ])
 
