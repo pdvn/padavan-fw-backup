@@ -1,4 +1,4 @@
-SRC_NAME=e2fsprogs-1.42.8
+SRC_NAME=e2fsprogs-1.4X.X
 
 THISDIR = $(shell pwd)
 
@@ -20,22 +20,28 @@ configure:
 	PKG_CONFIG_PATH=$(STAGEDIR)/lib/pkgconfig \
 	./configure \
 		--prefix= \
-		--disable-compression \
+		--disable-bmap-stats \
 		--disable-debugfs \
-		--disable-testio-debug \
-		--disable-imager \
-		--disable-resizer \
 		--disable-e2initrd-helper \
-		--disable-uuidd \
-		--disable-nls \
-		--disable-tls \
-		--disable-libuuid \
+		--disable-fuse2fs \
+		--disable-gcov \
+		--disable-hardening \
+		--disable-imager \
 		--disable-libblkid \
-		--disable-libquota \
+		--disable-libuuid \
+		--disable-mmp \
+		--disable-nls \
+		--disable-resizer \
+		--disable-rpath \
+		--disable-tdb \
+		--disable-testio-debug \
+		--disable-threads \
+		--disable-tls \
+		--disable-uuidd \
+		--enable-defrag \
+		--enable-elf-shlibs \
 		--enable-symlink-build \
 		--enable-verbose-makecmds \
-		--enable-elf-shlibs \
-		--enable-defrag \
 		--host=$(HOST_TARGET) \
 		--build=$(HOST_BUILD) ; \
 	)
