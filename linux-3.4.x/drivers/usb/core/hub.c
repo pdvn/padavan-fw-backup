@@ -729,6 +729,20 @@ static int hub_port_disable(struct usb_hub *hub, int port1, int set_state)
 }
 
 /*
+ * usb_port_disable - disable a usb device's upstream port
+ * @udev: device to disable
+ * Context: @udev locked, must be able to sleep.
+ *
+ * Disables a USB device that isn't in active use.
+ */
+int usb_port_disable(struct usb_device *udev)
+{
+	struct usb_hub *hub = hdev_to_hub(udev->parent);
+
+	return hub_port_disable(hub, udev->portnum, 0);
+}
+
+/*
  * Disable a port and mark a logical connect-change event, so that some
  * time later khubd will disconnect() any existing usb_device on the port
  * and will re-enumerate if there actually is a device attached.
@@ -1662,8 +1676,10 @@ void usb_set_device_state(struct usb_device *udev,
 					|| new_state == USB_STATE_SUSPENDED)
 				;	/* No change to wakeup settings */
 			else if (new_state == USB_STATE_CONFIGURED)
-				wakeup = udev->actconfig->desc.bmAttributes
-					 & USB_CONFIG_ATT_WAKEUP;
+				wakeup = (udev->quirks &
+					USB_QUIRK_IGNORE_REMOTE_WAKEUP) ? 0 :
+					udev->actconfig->desc.bmAttributes &
+					USB_CONFIG_ATT_WAKEUP;
 			else
 				wakeup = 0;
 		}
@@ -3345,9 +3361,9 @@ hub_port_init (struct usb_hub *hub, struct usb_device *udev, int port1,
 	if (udev->wusb == 0 && le16_to_cpu(udev->descriptor.bcdUSB) >= 0x0201) {
 		retval = usb_get_bos_descriptor(udev);
 		if (!retval) {
-			if (udev->bos->ext_cap && (USB_LPM_SUPPORT &
-				le32_to_cpu(udev->bos->ext_cap->bmAttributes)))
-					udev->lpm_capable = 1;
+			if (udev->bos->ext_cap && (USB_LPM_SUPPORT & le32_to_cpu(udev->bos->ext_cap->bmAttributes))) {
+					udev->lpm_capable = udev->quirks & USB_QUIRK_NO_LPM ? 0 : 1;
+			}
 		}
 	}
 

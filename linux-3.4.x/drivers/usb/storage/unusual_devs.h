@@ -496,6 +496,12 @@ UNUSUAL_DEV(  0x04e6, 0x000C, 0x0100, 0x0100,
 		USB_SC_SCSI, USB_PR_BULK, usb_stor_euscsi_init,
 		US_FL_SCM_MULT_TARG ),
 
+UNUSUAL_DEV(  0x04e6, 0x000f, 0x0000, 0x9999,
+		"SCM Microsystems",
+		"eUSB SCSI Adapter (Bus Powered)",
+		USB_SC_SCSI, USB_PR_BULK, usb_stor_euscsi_init,
+		US_FL_SCM_MULT_TARG ),
+
 UNUSUAL_DEV(  0x04e6, 0x0101, 0x0200, 0x0200,
 		"Shuttle",
 		"CD-RW Device",
@@ -933,6 +939,12 @@ UNUSUAL_DEV(  0x069b, 0x3004, 0x0001, 0x0001,
 		USB_SC_DEVICE, USB_PR_DEVICE, NULL,
 		US_FL_FIX_CAPACITY ),
 
+UNUSUAL_DEV(  0x06ca, 0x2003, 0x0100, 0x0100,
+		"Newer Technology",
+		"uSCSI",
+		USB_SC_DEVICE, USB_PR_DEVICE, usb_stor_euscsi_init,
+		US_FL_SCM_MULT_TARG ),
+
 /* Reported by Adrian Pilchowiec <adi1981@epf.pl> */
 UNUSUAL_DEV(  0x071b, 0x3203, 0x0000, 0x0000,
 		"RockChip",
@@ -1091,6 +1103,13 @@ UNUSUAL_DEV( 0x0840, 0x0085, 0x0001, 0x0001,
 		"Storage",
 		USB_SC_DEVICE, USB_PR_DEVICE, NULL,
 		US_FL_FIX_CAPACITY),
+
+/* Supplied with some Castlewood ORB removable drives */
+UNUSUAL_DEV(  0x084b, 0xa001, 0x0000, 0x9999,
+		"Castlewood Systems",
+		"USB to SCSI cable",
+		USB_SC_DEVICE, USB_PR_DEVICE, usb_stor_euscsi_init,
+		US_FL_SCM_MULT_TARG ),
 
 /* Entry and supporting patch by Theodore Kilgore <kilgota@auburn.edu>.
  * Flag will support Bulk devices which use a standards-violating 32-byte
@@ -1952,6 +1971,20 @@ UNUSUAL_DEV(  0x1370, 0x6828, 0x0110, 0x0110,
 		USB_SC_DEVICE, USB_PR_DEVICE, NULL,
 		US_FL_IGNORE_RESIDUE ),
 
+/*
+ * Reported by Tobias Jakobi <tjakobi@math.uni-bielefeld.de>
+ * The INIC-3619 bridge is used in the StarTech SLSODDU33B
+ * SATA-USB enclosure for slimline optical drives.
+ *
+ * The quirk enables MakeMKV to properly exchange keys with
+ * an installed BD drive.
+ */
+UNUSUAL_DEV(  0x13fd, 0x3609, 0x0209, 0x0209,
+		"Initio Corporation",
+		"INIC-3619",
+		USB_SC_DEVICE, USB_PR_DEVICE, NULL,
+		US_FL_IGNORE_RESIDUE ),
+
 /* Reported by Qinglin Ye <yestyle@gmail.com> */
 UNUSUAL_DEV(  0x13fe, 0x3600, 0x0100, 0x0100,
 		"Kingston",
@@ -1967,11 +2000,18 @@ UNUSUAL_DEV(  0x14cd, 0x6600, 0x0201, 0x0201,
 		US_FL_IGNORE_RESIDUE ),
 
 /* Reported by Michael Büsch <m@bues.ch> */
-UNUSUAL_DEV(  0x152d, 0x0567, 0x0114, 0x0117,
+UNUSUAL_DEV(  0x152d, 0x0567, 0x0114, 0x0116,
 		"JMicron",
 		"USB to ATA/ATAPI Bridge",
 		USB_SC_DEVICE, USB_PR_DEVICE, NULL,
 		US_FL_BROKEN_FUA ),
+
+/* Reported by David Kozub <zub@linux.fjfi.cvut.cz> */
+UNUSUAL_DEV(0x152d, 0x0578, 0x0000, 0x9999,
+		"JMicron",
+		"JMS567",
+		USB_SC_DEVICE, USB_PR_DEVICE, NULL,
+		US_FL_BROKEN_FUA),
 
 /* Reported by Alexandre Oliva <oliva@lsd.ic.unicamp.br>
  * JMicron responds to USN and several other SCSI ioctls with a
@@ -2066,6 +2106,18 @@ UNUSUAL_DEV(  0x1b1c, 0x1ab5, 0x0200, 0x0200,
 		USB_SC_DEVICE, USB_PR_DEVICE, NULL,
 		US_FL_INITIAL_READ10 ),
 
+/*
+ * Reported by Hans de Goede <hdegoede@redhat.com>
+ * These are mini projectors using USB for both power and video data transport
+ * The usb-storage interface is a virtual windows driver CD, which the gm12u320
+ * driver automatically converts into framebuffer & kms dri device nodes.
+ */
+UNUSUAL_DEV( 0x1de1, 0xc102, 0x0000, 0xffff,
+		"Grain-media Technology Corp.",
+		"USB3.0 Device GM12U320",
+		USB_SC_DEVICE, USB_PR_DEVICE, NULL,
+		US_FL_IGNORE_DEVICE ),
+
 /* Patch by Richard Schütz <r.schtz@t-online.de>
  * This external hard drive enclosure uses a JMicron chip which
  * needs the US_FL_IGNORE_RESIDUE flag to work properly. */
@@ -2081,6 +2133,13 @@ UNUSUAL_DEV( 0x1e74, 0x4621, 0x0000, 0x0000,
 		"MP3 Player",
 		USB_SC_DEVICE, USB_PR_DEVICE, NULL,
 		US_FL_BULK_IGNORE_TAG | US_FL_MAX_SECTORS_64 ),
+
+/* Supplied with some Castlewood ORB removable drives */
+UNUSUAL_DEV(  0x2027, 0xa001, 0x0000, 0x9999,
+		"Double-H Technology",
+		"USB to SCSI Intelligent Cable",
+		USB_SC_DEVICE, USB_PR_DEVICE, usb_stor_euscsi_init,
+		US_FL_SCM_MULT_TARG ),
 
 UNUSUAL_DEV( 0x2116, 0x0320, 0x0001, 0x0001,
 		"ST",

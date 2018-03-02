@@ -30,9 +30,6 @@
    descriptor */
 #define USB_QUIRK_DELAY_INIT		0x00000040
 
-/* device can't handle device_qualifier descriptor requests */
-#define USB_QUIRK_DEVICE_QUALIFIER	0x00000100
-
 /*
  * For high speed and super speed interupt endpoints, the USB 2.0 and
  * USB 3.0 spec require the interval in microframes
@@ -42,6 +39,27 @@
  * Devices with this quirk report their bInterval as the result of this
  * calculation instead of the exponent variable used in the calculation.
  */
-#define USB_QUIRK_LINEAR_UFRAME_INTR_BINTERVAL	0x00000080
+#define USB_QUIRK_LINEAR_UFRAME_INTR_BINTERVAL  0x00000080
+
+/* device can't handle device_qualifier descriptor requests */
+#define USB_QUIRK_DEVICE_QUALIFIER	0x00000100
+
+/* device generates spurious wakeup, ignore remote wakeup capability */
+#define USB_QUIRK_IGNORE_REMOTE_WAKEUP          0x00000200
+
+/* device can't handle Link Power Management */
+#define USB_QUIRK_NO_LPM                        0x00000400
+
+/*
+ * Device reports its bInterval as linear frames instead of the
+ * USB 2.0 calculation.
+ */
+#define USB_QUIRK_LINEAR_FRAME_INTR_BINTERVAL   0x00000800
+
+/*
+ * Device needs to be disconnected before suspend to prevent spurious
+ * wakeup.
+ */
+#define USB_QUIRK_DISCONNECT_SUSPEND            0x00001000
 
 #endif /* __LINUX_USB_QUIRKS_H */
