@@ -1,5 +1,5 @@
 /*
-**  igmpproxy - IGMP proxy based multicast router 
+**  igmpproxy - IGMP proxy based multicast router
 **  Copyright (C) 2005 Johnny Egeland <johnny@rlo.org>
 **
 **  This program is free software; you can redistribute it and/or modify
@@ -24,8 +24,8 @@
 **
 **  smcroute 0.92 - Copyright (C) 2001 Carsten Schill <carsten@cschill.de>
 **  - Licensed under the GNU General Public License, version 2
-**  
-**  mrouted 3.9-beta3 - COPYRIGHT 1989 by The Board of Trustees of 
+**
+**  mrouted 3.9-beta3 - COPYRIGHT 1989 by The Board of Trustees of
 **  Leland Stanford Junior University.
 **  - Original license can be found in the Stanford.txt file.
 **
@@ -44,12 +44,6 @@
 
 #include "igmpproxy.h"
 
-#define     READ_BUFFER_SIZE    512   // Inputbuffer size...
-        
-#ifndef MAX_TOKEN_LENGTH
-  #define MAX_TOKEN_LENGTH  30     // Default max token length
-#endif
-                                     
 static FILE            *confFilePtr;       // File handle pointer
 static char            *iBuffer;           // Inputbuffer for reading...
 static unsigned int    bufPtr;             // Buffer position pointer.
@@ -59,7 +53,7 @@ static short   validToken;
 
 /**
 *   Opens config file specified by filename.
-*/    
+*/
 int openConfigFile(char *filename) {
 
     // Set the buffer to null initially...
@@ -67,20 +61,16 @@ int openConfigFile(char *filename) {
 
     // Open the file for reading...
     confFilePtr = fopen(filename, "r");
-    
-    // On error, return false
-    if(confFilePtr == NULL) {
+    if(confFilePtr == NULL)
         return 0;
-    }
-    
+
     // Allocate memory for inputbuffer...
     iBuffer = (char*) malloc( sizeof(char) * READ_BUFFER_SIZE );
-    
     if(iBuffer == NULL) {
         closeConfigFile();
         return 0;
     }
-    
+
     // Reset bufferpointer and readsize
     bufPtr = 0;
     readSize = 0;
@@ -104,101 +94,92 @@ void closeConfigFile() {
 
 /**
 *   Returns the next token from the configfile. The function
-*   return NULL if there are no more tokens in the file.    
+*   return NULL if there are no more tokens in the file.
 */
 char *nextConfigToken() {
+
+    unsigned int tokenPtr       = 0;
+    unsigned short finished     = 0;
+    unsigned short commentFound = 0;
 
     validToken = 0;
 
     // If no file or buffer, return NULL
-    if(confFilePtr == NULL || iBuffer == NULL) {
+    if(confFilePtr == NULL || iBuffer == NULL)
         return NULL;
-    }
 
-    {
-        unsigned int tokenPtr       = 0;
-        unsigned short finished     = 0;
-        unsigned short commentFound = 0;
+    // Outer buffer fill loop...
+    while ( !finished ) {
+        // If readpointer is at the end of the buffer, we should read next chunk...
+        if(bufPtr == readSize) {
+            // Fill up the buffer...
+            readSize = fread (iBuffer, sizeof(char), READ_BUFFER_SIZE, confFilePtr);
+            bufPtr = 0;
 
-        // Outer buffer fill loop...
-        while ( !finished ) {
-            // If readpointer is at the end of the buffer, we should read next chunk...
-            if(bufPtr == readSize) {
-                // Fill up the buffer...
-                readSize = fread (iBuffer, sizeof(char), READ_BUFFER_SIZE, confFilePtr);
-                bufPtr = 0;
+            // If the readsize is 0, we should just return...
+            if(readSize == 0)
+                return NULL;
+        }
 
-                // If the readsize is 0, we should just return...
-                if(readSize == 0) {
-                    return NULL;
-                }
-            }
+        // Inner char loop...
+        while ( bufPtr < readSize && !finished ) {
+            // Break loop on \0
+            if(iBuffer[bufPtr] == '\0')
+                break;
 
-            // Inner char loop...
-            while ( bufPtr < readSize && !finished ) {
+            if( commentFound ) {
+                if( iBuffer[bufPtr] == '\n' )
+                    commentFound = 0;
+            } else {
+                // Check current char...
+                switch(iBuffer[bufPtr]) {
+                case '#':
+                    // Found a comment start...
+                    commentFound = 1;
+                    break;
 
-                //printf("Char %s", iBuffer[bufPtr]);
+                case '\n':
+                case '\r':
+                case '\t':
+                case ' ':
+                    // Newline, CR, Tab and space are end of token, or ignored.
+                    if(tokenPtr > 0) {
+                        cToken[tokenPtr] = '\0';    // EOL
+                        finished = 1;
+                    }
+                    break;
 
-                // Break loop on \0
-                if(iBuffer[bufPtr] == '\0') {
+                default:
+                    // Append char to token...
+                    cToken[tokenPtr++] = iBuffer[bufPtr];
                     break;
                 }
-
-                if( commentFound ) {
-                    if( iBuffer[bufPtr] == '\n' ) {
-                        commentFound = 0;
-                    }
-                } else {
-
-                    // Check current char...
-                    switch(iBuffer[bufPtr]) {
-                    case '#':
-                        // Found a comment start...
-                        commentFound = 1;
-                        break;
-
-                    case '\n':
-                    case '\r':
-                    case '\t':
-                    case ' ':
-                        // Newline, CR, Tab and space are end of token, or ignored.
-                        if(tokenPtr > 0) {
-                            cToken[tokenPtr] = '\0';    // EOL
-                            finished = 1;
-                        }
-                        break;
-
-                    default:
-                        // Append char to token...
-                        cToken[tokenPtr++] = iBuffer[bufPtr];
-                        break;
-                    }
-                
-                }
-
-                // Check end of token buffer !!!
-                if(tokenPtr == MAX_TOKEN_LENGTH - 1) {
-                    // Prevent buffer overrun...
-                    cToken[tokenPtr] = '\0';
-                    finished = 1;
-                }
-
-                // Next char...
-                bufPtr++;
             }
-            // If the readsize is less than buffersize, we assume EOF.
-            if(readSize < READ_BUFFER_SIZE && bufPtr == readSize) {
-                if (tokenPtr > 0)
-                    finished = 1;
-                else
-                    return NULL;
+
+            // Check end of token buffer !!!
+            if(tokenPtr == MAX_TOKEN_LENGTH - 1) {
+                // Prevent buffer overrun...
+                cToken[tokenPtr] = '\0';
+                finished = 1;
             }
+
+            // Next char...
+            bufPtr++;
         }
-        if(tokenPtr>0) {
-            validToken = 1;
-            return cToken;
+        // If the readsize is less than buffersize, we assume EOF.
+        if(readSize < READ_BUFFER_SIZE && bufPtr == readSize) {
+            if (tokenPtr > 0)
+                finished = 1;
+            else
+                return NULL;
         }
     }
+
+    if(tokenPtr>0) {
+        validToken = 1;
+        return cToken;
+    }
+
     return NULL;
 }
 
@@ -210,4 +191,3 @@ char *nextConfigToken() {
 char *getCurrentConfigToken() {
     return validToken ? cToken : NULL;
 }
-

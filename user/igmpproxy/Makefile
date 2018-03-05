@@ -1,4 +1,7 @@
-SRC_NAME="igmpproxy-0.1"
+SRC_NAME=igmpproxy-0.1
+
+CFLAGS += -ffunction-sections -fdata-sections
+LDFLAGS += -Wl,--gc-sections
 
 all:	config_test
 	$(MAKE) -C $(SRC_NAME)

@@ -1,5 +1,5 @@
 /*
-**  igmpproxy - IGMP proxy based multicast router 
+**  igmpproxy - IGMP proxy based multicast router
 **  Copyright (C) 2005 Johnny Egeland <johnny@rlo.org>
 **
 **  This program is free software; you can redistribute it and/or modify
@@ -24,8 +24,8 @@
 **
 **  smcroute 0.92 - Copyright (C) 2001 Carsten Schill <carsten@cschill.de>
 **  - Licensed under the GNU General Public License, version 2
-**  
-**  mrouted 3.9-beta3 - COPYRIGHT 1989 by The Board of Trustees of 
+**
+**  mrouted 3.9-beta3 - COPYRIGHT 1989 by The Board of Trustees of
 **  Leland Stanford Junior University.
 **  - Original license can be found in the Stanford.txt file.
 **
@@ -44,12 +44,13 @@
 #include <string.h>
 #include <fcntl.h>
 #include <stdbool.h>
+#include <time.h>
 
 #include <sys/socket.h>
 #include <sys/un.h>
-#include <sys/time.h>
 #include <sys/ioctl.h>
 #include <sys/param.h>
+#include <sys/select.h>
 
 #include <net/if.h>
 #include <netinet/in.h>
@@ -133,7 +134,7 @@ void my_log( int Serverity, int Errno, const char *FmtSt, ... );
 
 
 
-// Linked list of networks... 
+// Linked list of networks...
 struct SubnetList {
     uint32_t              subnet_addr;
     uint32_t              subnet_mask;
@@ -145,7 +146,7 @@ struct IfDesc {
     struct in_addr      InAdr;          /* == 0 for non IP interfaces */
     short               Flags;
     short               state;
-    short               index;
+    short		index;
     uint8_t             robustness;
     uint8_t             threshold;   /* ttl limit */
     unsigned int        ratelimit;
@@ -153,7 +154,7 @@ struct IfDesc {
     struct SubnetList*  allowedgroups;
 };
 
-// Keeps common configuration settings 
+// Keeps common configuration settings
 struct Config {
     unsigned int        robustnessValue;
     unsigned int        queryInterval;
@@ -210,7 +211,7 @@ extern uint32_t allhosts_group;
 extern uint32_t allrouters_group;
 extern uint32_t alligmp3_group;
 void initIgmp(void);
-void acceptIgmp(int);
+void acceptIgmp(register int);
 void sendIgmp (uint32_t, uint32_t, int, int, uint32_t,int);
 
 /* lib.c
@@ -255,7 +256,6 @@ static inline int leaveMcGroup( int UdpSock, struct IfDesc *IfDp, uint32_t mcast
     return joinleave( 'l', UdpSock, IfDp, mcastaddr );
 }
 
-
 /* rttable.c
  */
 void initRouteTable();
@@ -265,14 +265,15 @@ int activateRoute(uint32_t group, uint32_t originAddr);
 void ageActiveRoutes();
 void setRouteLastMemberMode(uint32_t group);
 int lastMemberGroupAge(uint32_t group);
+int interfaceInRoute(uint32_t group, unsigned Ix);
 
 /* request.c
  */
-void acceptGroupReport(uint32_t src, uint32_t group, uint8_t type);
+void acceptGroupReport(uint32_t src, uint32_t group);
 void acceptLeaveMessage(uint32_t src, uint32_t group);
 void sendGeneralMembershipQuery();
 
-/* callout.c 
+/* callout.c
 */
 typedef void (*timer_f)(void *);
 
@@ -286,7 +287,8 @@ int timer_leftTimer(int);
 
 /* confread.c
  */
-#define MAX_TOKEN_LENGTH    30
+#define MAX_TOKEN_LENGTH    30		/* Default max token length */
+#define READ_BUFFER_SIZE    512		/* Inputbuffer size */
 
 int openConfigFile(char *filename);
 void closeConfigFile();
