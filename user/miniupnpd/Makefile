@@ -1,4 +1,4 @@
-SRC_NAME=miniupnpd-2.0.20180203
+SRC_NAME=miniupnpd-2.0.20180222
 
 # reference to iptables package
 IPT_VERSION:=iptables-1.4.16.3
