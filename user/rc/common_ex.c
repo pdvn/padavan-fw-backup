@@ -146,7 +146,7 @@ get_eeprom_params(void)
 	char regspec_code[8];
 	char wps_pin[12];
 	char productid[16];
-	char fwver[8], fwver_sub[32];
+	char fwver[8], fwver_sub[36];
 
 #if (BOARD_5G_IN_SOC || !BOARD_HAS_5G_RADIO)
 	i_offset = OFFSET_MAC_ADDR_WSOC;
@@ -252,7 +252,7 @@ get_eeprom_params(void)
 			if ((unsigned char)regspec_code[i] > 0x7f)
 				regspec_code[i] = 0;
 		}
-		
+
 		if (!check_regspec_code(regspec_code))
 			strcpy(regspec_code, "CE");
 	}
@@ -312,25 +312,23 @@ get_eeprom_params(void)
 	} else {
 		strncpy(productid, buffer + 4, 12);
 		productid[12] = 0;
-		
+
 		if(valid_subver(buffer[27]))
 			sprintf(fwver_sub, "%d.%d.%d.%d%c", buffer[0], buffer[1], buffer[2], buffer[3], buffer[27]);
 		else
 			sprintf(fwver_sub, "%d.%d.%d.%d", buffer[0], buffer[1], buffer[2], buffer[3]);
-		
+
 		sprintf(fwver, "%d.%d.%d.%d", buffer[0], buffer[1], buffer[2], buffer[3]);
 	}
 
 #if defined(FWBLDSTR)
-	if (strlen(FWBLDSTR) > 0 && strlen(FWBLDSTR) <= 4) {
-		strcat(fwver_sub, "-");
-		strcat(fwver_sub, FWBLDSTR);
+	if (sizeof(FWBLDSTR) > 0 && sizeof(FWBLDSTR) <= 4) {
+		strcat(fwver_sub, "-"FWBLDSTR);
 	}
 #endif
 #if defined(FWREVSTR)
-	if (strlen(FWREVSTR) > 0 && strlen(FWREVSTR) <= 8) {
-		strcat(fwver_sub, "_");
-		strcat(fwver_sub, FWREVSTR);
+	if (sizeof(FWREVSTR) > 0 && sizeof(FWREVSTR) <= 9) {
+		strcat(fwver_sub, "_"FWREVSTR);
 	}
 #endif
 	nvram_set_temp("productid", trim_r(productid));
@@ -364,7 +362,7 @@ get_eeprom_params(void)
 					count_0xff++;
 			}
 		}
-		
+
 		nvram_wlan_set_int(1, "txbf_en", (count_0xff == 33) ? 0 : 1);
 	}
 #endif
