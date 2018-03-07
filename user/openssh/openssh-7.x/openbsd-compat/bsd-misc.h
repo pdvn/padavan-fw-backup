@@ -49,6 +49,10 @@ int setegid(uid_t);
 const char *strerror(int);
 #endif
 
+#if !defined(HAVE_STRSIGNAL)
+char *strsignal(int);
+#endif
+
 #if !defined(HAVE_SETLINEBUF)
 #define setlinebuf(a)	(setvbuf((a), NULL, _IOLBF, 0))
 #endif
@@ -133,6 +137,10 @@ void errx(int, const char *, ...) __attribute__((format(printf, 2, 3)));
 #endif
 #ifndef HAVE_WARN
 void warn(const char *, ...) __attribute__((format(printf, 1, 2)));
+#endif
+
+#ifndef HAVE_LLABS
+long long llabs(long long);
 #endif
 
 #endif /* _BSD_MISC_H */

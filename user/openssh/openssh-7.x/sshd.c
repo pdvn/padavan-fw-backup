@@ -1,4 +1,4 @@
-/* $OpenBSD: sshd.c,v 1.480 2016/12/09 03:04:29 djm Exp $ */
+/* $OpenBSD: sshd.c,v 1.492 2017/09/12 06:32:07 djm Exp $ */
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -88,7 +88,6 @@
 #include "xmalloc.h"
 #include "ssh.h"
 #include "ssh2.h"
-#include "rsa.h"
 #include "sshpty.h"
 #include "packet.h"
 #include "log.h"
@@ -195,10 +194,10 @@ int have_agent = 0;
  * not very useful.  Currently, memory locking is not implemented.
  */
 struct {
-	Key	**host_keys;		/* all private host keys */
-	Key	**host_pubkeys;		/* all public host keys */
-	Key	**host_certificates;	/* all public host certificates */
-	int	have_ssh2_key;
+	struct sshkey	**host_keys;		/* all private host keys */
+	struct sshkey	**host_pubkeys;		/* all public host keys */
+	struct sshkey	**host_certificates;	/* all public host certificates */
+	int		have_ssh2_key;
 } sensitive_data;
 
 /* This is set to true when a signal is received. */
@@ -223,6 +222,7 @@ int startup_pipe;		/* in child */
 int use_privsep = -1;
 struct monitor *pmonitor = NULL;
 int privsep_is_preauth = 1;
+static int privsep_chroot = 1;
 
 /* global authentication context */
 Authctxt *the_authctxt = NULL;
@@ -362,14 +362,14 @@ sshd_exchange_identification(struct ssh *ssh, int sock_in, int sock_out)
 {
 	u_int i;
 	int remote_major, remote_minor;
-	char *s, *newline = "\n";
+	char *s;
 	char buf[256];			/* Must not be larger than remote_version. */
 	char remote_version[256];	/* Must be at least as big as buf. */
 
-	xasprintf(&server_version_string, "SSH-%d.%d-%.100s%s%s%s",
+	xasprintf(&server_version_string, "SSH-%d.%d-%.100s%s%s\r\n",
 	    PROTOCOL_MAJOR_2, PROTOCOL_MINOR_2, SSH_VERSION,
 	    *options.version_addendum == '\0' ? "" : " ",
-	    options.version_addendum, newline);
+	    options.version_addendum);
 
 	/* Send our protocol version identification. */
 	if (atomicio(vwrite, sock_out, server_version_string,
@@ -449,10 +449,8 @@ sshd_exchange_identification(struct ssh *ssh, int sock_in, int sock_out)
 	chop(server_version_string);
 	debug("Local version string %.200s", server_version_string);
 
-	if (remote_major == 2 ||
-	    (remote_major == 1 && remote_minor == 99)) {
-		enable_compat20();
-	} else {
+	if (remote_major != 2 ||
+	    (remote_major == 1 && remote_minor != 99)) {
 		s = "Protocol major versions differ.\n";
 		(void) atomicio(vwrite, sock_out, s, strlen(s));
 		close(sock_in);
@@ -487,7 +485,7 @@ destroy_sensitive_data(void)
 void
 demote_sensitive_data(void)
 {
-	Key *tmp;
+	struct sshkey *tmp;
 	int i;
 
 	for (i = 0; i < options.num_host_key_files; i++) {
@@ -541,7 +539,7 @@ privsep_preauth_child(void)
 	demote_sensitive_data();
 
 	/* Demote the child */
-	if (getuid() == 0 || geteuid() == 0) {
+	if (privsep_chroot) {
 		/* Change our root directory */
 		if (chroot(_PATH_PRIVSEP_CHROOT_DIR) == -1)
 			fatal("chroot(\"%s\"): %s", _PATH_PRIVSEP_CHROOT_DIR,
@@ -650,6 +648,7 @@ privsep_postauth(Authctxt *authctxt)
 	else if (pmonitor->m_pid != 0) {
 		verbose("User child is on pid %ld", (long)pmonitor->m_pid);
 		buffer_clear(&loginmsg);
+		monitor_clear_keystate(pmonitor);
 		monitor_child_postauth(pmonitor);
 
 		/* NEVERREACHED */
@@ -687,7 +686,7 @@ list_hostkey_types(void)
 	const char *p;
 	char *ret;
 	int i;
-	Key *key;
+	struct sshkey *key;
 
 	buffer_init(&b);
 	for (i = 0; i < options.num_host_key_files; i++) {
@@ -743,11 +742,11 @@ list_hostkey_types(void)
 	return ret;
 }
 
-static Key *
+static struct sshkey *
 get_hostkey_by_type(int type, int nid, int need_private, struct ssh *ssh)
 {
 	int i;
-	Key *key;
+	struct sshkey *key;
 
 	for (i = 0; i < options.num_host_key_files; i++) {
 		switch (type) {
@@ -771,19 +770,19 @@ get_hostkey_by_type(int type, int nid, int need_private, struct ssh *ssh)
 	return NULL;
 }
 
-Key *
+struct sshkey *
 get_hostkey_public_by_type(int type, int nid, struct ssh *ssh)
 {
 	return get_hostkey_by_type(type, nid, 0, ssh);
 }
 
-Key *
+struct sshkey *
 get_hostkey_private_by_type(int type, int nid, struct ssh *ssh)
 {
 	return get_hostkey_by_type(type, nid, 1, ssh);
 }
 
-Key *
+struct sshkey *
 get_hostkey_by_index(int ind)
 {
 	if (ind < 0 || ind >= options.num_host_key_files)
@@ -791,7 +790,7 @@ get_hostkey_by_index(int ind)
 	return (sensitive_data.host_keys[ind]);
 }
 
-Key *
+struct sshkey *
 get_hostkey_public_by_index(int ind, struct ssh *ssh)
 {
 	if (ind < 0 || ind >= options.num_host_key_files)
@@ -800,7 +799,7 @@ get_hostkey_public_by_index(int ind, struct ssh *ssh)
 }
 
 int
-get_hostkey_index(Key *key, int compare, struct ssh *ssh)
+get_hostkey_index(struct sshkey *key, int compare, struct ssh *ssh)
 {
 	int i;
 
@@ -1043,6 +1042,11 @@ server_listen(void)
 			continue;
 		}
 		if (set_nonblock(listen_sock) == -1) {
+			close(listen_sock);
+			continue;
+		}
+		if (fcntl(listen_sock, F_SETFD, FD_CLOEXEC) == -1) {
+			verbose("socket: CLOEXEC: %s", strerror(errno));
 			close(listen_sock);
 			continue;
 		}
@@ -1362,8 +1366,8 @@ main(int ac, char **av)
 	u_int n;
 	u_int64_t ibytes, obytes;
 	mode_t new_umask;
-	Key *key;
-	Key *pubkey;
+	struct sshkey *key;
+	struct sshkey *pubkey;
 	int keytype;
 	Authctxt *authctxt;
 	struct connection_info *connection_info = get_connection_info(0, 0);
@@ -1617,9 +1621,6 @@ main(int ac, char **av)
 			    "enabled authentication methods");
 	}
 
-	/* set default channel AF */
-	channel_set_af(options.address_family);
-
 	/* Check that there are no remaining arguments. */
 	if (optind < ac) {
 		fprintf(stderr, "Extra argument %s.\n", av[optind]);
@@ -1635,8 +1636,9 @@ main(int ac, char **av)
 	);
 
 	/* Store privilege separation user for later use if required. */
+	privsep_chroot = use_privsep && (getuid() == 0 || geteuid() == 0);
 	if ((privsep_pw = getpwnam(SSH_PRIVSEP_USER)) == NULL) {
-		if (use_privsep || options.kerberos_authentication)
+		if (privsep_chroot || options.kerberos_authentication)
 			fatal("Privilege separation user %s does not exist",
 			    SSH_PRIVSEP_USER);
 	} else {
@@ -1650,9 +1652,9 @@ main(int ac, char **av)
 
 	/* load host keys */
 	sensitive_data.host_keys = xcalloc(options.num_host_key_files,
-	    sizeof(Key *));
+	    sizeof(struct sshkey *));
 	sensitive_data.host_pubkeys = xcalloc(options.num_host_key_files,
-	    sizeof(Key *));
+	    sizeof(struct sshkey *));
 
 	if (options.host_key_agent) {
 		if (strcmp(options.host_key_agent, SSH_AUTHSOCKET_ENV_NAME))
@@ -1670,6 +1672,7 @@ main(int ac, char **av)
 			continue;
 		key = key_load_private(options.host_key_files[i], "", NULL);
 		pubkey = key_load_public(options.host_key_files[i], NULL);
+
 		if (pubkey == NULL && key != NULL)
 			pubkey = key_demote(key);
 		sensitive_data.host_keys[i] = key;
@@ -1715,7 +1718,7 @@ main(int ac, char **av)
 	 * indices to the public keys that they relate to.
 	 */
 	sensitive_data.host_certificates = xcalloc(options.num_host_key_files,
-	    sizeof(Key *));
+	    sizeof(struct sshkey *));
 	for (i = 0; i < options.num_host_key_files; i++)
 		sensitive_data.host_certificates[i] = NULL;
 
@@ -1753,7 +1756,7 @@ main(int ac, char **av)
 		    key_type(key));
 	}
 
-	if (use_privsep) {
+	if (privsep_chroot) {
 		struct stat st;
 
 		if ((stat(_PATH_PRIVSEP_CHROOT_DIR, &st) == -1) ||
@@ -1949,7 +1952,13 @@ main(int ac, char **av)
 	packet_set_connection(sock_in, sock_out);
 	packet_set_server();
 	ssh = active_state; /* XXX */
+
 	check_ip_options(ssh);
+
+	/* Prepare the channels layer */
+	channel_init_channels(ssh);
+	channel_set_af(ssh, options.address_family);
+	process_permitopen(ssh, &options);
 
 	/* Set SO_KEEPALIVE if requested. */
 	if (options.tcp_keep_alive && packet_connection_is_on_socket() &&
@@ -2026,6 +2035,7 @@ main(int ac, char **av)
 	 */
 	if (use_privsep) {
 		mm_send_keystate(pmonitor);
+		packet_clear_keys();
 		exit(0);
 	}
 
@@ -2073,10 +2083,10 @@ main(int ac, char **av)
 	    options.client_alive_count_max);
 
 	/* Try to send all our hostkeys to the client */
-	notify_hostkeys(active_state);
+	notify_hostkeys(ssh);
 
 	/* Start session. */
-	do_authenticated(authctxt);
+	do_authenticated(ssh, authctxt);
 
 	/* The connection has been terminated. */
 	packet_get_bytes(&ibytes, &obytes);
@@ -2103,8 +2113,9 @@ main(int ac, char **av)
 }
 
 int
-sshd_hostkey_sign(Key *privkey, Key *pubkey, u_char **signature, size_t *slen,
-    const u_char *data, size_t dlen, const char *alg, u_int flag)
+sshd_hostkey_sign(struct sshkey *privkey, struct sshkey *pubkey,
+    u_char **signature, size_t *slen, const u_char *data, size_t dlen,
+    const char *alg, u_int flag)
 {
 	int r;
 	u_int xxx_slen, xxx_dlen = dlen;
@@ -2154,7 +2165,7 @@ do_ssh2_kex(void)
 
 	if (options.rekey_limit || options.rekey_interval)
 		packet_set_rekey_limits(options.rekey_limit,
-		    (time_t)options.rekey_interval);
+		    options.rekey_interval);
 
 	myproposal[PROPOSAL_SERVER_HOST_KEY_ALGS] = compat_pkalg_proposal(
 	    list_hostkey_types());
@@ -2184,7 +2195,7 @@ do_ssh2_kex(void)
 	kex->host_key_index=&get_hostkey_index;
 	kex->sign = sshd_hostkey_sign;
 
-	dispatch_run(DISPATCH_BLOCK, &kex->done, active_state);
+	ssh_dispatch_run_fatal(active_state, DISPATCH_BLOCK, &kex->done);
 
 	session_id2 = kex->session_id;
 	session_id2_len = kex->session_id_len;
@@ -2203,8 +2214,10 @@ do_ssh2_kex(void)
 void
 cleanup_exit(int i)
 {
+	struct ssh *ssh = active_state; /* XXX */
+
 	if (the_authctxt) {
-		do_cleanup(the_authctxt);
+		do_cleanup(ssh, the_authctxt);
 		if (use_privsep && privsep_is_preauth &&
 		    pmonitor != NULL && pmonitor->m_pid > 1) {
 			debug("Killing privsep child %d", pmonitor->m_pid);

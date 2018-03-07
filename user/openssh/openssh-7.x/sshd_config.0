@@ -3,9 +3,6 @@ SSHD_CONFIG(5)                File Formats Manual               SSHD_CONFIG(5)
 NAME
      sshd_config M-bM-^@M-^S OpenSSH SSH daemon configuration file
 
-SYNOPSIS
-     /etc/ssh/sshd_config
-
 DESCRIPTION
      sshd(8) reads configuration data from /etc/ssh/sshd_config (or the file
      specified with -f on the command line).  The file contains keyword-
@@ -119,6 +116,11 @@ DESCRIPTION
 
              Note that each authentication method listed should also be
              explicitly enabled in the configuration.
+
+             The available authentication methods are: "gssapi-with-mic",
+             "hostbased", "keyboard-interactive", "none" (used for access to
+             password-less accounts when PermitEmptyPassword is enabled),
+             "password" and "publickey".
 
      AuthorizedKeysCommand
              Specifies a program to be used to look up the user's public keys.
@@ -238,7 +240,9 @@ DESCRIPTION
              Specifies the ciphers allowed.  Multiple ciphers must be comma-
              separated.  If the specified value begins with a M-bM-^@M-^X+M-bM-^@M-^Y character,
              then the specified ciphers will be appended to the default set
-             instead of replacing them.
+             instead of replacing them.  If the specified value begins with a
+             M-bM-^@M-^X-M-bM-^@M-^Y character, then the specified ciphers (including wildcards)
+             will be removed from the default set instead of replacing them.
 
              The supported ciphers are:
 
@@ -251,11 +255,6 @@ DESCRIPTION
                    aes256-ctr
                    aes128-gcm@openssh.com
                    aes256-gcm@openssh.com
-                   arcfour
-                   arcfour128
-                   arcfour256
-                   blowfish-cbc
-                   cast128-cbc
                    chacha20-poly1305@openssh.com
 
              The default is:
@@ -327,6 +326,13 @@ DESCRIPTION
              TCP and StreamLocal.  This option overrides all other forwarding-
              related options and may simplify restricted configurations.
 
+     ExposeAuthInfo
+             Writes a temporary file containing a list of authentication
+             methods and public credentials (e.g. keys) used to authenticate
+             the user.  The location of the file is exposed to the user
+             session through the SSH_USER_AUTH environment variable.  The
+             default is no.
+
      FingerprintHash
              Specifies the hash algorithm used when logging key fingerprints.
              Valid options are: md5 and sha256.  The default is sha256.
@@ -378,7 +384,10 @@ DESCRIPTION
              authentication as a comma-separated pattern list.  Alternately if
              the specified value begins with a M-bM-^@M-^X+M-bM-^@M-^Y character, then the
              specified key types will be appended to the default set instead
-             of replacing them.  The default for this option is:
+             of replacing them.  If the specified value begins with a M-bM-^@M-^X-M-bM-^@M-^Y
+             character, then the specified key types (including wildcards)
+             will be removed from the default set instead of replacing them.
+             The default for this option is:
 
                 ecdsa-sha2-nistp256-cert-v01@openssh.com,
                 ecdsa-sha2-nistp384-cert-v01@openssh.com,
@@ -462,14 +471,14 @@ DESCRIPTION
      IPQoS   Specifies the IPv4 type-of-service or DSCP class for the
              connection.  Accepted values are af11, af12, af13, af21, af22,
              af23, af31, af32, af33, af41, af42, af43, cs0, cs1, cs2, cs3,
-             cs4, cs5, cs6, cs7, ef, lowdelay, throughput, reliability, or a
-             numeric value.  This option may take one or two arguments,
-             separated by whitespace.  If one argument is specified, it is
-             used as the packet class unconditionally.  If two values are
-             specified, the first is automatically selected for interactive
-             sessions and the second for non-interactive sessions.  The
-             default is lowdelay for interactive sessions and throughput for
-             non-interactive sessions.
+             cs4, cs5, cs6, cs7, ef, lowdelay, throughput, reliability, a
+             numeric value, or none to use the operating system default.  This
+             option may take one or two arguments, separated by whitespace.
+             If one argument is specified, it is used as the packet class
+             unconditionally.  If two values are specified, the first is
+             automatically selected for interactive sessions and the second
+             for non-interactive sessions.  The default is lowdelay for
+             interactive sessions and throughput for non-interactive sessions.
 
      KbdInteractiveAuthentication
              Specifies whether to allow keyboard-interactive authentication.
@@ -503,7 +512,10 @@ DESCRIPTION
              algorithms must be comma-separated.  Alternately if the specified
              value begins with a M-bM-^@M-^X+M-bM-^@M-^Y character, then the specified methods
              will be appended to the default set instead of replacing them.
-             The supported algorithms are:
+             If the specified value begins with a M-bM-^@M-^X-M-bM-^@M-^Y character, then the
+             specified methods (including wildcards) will be removed from the
+             default set instead of replacing them.  The supported algorithms
+             are:
 
                    curve25519-sha256
                    curve25519-sha256@libssh.org
@@ -555,7 +567,9 @@ DESCRIPTION
              protection.  Multiple algorithms must be comma-separated.  If the
              specified value begins with a M-bM-^@M-^X+M-bM-^@M-^Y character, then the specified
              algorithms will be appended to the default set instead of
-             replacing them.
+             replacing them.  If the specified value begins with a M-bM-^@M-^X-M-bM-^@M-^Y
+             character, then the specified algorithms (including wildcards)
+             will be removed from the default set instead of replacing them.
 
              The algorithms that contain "-etm" calculate the MAC after
              encryption (encrypt-then-mac).  These are considered safer and
@@ -563,7 +577,6 @@ DESCRIPTION
 
                    hmac-md5
                    hmac-md5-96
-                   hmac-ripemd160
                    hmac-sha1
                    hmac-sha1-96
                    hmac-sha2-256
@@ -572,7 +585,6 @@ DESCRIPTION
                    umac-128@openssh.com
                    hmac-md5-etm@openssh.com
                    hmac-md5-96-etm@openssh.com
-                   hmac-ripemd160-etm@openssh.com
                    hmac-sha1-etm@openssh.com
                    hmac-sha1-96-etm@openssh.com
                    hmac-sha2-256-etm@openssh.com
@@ -624,7 +636,7 @@ DESCRIPTION
              ClientAliveInterval, DenyGroups, DenyUsers, ForceCommand,
              GatewayPorts, GSSAPIAuthentication, HostbasedAcceptedKeyTypes,
              HostbasedAuthentication, HostbasedUsesNameFromPacketOnly, IPQoS,
-             KbdInteractiveAuthentication, KerberosAuthentication,
+             KbdInteractiveAuthentication, KerberosAuthentication, LogLevel,
              MaxAuthTries, MaxSessions, PasswordAuthentication,
              PermitEmptyPasswords, PermitOpen, PermitRootLogin, PermitTTY,
              PermitTunnel, PermitUserRC, PubkeyAcceptedKeyTypes,
@@ -751,7 +763,10 @@ DESCRIPTION
              authentication as a comma-separated pattern list.  Alternately if
              the specified value begins with a M-bM-^@M-^X+M-bM-^@M-^Y character, then the
              specified key types will be appended to the default set instead
-             of replacing them.  The default for this option is:
+             of replacing them.  If the specified value begins with a M-bM-^@M-^X-M-bM-^@M-^Y
+             character, then the specified key types (including wildcards)
+             will be removed from the default set instead of replacing them.
+             The default for this option is:
 
                 ecdsa-sha2-nistp256-cert-v01@openssh.com,
                 ecdsa-sha2-nistp384-cert-v01@openssh.com,
@@ -891,18 +906,6 @@ DESCRIPTION
              If UsePAM is enabled, you will not be able to run sshd(8) as a
              non-root user.  The default is no.
 
-     UsePrivilegeSeparation
-             Specifies whether sshd(8) separates privileges by creating an
-             unprivileged child process to deal with incoming network traffic.
-             After successful authentication, another process will be created
-             that has the privilege of the authenticated user.  The goal of
-             privilege separation is to prevent privilege escalation by
-             containing any corruption within the unprivileged processes.  The
-             argument must be yes, no, or sandbox.  If UsePrivilegeSeparation
-             is set to sandbox then the pre-authentication unprivileged
-             process is subject to additional restrictions.  The default is
-             sandbox.
-
      VersionAddendum
              Optionally specifies additional text to append to the SSH
              protocol banner sent by the server upon connection.  The default
@@ -988,12 +991,12 @@ TOKENS
            %t    The key or certificate type.
            %u    The username.
 
-     AuthorizedKeysCommand accepts the tokens %%, %f, %h, %t, and %u.
+     AuthorizedKeysCommand accepts the tokens %%, %f, %h, %k, %t, and %u.
 
      AuthorizedKeysFile accepts the tokens %%, %h, and %u.
 
-     AuthorizedPrincipalsCommand accepts the tokens %%, %F, %f, %K, %k, %h,
-     %i, %s, %T, %t, and %u.
+     AuthorizedPrincipalsCommand accepts the tokens %%, %F, %f, %h, %i, %K,
+     %k, %s, %T, %t, and %u.
 
      AuthorizedPrincipalsFile accepts the tokens %%, %h, and %u.
 
@@ -1016,4 +1019,4 @@ AUTHORS
      versions 1.5 and 2.0.  Niels Provos and Markus Friedl contributed support
      for privilege separation.
 
-OpenBSD 6.0                    November 30, 2016                   OpenBSD 6.0
+OpenBSD 6.2                   September 27, 2017                   OpenBSD 6.2
