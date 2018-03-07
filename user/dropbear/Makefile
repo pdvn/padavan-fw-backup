@@ -25,6 +25,7 @@ configure:
 	( cd $(SRC_NAME) ; \
 	./configure \
 		--prefix=/usr \
+		--disable-harden \
 		--disable-lastlog \
 		--disable-utmp \
 		--disable-utmpx \
