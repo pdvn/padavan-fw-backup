@@ -1,9 +1,16 @@
+include $(ROOTDIR)/user/shared/board.mk
+
 KERNELZ		= $(IMAGEDIR)/zImage
 RAMDISK		= $(IMAGEDIR)/ramdisk
-IMAGE		= $(IMAGEDIR)/$(CONFIG_FIRMWARE_PRODUCT_ID)_$(FIRMWARE_KERNEL_VER).$(FIRMWARE_ROOTFS_VER)-$(FIRMWARE_BUILDS_VER).trx
+ifeq ($(TPLINK_HWID),)
+FW_EXTENSION=trx
+else
+FW_EXTENSION=bin
+endif
+IMAGE		= $(IMAGEDIR)/$(CONFIG_FIRMWARE_PRODUCT_ID)_$(FIRMWARE_KERNEL_VER).$(FIRMWARE_ROOTFS_VER)-$(FIRMWARE_BUILDS_VER).$(FW_EXTENSION)
 BOARD_DIR	= $(ROOTDIR)/configs/boards/$(CONFIG_FIRMWARE_PRODUCT_ID)
 ROMFS_DIR	= $(ROOTDIR)/romfs
-MKIMAGE_DIR	:= $(ROOTDIR)/tools/mkimage
+TOOLS_DIR	:= $(ROOTDIR)/tools
 CUR_DIR		= $(shell pwd)
 COMP		= lzma
 ifneq (,$(filter y,$(CONFIG_MTD_NAND_RALINK) $(CONFIG_MTD_NAND_MTK)))
@@ -159,19 +166,23 @@ endif
 	# Padded Kernel Image Size
 	@wc -c $(KERNELZ).$(COMP)
 	# Original RootFs Size
-	  @du -sb $(ROMFSDIR)
+	@du -sb $(ROMFSDIR)
 	# Compressed RootFs Size
-	  @wc -c $(RAMDISK)
+	@wc -c $(RAMDISK)
+	# no union for tplink firmware
+ifeq ($(TPLINK_HWID),)
 	# Padded Kernel Image + Compressed Rootfs Size
-	  @cat $(RAMDISK) >> $(KERNELZ).$(COMP)
-	  @wc -c $(KERNELZ).$(COMP)
+	@cat $(RAMDISK) >> $(KERNELZ).$(COMP)
+	@wc -c $(KERNELZ).$(COMP)
+endif
 	#===========================================
 endif
 	# Pack final image and write headers
+ifeq ($(TPLINK_HWID),)
 ifeq ($(CONFIG_ROOTFS_IN_FLASH_NO_PADDING),)
 	@cd $(IMAGEDIR) ; \
 	ENTRY=`LANG=C LC_ALL=C readelf -h $(ROOTDIR)/$(LINUXDIR)/vmlinux | grep "Entry" | awk '{print $$4}'` ; \
-	$(MKIMAGE_DIR)/mkimage -A mips -O linux -T kernel -C $(COMP) -a $(ENTRYPOINT) -e $$ENTRY \
+	$(TOOLS_DIR)/mkimage/mkimage -A mips -O linux -T kernel -C $(COMP) -a $(ENTRYPOINT) -e $$ENTRY \
 	-n $(CONFIG_FIRMWARE_PRODUCT_ID) -V $(FIRMWARE_KERNEL_VER) $(FIRMWARE_ROOTFS_VER) -d $(KERNELZ).$(COMP) $(IMAGE)
 else
 	# For No padded, need write kernel size in image header 
@@ -181,8 +192,15 @@ else
 	ISIZE=`wc -c $(KERNELZ).$(COMP) | awk '{print $$1}'` ; \
 	RSIZE=`wc -c $(RAMDISK) | awk '{print $$1}'` ; \
 	KRN_SIZE=`expr $$ISIZE - $$RSIZE + 64` ; \
-	$(MKIMAGE_DIR)/mkimage -A mips -O linux -T kernel -C $(COMP) -a $(ENTRYPOINT) -e $$ENTRY -k $$KRN_SIZE \
+	$(TOOLS_DIR)/mkimage/mkimage -A mips -O linux -T kernel -C $(COMP) -a $(ENTRYPOINT) -e $$ENTRY -k $$KRN_SIZE \
 	-n $(CONFIG_FIRMWARE_PRODUCT_ID) -V $(FIRMWARE_KERNEL_VER) $(FIRMWARE_ROOTFS_VER) -d $(KERNELZ).$(COMP) $(IMAGE)
+endif
+else
+	@cd $(IMAGEDIR) ; \
+	ENTRY=`LANG=C LC_ALL=C readelf -h $(ROOTDIR)/$(LINUXDIR)/vmlinux | grep "Entry" | awk '{print $$4}'` ; \
+	$(TOOLS_DIR)/mktplinkfw/mktplinkfw2 -L $(ENTRYPOINT) -E $$ENTRY -H $(TPLINK_HWID) -W $(TPLINK_HWREV) \
+	-w $(TPLINK_HWREVADD) -F "$(TPLINK_FLASHLAYOUT)" -T $(TPLINK_HVERSION) -V "ver. 2.0" -a 0x4 -j \
+	-k $(KERNELZ).$(COMP) -r $(RAMDISK) -o $(IMAGE) -e
 endif
 
 clean:

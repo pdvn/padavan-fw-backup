@@ -21,6 +21,7 @@ all : install
 install :
 	mkdir -p bin
 	make -C mkimage
+	make -C mktplinkfw
 	make -C sstrip
 	make -C mksquash_lzma-3.2 install
 ifeq ($(CONFIG_RT2880_ROOTFS_IN_FLASH),y)
@@ -32,6 +33,7 @@ clean:
 	rm -rf ./headers
 	make -C sstrip clean
 	make -C mkimage clean
+	make -C mktplinkfw clean
 	make -C mksquash_lzma-3.2 clean
 	make -C mksquash_xz-4.0 clean
 	if [ -f xz/Makefile ] ; then \
