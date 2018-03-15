@@ -18,6 +18,7 @@ configure:
 		--disable-shared \
 		--disable-debug-mode \
 		--disable-openssl \
+		--disable-samples \
 		--host=$(HOST_TARGET) \
 		--build=$(HOST_BUILD) ; \
 	)
