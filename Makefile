@@ -16,11 +16,7 @@ VERSIONPKG = 1.1
 include .config
 include versions.inc
 
-ifeq ($(CONFIG_FIRMWARE_TYPE_ROOTFS_IN_RAM),y)
-all: tools modules libc_only libs_only user_only romfs linux image
-else
 all: tools linux libc_only libs_only user_only romfs image
-endif
 
 ############################################################################
 #

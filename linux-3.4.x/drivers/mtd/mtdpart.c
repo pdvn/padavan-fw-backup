@@ -465,7 +465,7 @@ static struct mtd_part *allocate_partition(struct mtd_info *master,
 	if (slave->mtd.size == MTDPART_SIZ_FULL)
 		slave->mtd.size = master->size - slave->offset;
 
-	printk(KERN_NOTICE "0x%012llx-0x%012llx : \"%s\"\n", (unsigned long long)slave->offset,
+	printk(KERN_INFO "0x%012llx-0x%012llx: \"%s\"\n", (unsigned long long)slave->offset,
 		(unsigned long long)(slave->offset + slave->mtd.size), slave->mtd.name);
 
 	/* let's do some sanity checks */
@@ -514,18 +514,14 @@ static struct mtd_part *allocate_partition(struct mtd_info *master,
 		/* FIXME: Let it be writable if it is on a boundary of
 		 * _minor_ erase size though */
 		slave->mtd.flags &= ~MTD_WRITEABLE;
-#ifndef CONFIG_ROOTFS_IN_FLASH_NO_PADDING
 		printk(KERN_WARNING"mtd: partition \"%s\" doesn't start on an erase block boundary -- force read-only\n",
 			part->name);
-#endif
 	}
 	if ((slave->mtd.flags & MTD_WRITEABLE) &&
 	    mtd_mod_by_eb(slave->mtd.size, &slave->mtd)) {
 		slave->mtd.flags &= ~MTD_WRITEABLE;
-#ifndef CONFIG_ROOTFS_IN_FLASH_NO_PADDING
 		printk(KERN_WARNING"mtd: partition \"%s\" doesn't end on an erase block -- force read-only\n",
 			part->name);
-#endif
 	}
 
 	slave->mtd.ecclayout = master->ecclayout;
@@ -643,7 +639,7 @@ int add_mtd_partitions(struct mtd_info *master,
 	uint64_t cur_offset = 0;
 	int i;
 
-	printk(KERN_NOTICE "Creating %d MTD partitions on \"%s\":\n", nbparts, master->name);
+	printk(KERN_INFO "Creating %d MTD partitions on \"%s\":\n", nbparts, master->name);
 
 	for (i = 0; i < nbparts; i++) {
 		slave = allocate_partition(master, parts + i, i, cur_offset);
@@ -710,7 +706,7 @@ EXPORT_SYMBOL_GPL(deregister_mtd_parser);
  * are changing this array!
  */
 static const char *default_mtd_part_types[] = {
-	"cmdlinepart",
+	"mtdsplitter",
 	"ofpart",
 	NULL
 };
@@ -754,7 +750,7 @@ int parse_mtd_partitions(struct mtd_info *master, const char **types,
 		ret = (*parser->parse_fn)(master, pparts, data);
 		put_partition_parser(parser);
 		if (ret > 0) {
-			printk(KERN_NOTICE "%d %s partitions found on MTD device %s\n",
+			printk(KERN_INFO "%d %s partitions found on MTD device %s\n",
 			       ret, parser->name, master->name);
 			break;
 		}

@@ -49,21 +49,7 @@ char rt2880_cmdline[] = CONFIG_CMDLINE;
 #else
 #define TTY_BAUDRATE	"57600n8"
 #endif
-#if defined (CONFIG_MTD_NAND_USE_UBI_PART)
-#define MTD_UBI_MTD	" ubi.mtd=UBI_DEV"
-#else
-#define MTD_UBI_MTD	""
-#endif
-#if defined (CONFIG_RT2880_ROOTFS_IN_FLASH)
-#if (defined (CONFIG_MTD_NAND_RALINK) || defined (CONFIG_MTD_NAND_MTK)) && !defined (CONFIG_MTD_CONFIG_PART_BELOW)
-#define MTD_ROOTFS_DEV	"/dev/mtdblock5 rootfstype=squashfs"
-#else
-#define MTD_ROOTFS_DEV	"/dev/mtdblock4 rootfstype=squashfs"
-#endif
-#else
-#define MTD_ROOTFS_DEV	"/dev/ram0"
-#endif
-char rt2880_cmdline[]="console=ttyS0," TTY_BAUDRATE "" MTD_UBI_MTD " root=" MTD_ROOTFS_DEV "";
+char rt2880_cmdline[]="console=ttyS0," TTY_BAUDRATE "";
 #endif
 
 #ifdef CONFIG_UBOOT_CMDLINE

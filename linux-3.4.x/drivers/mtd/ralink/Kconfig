@@ -73,86 +73,22 @@ choice
 		bool "Autodetect Size"
 endchoice
 
+if MTD_NOR_RALINK
+
 config RT2880_MTD_PHYSMAP_START
 	hex
 	default 0xBF000000 if RALINK_RT3052
-	default 0x1FC00000 if RALINK_MT7621
 	default 0x1C000000 if !RALINK_RT3052
 
 config RT2880_MTD_PHYSMAP_LEN
 	hex
-	default 0x0400000 if RALINK_MT7621
-	default 0x1000000 if !RALINK_MT7621
+	default 0x01000000
 
 config RT2880_MTD_PHYSMAP_BUSWIDTH
 	int
 	default 2
 
-choice
-	prompt "Root File System Type"
-	default RT2880_ROOTFS_IN_FLASH
-
-	config  RT2880_ROOTFS_IN_RAM
-		bool "RootFS_in_RAM"
-		select BLK_DEV_INITRD
-		select BLK_DEV_RAM
-
-	config  RT2880_ROOTFS_IN_FLASH
-		bool "RootFS_in_FLASH"
-endchoice
-
-config ROOTFS_IN_FLASH_NO_PADDING
-	bool "No Padding between Kernel and RootFS"
-	default y
-	depends on RT2880_ROOTFS_IN_FLASH && !MTD_NAND_USE_UBI_PART
-
-config MTD_NAND_USE_UBI_PART
-	bool "Use UBI partitions (U-Boot must support boot from UBI!)"
-	default n
-	depends on (MTD_NAND_RALINK || MTD_NAND_MTK)
-	select MTD_UBI
-	select MTD_UBI_GLUEBI
-
-config MTD_CONFIG_PART_BELOW
-	bool "Place 'Config' Partition after 'Kernel+RootFS' Partition"
-	default n
-	depends on (MTD_NAND_RALINK || MTD_NAND_MTK) && !MTD_NAND_USE_UBI_PART
-
-config MTD_BOOTLOADER_PART_SIZ
-	hex "MTD 'Bootloader' Partition Size (Unit:Bytes)"
-	default 0x0080000
-	depends on (MTD_NAND_RALINK || MTD_NAND_MTK)
-
-config MTD_BOOTENV_PART_SIZ
-	hex "MTD 'BootEnv' Partition Size (Unit:Bytes)"
-	default 0x0080000
-	depends on (MTD_NAND_RALINK || MTD_NAND_MTK) && !MTD_NAND_USE_UBI_PART
-
-config MTD_CONFIG_PART_SIZ
-	hex "MTD 'Config' Partition Size (Unit:Bytes)"
-	default 0x0100000
-	depends on (MTD_NAND_RALINK || MTD_NAND_MTK) && !MTD_NAND_USE_UBI_PART
-
-config MTD_FACTORY_PART_SIZ
-	hex "MTD 'Factory' Partition Size (Unit:Bytes)"
-	default 0x0080000
-	depends on (MTD_NAND_RALINK || MTD_NAND_MTK) && !MTD_NAND_USE_UBI_PART
-
-config MTD_KERNEL_PART_SIZ
-	hex "MTD 'Kernel' Partition Size (Unit:Bytes)"
-	default 0x0120000
-	depends on RT2880_ROOTFS_IN_FLASH && !ROOTFS_IN_FLASH_NO_PADDING && !MTD_NAND_USE_UBI_PART
-
-config MTD_FIRMWARE_PART_SIZ
-	hex "MTD 'Kernel+RootFS' Partition Size (Unit:Bytes). Max 32MiB."
-	default 0x1000000
-	depends on (MTD_NAND_RALINK || MTD_NAND_MTK) && !MTD_NAND_USE_UBI_PART
-
-config MTD_STORE_PART_SIZ
-	hex "MTD 'Storage' Partition Size (Unit:Bytes)"
-	default 0x0200000 if  (MTD_NAND_RALINK || MTD_NAND_MTK)
-	default 0x0010000 if !(MTD_NAND_RALINK || MTD_NAND_MTK)
-	depends on !MTD_NAND_USE_UBI_PART
+endif
 
 endif
 

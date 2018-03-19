@@ -87,14 +87,11 @@ fi
 
 board_h="$ROOTDIR/configs/boards/$CONFIG_FIRMWARE_PRODUCT_ID/board.h"
 board_mk="$ROOTDIR/configs/boards/$CONFIG_FIRMWARE_PRODUCT_ID/board.mk"
+partitions_cf="$ROOTDIR/configs/boards/$CONFIG_FIRMWARE_PRODUCT_ID/partitions.config"
+partitions_tcf="$ROOTDIR/linux-$kernel_id/drivers/mtd/mtdsplitter_parts.h"
 kernel_cd="$ROOTDIR/configs/boards/$CONFIG_FIRMWARE_PRODUCT_ID"
 kernel_tf="$ROOTDIR/linux-$kernel_id/.config"
-
-if [ "$CONFIG_FIRMWARE_TYPE_ROOTFS_IN_RAM" = "y" ] ; then
-	kernel_cf="${kernel_cd}/kernel-${kernel_id}.ram.config"
-else
-	kernel_cf="${kernel_cd}/kernel-${kernel_id}.config"
-fi
+kernel_cf="${kernel_cd}/kernel-${kernel_id}.config"
 
 if [ ! -f "$kernel_cf" ] ; then
 	echo "Target kernel config ($kernel_cf) not found! Terminate."
@@ -130,6 +127,7 @@ cp -fL "$kernel_cf" "$kernel_tf"
 cp -fL "$busybox_cf" "$busybox_tf"
 cp -fL "$board_mk" "$ROOTDIR/user/shared/board.mk"
 cp -fL "$board_h" "$ROOTDIR/user/shared/include/ralink_board.h"
+cp -fL "$partitions_cf" "$partitions_tcf"
 ############################# WI-FI ###################################
 dir_wifi_src="$ROOTDIR/proprietary/rt_wifi"
 dir_wifi_dst="$ROOTDIR/linux-$kernel_id/drivers/net/wireless/ralink"

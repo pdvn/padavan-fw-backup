@@ -132,9 +132,7 @@ romfs.post::
 	sudo /sbin/ldconfig -r $(ROMFSDIR) -C /etc_ro/ld.so.cache
 	rm -f $(RAMDISK)
 	rm -f $(KERNELZ).lzma
-ifeq ($(CONFIG_RT2880_ROOTFS_IN_FLASH),y)
 	$(ROOTDIR)/tools/bin/mksquashfs_xz-4.0 $(ROMFSDIR) $(RAMDISK) -all-root -no-exports -noappend -nopad -noI -no-xattrs
-endif
 
 image:
 	##############CREATE IMAGE#################
@@ -142,21 +140,6 @@ image:
 	cd $(IMAGEDIR) ; rm -f $(KERNELZ).*; \
 	$(ROOTDIR)/tools/bin/lzma_alone e -a1 -d25 $(KERNELZ) $(KERNELZ).$(COMP)
 ifeq ($(CONFIG_BLK_DEV_INITRD),)
-ifeq ($(CONFIG_ROOTFS_IN_FLASH_NO_PADDING),)
-	# Original Kernel Image Size
-	@wc -c $(KERNELZ).$(COMP)
-ifeq ($(findstring 0x, $(CONFIG_MTD_KERNEL_PART_SIZ)),0x)
-	@SIZE=`wc -c $(KERNELZ).$(COMP) | awk '{ print $$1 }'` ; \
-	MTD_KRN_PART_SIZE=`printf "%d" $(CONFIG_MTD_KERNEL_PART_SIZ)` ; \
-	PAD=`expr $$MTD_KRN_PART_SIZE - 64 - $$SIZE` ; \
-	dd if=/dev/zero count=1 bs=$$PAD conv=sync 2> /dev/null | tr \\000 \\377 >> $(KERNELZ).$(COMP)
-else
-	@SIZE=`wc -c $(KERNELZ).$(COMP) | awk '{ print $$1 }'` ; \
-	MTD_KRN_PART_SIZE=`printf "%d" 0x$(CONFIG_MTD_KERNEL_PART_SIZ)` ; \
-	PAD=`expr $$MTD_KRN_PART_SIZE - 64 - $$SIZE` ; \
-	dd if=/dev/zero count=1 bs=$$PAD conv=sync 2> /dev/null | tr \\000 \\377 >> $(KERNELZ).$(COMP)
-endif
-else
 	@SIZE=`wc -c $(KERNELZ).$(COMP) | awk '{ print $$1 }'` ; \
 	SIZE=`expr $$SIZE + 64` ; \
 	DIV=`expr $$SIZE % $(PART_ALIGN)` ; \
@@ -164,7 +147,6 @@ else
 		PAD=`expr $(PART_ALIGN) - $$DIV` ; \
 		dd if=/dev/zero count=1 bs=$$PAD conv=sync 2> /dev/null | tr \\000 \\377 >> $(KERNELZ).$(COMP) ; \
 	fi
-endif
 	# Padded Kernel Image Size
 	@wc -c $(KERNELZ).$(COMP)
 	# Original RootFs Size
@@ -181,14 +163,6 @@ endif
 endif
 	# Pack final image and write headers
 ifeq ($(TPLINK_HWID),)
-ifeq ($(CONFIG_ROOTFS_IN_FLASH_NO_PADDING),)
-	@cd $(IMAGEDIR) ; \
-	ENTRY=`LANG=C LC_ALL=C readelf -h $(ROOTDIR)/$(LINUXDIR)/vmlinux | grep "Entry" | awk '{print $$4}'` ; \
-	$(TOOLS_DIR)/mkimage/mkimage -A mips -O linux -T kernel -C $(COMP) -a $(ENTRYPOINT) -e $$ENTRY \
-	-n $(CONFIG_FIRMWARE_PRODUCT_ID) -V $(FIRMWARE_KERNEL_VER) $(FIRMWARE_ROOTFS_VER) -d $(KERNELZ).$(COMP) $(IMAGE)
-else
-	# For No padded, need write kernel size in image header 
-	# to correct mount partition in mtd drivers address
 	@cd $(IMAGEDIR) ; \
 	ENTRY=`LANG=C LC_ALL=C readelf -h $(ROOTDIR)/$(LINUXDIR)/vmlinux | grep "Entry" | awk '{print $$4}'` ; \
 	ISIZE=`wc -c $(KERNELZ).$(COMP) | awk '{print $$1}'` ; \
@@ -196,13 +170,12 @@ else
 	KRN_SIZE=`expr $$ISIZE - $$RSIZE + 64` ; \
 	$(TOOLS_DIR)/mkimage/mkimage -A mips -O linux -T kernel -C $(COMP) -a $(ENTRYPOINT) -e $$ENTRY -k $$KRN_SIZE \
 	-n $(CONFIG_FIRMWARE_PRODUCT_ID) -V $(FIRMWARE_KERNEL_VER) $(FIRMWARE_ROOTFS_VER) -d $(KERNELZ).$(COMP) $(IMAGE)
-endif
 else
 	@cd $(IMAGEDIR) ; \
 	ENTRY=`LANG=C LC_ALL=C readelf -h $(ROOTDIR)/$(LINUXDIR)/vmlinux | grep "Entry" | awk '{print $$4}'` ; \
 	$(TOOLS_DIR)/mktplinkfw/mktplinkfw2 -L $(ENTRYPOINT) -E $$ENTRY -H $(TPLINK_HWID) -W $(TPLINK_HWREV) \
 	-w $(TPLINK_HWREVADD) -F "$(TPLINK_FLASHLAYOUT)" -T $(TPLINK_HVERSION) -V "ver. 2.0" -a 0x4 -j \
-	-k $(KERNELZ).$(COMP) -r $(RAMDISK) -o $(IMAGE) -e
+	-k $(KERNELZ).$(COMP) -r $(RAMDISK) -o $(IMAGE) -s -e
 endif
 
 clean:

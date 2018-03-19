@@ -24,27 +24,31 @@
 #include "mtk_nand.h"
 
 #include "ralink-flash.h"
-#if defined (CONFIG_MTD_NAND_USE_UBI_PART)
-#include "ralink-nand-map-ubi.h"
-#else
-#include "ralink-nand-map.h"
+
+static const char *part_probes[] __initdata = { "mtdsplitter", NULL };
+static struct mtd_partition *mtd_parts = NULL;
+static int part_num;
+
+#if defined (CONFIG_JFFS2_FS) || defined (CONFIG_JFFS2_FS_MODULE)
+#define JFFS2_WORKAROUND
 #endif
 
 #if defined (CONFIG_MTD_UBI) || defined (CONFIG_MTD_UBI_MODULE)
 #define UBIFS_ECC_0_PATCH
-#if defined (CONFIG_MTD_NAND_USE_UBI_PART)
-#define UBI_PART_START_OFFSET	NAND_MTD_UBI_PART_OFFSET
-#else
-#define UBI_PART_START_OFFSET	NAND_MTD_RWFS_PART_OFFSET
-#endif
 #endif
 
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
+static uint32_t rwfs_offset_begin = 0, rwfs_offset_end = 0;
+static uint32_t firmware_offset_begin, firmware_size;
+
+static int8_t kernel_idx = -1, rootfs_idx = -1;
 static int shift_on_bbt = 0;
+
 static int is_skip_bad_block(struct mtd_info *mtd, int page);
 extern void nand_bbt_set_bad(struct mtd_info *mtd, int page);
 extern int nand_bbt_get(struct mtd_info *mtd, int page);
 #endif
+
 static int mtk_nand_read_oob_hw(struct mtd_info *mtd, struct nand_chip *chip, int page);
 static int mtk_nand_read_oob_raw(struct mtd_info *mtd, uint8_t * buf, int page_addr, int len);
 
@@ -114,11 +118,16 @@ static const flashdev_info gen_FlashTable[]= {
 	{"S34ML02G200TF",   0x01DA, 0x909546, 5, 8,  256, 128, 2048, 112, 0x00844333, 0},
 	{"S34ML04G200TF",   0x01DC, 0x909556, 5, 8,  512, 128, 2048, 112, 0x00844333, 0},
 
+	/* Winbond */
+	{"W29N01HV",        0xEFF1, 0x009500, 4, 8,  128, 128, 2048,  64, 0x00844333, 0},
+	{"W29N02GV",        0xEFDA, 0x909504, 5, 8,  256, 128, 2048,  64, 0x00844333, 0},
+	{"W29N04GV",        0xEFDC, 0x909554, 5, 8,  512, 128, 2048,  64, 0x00844333, 0},
+
 	/* Samsung */
 	{"K9K8G8000",       0xECD3, 0x519558, 5, 8, 1024, 128, 2048,  64, 0x00044333, 0},
 
 	/* Toshiba */
-	{"TC58NVG3S0F",     0x98D3, 0x902676, 5, 8, 1024, 256, 4096, 224, 0x00C25332, 0},
+	{"TC58NVG3S0F",     0x98D3, 0x902676, 5, 8, 1024, 256, 4096, 224, 0x00C45333, 0},
 
 	/* Micron */
 	{"MT29F1G08ABAEA",  0x2CF1, 0x809504, 4, 8,  128, 128, 2048,  64, 0x00844333, 0},
@@ -134,12 +143,12 @@ static bool get_nand_device_info_table(u16 id, u32 ext_id)
 	for (index = 0; gen_FlashTable[index].id != 0; index++) {
 		if (id == gen_FlashTable[index].id && ext_id == gen_FlashTable[index].ext_id) {
 			memcpy(&nand_devinfo, &gen_FlashTable[index], sizeof(flashdev_info));
-			printk("%s: NAND chip found in MTK table: %s\n", MTK_NAND_MODULE_TEXT, nand_devinfo.devicename);
+			printk(KERN_INFO "%s: NAND chip found in the MTK table: %s\n", MTK_NAND_MODULE_TEXT, nand_devinfo.devicename);
 			return true;
 		}
 	}
 
-	printk(KERN_WARNING "%s: NAND chip with device ID %x is not found in MTK table!\n", MTK_NAND_MODULE_TEXT, id);
+	printk(KERN_WARNING "%s: NAND chip with device ID %x is not found in the MTK table\n", MTK_NAND_MODULE_TEXT, id);
 	return false;
 }
 
@@ -188,7 +197,7 @@ static int mtk_nand_init_size(struct mtd_info *mtd, struct nand_chip *chip, u8 *
 	u16 id;
 	u32 id_ext;
 
-	printk("%s: NAND ID [%02X %02X, %02X %02X %02X %02X]\n",
+	printk(KERN_INFO "%s: NAND ID [%02X %02X, %02X %02X %02X %02X]\n",
 		MTK_NAND_MODULE_TEXT, id_data[0], id_data[1], id_data[2], id_data[3], id_data[4], id_data[5]);
 
 	id = ((u16)id_data[0] << 8) | id_data[1];
@@ -330,12 +339,12 @@ static bool mtk_nand_check_bch_error(struct mtd_info *mtd, u8 * pDataBuf, u32 u4
 					u4ErrByteLoc = u4ErrBitLoc1th / 8;
 					u4BitOffset = u4ErrBitLoc1th % 8;
 					pDataBuf[u4ErrByteLoc] = pDataBuf[u4ErrByteLoc] ^ (1 << u4BitOffset);
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
 					if (!is_skip_bad_block(mtd, u4PageAddr))
 #endif
 						mtd->ecc_stats.corrected++;
 				} else {
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
 					if (!is_skip_bad_block(mtd, u4PageAddr))
 #endif
 						mtd->ecc_stats.corrected++;
@@ -346,12 +355,12 @@ static bool mtk_nand_check_bch_error(struct mtd_info *mtd, u8 * pDataBuf, u32 u4
 						u4ErrByteLoc = u4ErrBitLoc2nd / 8;
 						u4BitOffset = u4ErrBitLoc2nd % 8;
 						pDataBuf[u4ErrByteLoc] = pDataBuf[u4ErrByteLoc] ^ (1 << u4BitOffset);
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
 						if (!is_skip_bad_block(mtd, u4PageAddr))
 #endif
 							mtd->ecc_stats.corrected++;
 					} else {
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
 						if (!is_skip_bad_block(mtd, u4PageAddr))
 #endif
 							mtd->ecc_stats.corrected++;
@@ -381,7 +390,7 @@ static bool mtk_nand_check_bch_error(struct mtd_info *mtd, u8 * pDataBuf, u32 u4
 			}
 		}
 		if ((correct_count > 2) && bRet) {
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
 			if (!is_skip_bad_block(mtd, u4PageAddr))
 #endif
 				mtd->ecc_stats.corrected++;
@@ -916,38 +925,38 @@ bool mtk_nand_exec_write_page(struct mtd_info *mtd, u32 u4RowAddr, u32 u4PageSiz
 	return true;
 }
 
-#if defined(SKIP_BAD_BLOCK)
-
-static int get_start_end_block(struct mtd_info *mtd, int block, int *start_blk, int *end_blk)
+#if defined (SKIP_BAD_BLOCK)
+static int get_start_end_block(struct mtd_info *mtd, int block,
+			       int *start_blk, int *end_blk)
 {
 	struct nand_chip *chip = mtd->priv;
-	int i, end_blk_last, part_num = ARRAY_SIZE(rt2880_partitions);
+	int i, end_blk_last, er_shift;
 
-	*start_blk = 0;
-	end_blk_last = 0;
+	er_shift = chip->phys_erase_shift;
 
 	for (i = 0; i < part_num; i++) {
-		if (rt2880_partitions[i].offset == MTDPART_OFS_APPEND)
-			*start_blk = end_blk_last;
-		else
-			*start_blk = (int)(rt2880_partitions[i].offset >> chip->phys_erase_shift);
-		end_blk_last = *start_blk + (int)(rt2880_partitions[i].size >> chip->phys_erase_shift);
-		
+		uint64_t off = mtd_parts[i].offset;
+		uint64_t size = mtd_parts[i].size;
+
+		/* Skip partition with full flash */
+		if (size == MTDPART_SIZ_FULL)
+			continue;
+
+		*start_blk = off >> er_shift;
+		end_blk_last = *start_blk + (size >> er_shift);
+
 		if (end_blk_last > *start_blk)
 			*end_blk = end_blk_last - 1;
 		else
 			*end_blk = end_blk_last;
-		
-		if ((block >= *start_blk) && (block <= *end_blk)) {
-#if !defined (CONFIG_MTD_NAND_USE_UBI_PART)
-#if defined (CONFIG_RT2880_ROOTFS_IN_FLASH)
-			/* use merged partition */
-			if (i == NAND_MTD_KERNEL_PART_IDX || i == NAND_MTD_ROOTFS_PART_IDX) {
-				*start_blk = (NAND_MTD_KERNEL_PART_OFFSET >> chip->phys_erase_shift);
-				*end_blk = *start_blk + (NAND_MTD_KERNEL_PART_SIZE >> chip->phys_erase_shift) - 1;
+
+		if (block >= *start_blk &&
+		    block <= *end_blk) {
+			/* Use merged partition */
+			if (i == kernel_idx || i == rootfs_idx) {
+				*start_blk = firmware_offset_begin >> er_shift;
+				*end_blk = *start_blk + (firmware_size >> er_shift) - 1;
 			}
-#endif
-#endif
 			return 0;
 		}
 	}
@@ -1080,30 +1089,48 @@ static int write_next_on_fail(struct mtd_info *mtd, char *write_buf, int page, i
 	return 0;
 }
 
+static inline bool is_rwfs_exists(void)
+{
+	return rwfs_offset_begin ? true : false;
+}
+
+static inline bool is_rwfs_off(uint32_t off)
+{
+	if (off >= rwfs_offset_begin &&
+	    off <= rwfs_offset_end)
+		return true;
+
+	return false;
+}
+
 static int is_skip_bad_block(struct mtd_info *mtd, int page)
 {
-#if defined (CONFIG_MTD_UBI) || defined (CONFIG_MTD_UBI_MODULE)
-	struct nand_chip *chip = mtd->priv;
+	if (is_rwfs_exists()) {
+		struct nand_chip *chip = mtd->priv;
+		uint32_t off = page << chip->page_shift;
 
-	if ((page << chip->page_shift) >= UBI_PART_START_OFFSET)
-		return 0;
-#endif
+		/* Disable skip bad block for rwfs. */
+		if (is_rwfs_off(off))
+			return 0;
+	}
 	return 1;
 }
 
 int check_block_remap(struct mtd_info *mtd, int block)
 {
-	if (shift_on_bbt) {
-#if defined (CONFIG_MTD_UBI) || defined (CONFIG_MTD_UBI_MODULE)
-		struct nand_chip *chip = mtd->priv;
+	if (shift_on_bbt == 0)
+		return block;
 
-		if ((block << chip->phys_erase_shift) >= UBI_PART_START_OFFSET)
+	if (is_rwfs_exists()) {
+		struct nand_chip *chip = mtd->priv;
+		uint32_t off = block << chip->phys_erase_shift;
+
+		/* Disable skip bad block for rwfs. */
+		if (is_rwfs_off(off))
 			return block;
-#endif
-		return block_remap(mtd, block);
 	}
 
-	return block;
+	return block_remap(mtd, block);
 }
 
 #else
@@ -1115,7 +1142,7 @@ int check_block_remap(struct mtd_info *mtd, int block)
 EXPORT_SYMBOL(check_block_remap);
 
 
-#if defined(UBIFS_ECC_0_PATCH)
+#if defined (UBIFS_ECC_0_PATCH)
 static int check_ecc_0(struct mtd_info *mtd, int page)
 {
 	int i;
@@ -1255,7 +1282,7 @@ static int mtk_nand_write_page(struct mtd_info *mtd, struct nand_chip *chip, con
 	u16 page_in_block = page % page_per_block;
 	int mapped_block = block;
 
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
 	if (!is_skip_bad_block(mtd, page)) {
 		// bmt code
 	} else {
@@ -1270,7 +1297,7 @@ static int mtk_nand_write_page(struct mtd_info *mtd, struct nand_chip *chip, con
 	}
 #endif
 
-#if defined(UBIFS_ECC_0_PATCH)
+#if defined (UBIFS_ECC_0_PATCH)
 	if (check_ecc_0(mtd, page_in_block + mapped_block * page_per_block)) {
 		fix_ecc_0(mtd, page_in_block + mapped_block * page_per_block);
 	}
@@ -1282,7 +1309,7 @@ do_write:
 		if (!mtk_nand_exec_write_page(mtd, page_in_block + mapped_block * page_per_block, mtd->writesize, (u8 *)buf, chip->oob_poi)) {
 			printk(KERN_WARNING "%s: [%s] write fail at block: 0x%x, page: 0x%x\n",
 				MTK_NAND_MODULE_TEXT, __FUNCTION__, mapped_block, page_in_block);
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
 			if (!is_skip_bad_block(mtd, page)) {
 				return -EIO;
 			} else {
@@ -1528,7 +1555,7 @@ static int mtk_nand_read_page(struct mtd_info *mtd, struct nand_chip *chip, u8 *
 	u16 page_in_block = page % page_per_block;
 	int mapped_block = block;
 
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
 	if (!is_skip_bad_block(mtd, page)) {
 		if (mtk_nand_exec_read_page(mtd, page_in_block + mapped_block * page_per_block, mtd->writesize, buf, chip->oob_poi))
 			return 0;
@@ -1579,7 +1606,7 @@ static int mtk_nand_erase(struct mtd_info *mtd, int page)
 	int block = page / page_per_block;
 	int mapped_block = block;
 
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
 	if (!is_skip_bad_block(mtd, page)) {
 		// bmt code
 	} else {
@@ -1596,7 +1623,7 @@ static int mtk_nand_erase(struct mtd_info *mtd, int page)
 	do {
 		int status = mtk_nand_erase_hw(mtd, page_in_block + page_per_block * mapped_block);
 		if (status & NAND_STATUS_FAIL) {
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
 			if (!is_skip_bad_block(mtd, page)) {
 				mtk_nand_block_markbad_hw(mtd, (page_in_block + mapped_block * page_per_block) << chip->page_shift);
 				nand_bbt_set_bad(mtd, page_in_block + mapped_block * page_per_block);
@@ -1794,6 +1821,7 @@ static int mtk_nand_write_oob_raw(struct mtd_info *mtd, const uint8_t * buf, int
 	return 0;
 }
 
+#if !defined (JFFS2_WORKAROUND)
 static int mtk_nand_write_oob_hw(struct mtd_info *mtd, struct nand_chip *chip, int page)
 {
 	int i, iter;
@@ -1823,7 +1851,7 @@ static int mtk_nand_write_oob(struct mtd_info *mtd, struct nand_chip *chip, int 
 	u16 page_in_block = page % page_per_block;
 	int mapped_block = block;
 
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
 	if (!is_skip_bad_block(mtd, page)) {
 		// bmt code
 	} else {
@@ -1841,7 +1869,7 @@ static int mtk_nand_write_oob(struct mtd_info *mtd, struct nand_chip *chip, int 
 		if (mtk_nand_write_oob_hw(mtd, chip, page_in_block + mapped_block * page_per_block /* page */)) {
 			printk(KERN_WARNING "%s: [%s] write oob fail at block: 0x%x, page: 0x%x\n",
 				MTK_NAND_MODULE_TEXT, __FUNCTION__, mapped_block, page_in_block);
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
 			if (!is_skip_bad_block(mtd, page)) {
 				mtk_nand_block_markbad_hw(mtd, (page_in_block + mapped_block * page_per_block) << chip->page_shift);
 				nand_bbt_set_bad(mtd, page_in_block + mapped_block * page_per_block);
@@ -1867,6 +1895,7 @@ static int mtk_nand_write_oob(struct mtd_info *mtd, struct nand_chip *chip, int 
 
 	return 0;
 }
+#endif // CONFIG_MTD_NAND_MTK_JFFS2_WORKAROUND
 
 int mtk_nand_block_markbad_hw(struct mtd_info *mtd, loff_t offset)
 {
@@ -1892,7 +1921,7 @@ static int mtk_nand_block_markbad(struct mtd_info *mtd, loff_t offset)
 
 	nand_get_device(mtd, FL_WRITING);
 
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
 	if (!is_skip_bad_block(mtd, offset >> chip->page_shift)) {
 		// bmt code
 	} else {
@@ -1956,7 +1985,7 @@ static int mtk_nand_read_oob(struct mtd_info *mtd, struct nand_chip *chip, int p
 	u16 page_in_block = page % page_per_block;
 	int mapped_block = block;
 
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
 	if (!is_skip_bad_block(mtd, page)) {
 		// bmt code
 	} else {
@@ -2014,7 +2043,7 @@ static int mtk_nand_block_bad(struct mtd_info *mtd, loff_t ofs, int getchip)
 		chip->select_chip(mtd, chipnr);
 	}
 
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
 	if (!is_skip_bad_block(mtd, ofs >> chip->page_shift)) {
 		// bmt code
 	} else {
@@ -2030,7 +2059,7 @@ static int mtk_nand_block_bad(struct mtd_info *mtd, loff_t ofs, int getchip)
 #endif
 
 	ret = mtk_nand_block_bad_hw(mtd, mapped_block << chip->phys_erase_shift);
-#if defined(SKIP_BAD_BLOCK)
+#if defined (SKIP_BAD_BLOCK)
 	if (!is_skip_bad_block(mtd, ofs >> chip->page_shift)) {
 		// bmt code
 	}
@@ -2194,7 +2223,7 @@ static int load_fact_bbt(struct mtd_info *mtd)
 	for (i = total_block - 1; i >= (total_block - FACT_BBT_BLOCK_NUM); i--) {
 		page = i << (chip->phys_erase_shift - chip->page_shift);
 		if (read_fact_bbt(mtd, page, fact_bbt, fact_bbt_size) == 0) {
-			printk("%s: success load FACT_BBT from block %d\n", MTK_NAND_MODULE_TEXT, i);
+			printk(KERN_INFO "%s: success load FACT_BBT from block %d\n", MTK_NAND_MODULE_TEXT, i);
 			ret = 0;
 			break;
 		}
@@ -2219,6 +2248,23 @@ static int load_fact_bbt(struct mtd_info *mtd)
 }
 #endif
 
+static struct mtd_partition *mtd_part_find_by_name(const char *name, int8_t *idx)
+{
+	int i;
+
+	for (i = 0; i < part_num; i++) {
+		struct mtd_partition *mp = mtd_parts + i;
+
+		if (mp->name && !strcmp(name, mp->name)) {
+			if (idx)
+				*idx = i;
+			return mp;
+		}
+	}
+
+	return NULL;
+}
+
 static int mtk_nand_probe(struct platform_device *pdev)
 {
 	struct mtk_nand_host *host;
@@ -2227,14 +2273,11 @@ static int mtk_nand_probe(struct platform_device *pdev)
 	struct nand_chip *chip;
 	int err = 0;
 	u32 i;
-#if !defined (CONFIG_MTD_NAND_USE_UBI_PART)
-	uint32_t kernel_size = 0x200000;
-#if defined (CONFIG_RT2880_ROOTFS_IN_FLASH) && defined (CONFIG_ROOTFS_IN_FLASH_NO_PADDING)
-	_ihdr_t hdr;
-	loff_t offs;
-	size_t ret_len = 0;
-#endif
-#endif
+	const char *s;
+	char rootfs_name[] = "RootFS";
+	char kernel_name[] = "Kernel";
+	char fwstub_name[] = "Firmware_Stub";
+	struct mtd_partition *mp;
 
 	hw = (struct mtk_nand_host_hw *)pdev->dev.platform_data;
 	BUG_ON(!hw);
@@ -2293,7 +2336,11 @@ static int mtk_nand_probe(struct platform_device *pdev)
 	chip->ecc.read_page = mtk_nand_read_page_hwecc;
 	chip->ecc.write_page = mtk_nand_write_page_hwecc;
 	chip->ecc.read_oob = mtk_nand_read_oob;
+#if defined (JFFS2_WORKAROUND)
+	chip->ecc.write_oob = NULL;
+#else
 	chip->ecc.write_oob = mtk_nand_write_oob;
+#endif
 
 	/* skip bbt scan (scan later) */
 	chip->options = NAND_SKIP_BBTSCAN;
@@ -2355,34 +2402,56 @@ static int mtk_nand_probe(struct platform_device *pdev)
 #if defined (SKIP_BAD_BLOCK)
 	shift_on_bbt = 1;
 #endif
-
-#if !defined (CONFIG_MTD_NAND_USE_UBI_PART)
-#if defined (CONFIG_RT2880_ROOTFS_IN_FLASH) && defined (CONFIG_ROOTFS_IN_FLASH_NO_PADDING)
-	offs = NAND_MTD_KERNEL_PART_OFFSET;
-	memset(&hdr, 0, sizeof(hdr));
-	mtd_read(mtd, offs, sizeof(hdr), &ret_len, (u_char *)(&hdr));
-	if (ret_len == sizeof(hdr) && hdr.ih_ksz != 0)
-		kernel_size = ntohl(hdr.ih_ksz);
-#endif
-	/* calculate partition table */
-	recalc_partitions(mtd->size, kernel_size);
-#else
-	/* calculate partition table for UBIFS */
-	recalc_partitions(mtd->size);
-#endif
-
 	/* register the partitions */
-	err = add_mtd_partitions(mtd, rt2880_partitions, ARRAY_SIZE(rt2880_partitions));
+	part_num = parse_mtd_partitions(mtd, part_probes, &mtd_parts, 0);
+	if (part_num > 0) {
+		err = add_mtd_partitions(mtd, mtd_parts, part_num);
+	} else {
+		// NOTE: if parse_mtd_partitions <= 0 then mtd_parts is not changed (see mtd_device_parse_register code). So do not free memory on it
+		err = -1;
+		printk("No partitions found on a flash.");
+	}
 	if (err)
 		goto out_err;
+
+	err = -ENXIO;
+
+	s = kernel_name;
+	mp = mtd_part_find_by_name(s, &kernel_idx);
+	if (mp == NULL)
+		goto out_err_part;
+
+	s = rootfs_name;
+	mp = mtd_part_find_by_name(s, &rootfs_idx);
+	if (mp == NULL)
+		goto out_err_part;
+
+	s = fwstub_name;
+	mp = mtd_part_find_by_name(s, NULL);
+	if (mp == NULL)
+		goto out_err_part;
+
+	firmware_offset_begin = mp->offset;
+	firmware_size = mp->size;
+
+	/* Optional partition */
+	mp = mtd_part_find_by_name("RWFS", NULL);
+	if (mp) {
+		rwfs_offset_begin = mp->offset;
+		rwfs_offset_end = mp->offset + mp->size - 1;
+	}
 
 	platform_set_drvdata(pdev, host);
 	return 0;
 
+out_err_part:
+	printk("Unable to find partition \"%s\"\n", s);
 out_err:
 	MSG(INIT, "%s: [%s] failed, err = %d!\n", MTK_NAND_MODULE_TEXT, __FUNCTION__, err);
 
 	nand_release(mtd);
+	if (mtd_parts != NULL)
+		kfree(mtd_parts);
 	kfree(host);
 
 	return err;
@@ -2401,6 +2470,8 @@ static int mtk_nand_remove(struct platform_device *pdev)
 	platform_set_drvdata(pdev, NULL);
 
 	nand_release(mtd);
+	if (mtd_parts != NULL)
+		kfree(mtd_parts);
 	kfree(host);
 
 	return 0;

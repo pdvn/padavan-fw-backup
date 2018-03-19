@@ -21,7 +21,8 @@
 
 #include "ralink-flash.h"
 #if defined (CONFIG_MTD_NOR_RALINK)
-#include "ralink-flash-map.h"
+#include "../mtdcore.h"
+static const char *part_probes[] __initdata = { "mtdsplitter", NULL };
 #endif
 
 int ra_check_flash_type(void)
@@ -40,7 +41,8 @@ int ra_check_flash_type(void)
 	syscfg = (*((int *)(RALINK_SYSCTL_BASE + 0x10)));
 
 #if defined (CONFIG_RALINK_RT3052)
-	if ((strcmp(Id,"RT3052")==0) || (strcmp(Id, "RT3350")==0)) {
+	if (strcmp(Id, "RT3052") == 0 ||
+		strcmp(Id, "RT3350") == 0) {
 		boot_from = (syscfg >> 16) & 0x3;
 		switch(boot_from)
 		{
@@ -57,7 +59,7 @@ int ra_check_flash_type(void)
 		}
 	} else
 #elif defined (CONFIG_RALINK_RT3883)
-	if (strcmp(Id,"RT3883")==0) {
+	if (strcmp(Id, "RT3883") == 0) {
 		int chip_mode = syscfg & 0xF;
 		boot_from = (syscfg >> 4) & 0x3;
 		switch(boot_from)
@@ -73,21 +75,21 @@ int ra_check_flash_type(void)
 			}else if(chip_mode==8) {
 				boot_from = BOOT_FROM_NAND;
 			}else {
-				printk("unknow chip_mode=%d\n",chip_mode);
+				printk(KERN_ERR "unknown chip_mode=%d\n", chip_mode);
 			}
 			break;
 		}
 	} else
 #elif defined (CONFIG_RALINK_RT3352)
-	if (strcmp(Id,"RT3352")==0) {
+	if (strcmp(Id, "RT3352") == 0) {
 		boot_from = BOOT_FROM_SPI;
 	} else
 #elif defined (CONFIG_RALINK_RT5350)
-	if (strcmp(Id,"RT5350")==0) {
+	if (strcmp(Id, "RT5350") == 0) {
 		boot_from = BOOT_FROM_SPI;
 	} else
 #elif defined (CONFIG_RALINK_MT7620)
-	if (strcmp(Id,"MT7620")==0) {
+	if (strcmp(Id, "MT7620") == 0) {
 		int chip_mode = syscfg & 0xF;
 		switch(chip_mode)
 		{
@@ -105,7 +107,7 @@ int ra_check_flash_type(void)
 		}
 	} else
 #elif defined (CONFIG_RALINK_MT7621)
-	if (strcmp(Id,"MT7621")==0) {
+	if (strcmp(Id, "MT7621") == 0) {
 		int chip_mode = syscfg & 0xF;
 		switch(chip_mode)
 		{
@@ -123,12 +125,12 @@ int ra_check_flash_type(void)
 		}
 	} else
 #elif defined (CONFIG_RALINK_MT7628)
-	if(strcmp(Id,"MT7628")==0) {
+	if(strcmp(Id, "MT7628") == 0) {
 		boot_from = BOOT_FROM_SPI;
 	} else
 #endif
 	{
-		printk("%s: %s is not supported\n",__FUNCTION__, Id);
+		printk(KERN_ERR "%s: %s is not supported\n",__FUNCTION__, Id);
 	}
 
 	return boot_from;
@@ -312,13 +314,8 @@ static struct map_info ralink_map[] = {
 static int __init rt2880_mtd_init(void)
 {
 	int ret = -ENXIO;
-	int i, found = 0;
-	uint64_t flash_size = IMAGE1_SIZE;
-	uint32_t kernel_size = 0x150000;
-#if defined (CONFIG_RT2880_ROOTFS_IN_FLASH) && defined (CONFIG_ROOTFS_IN_FLASH_NO_PADDING)
-	char *ptr;
-	_ihdr_t hdr;
-#endif
+	int i, part_num, found = 0;
+	struct mtd_partition *mtd_parts;
 
 	if (ra_check_flash_type() != BOOT_FROM_NOR)
 		return 0;
@@ -329,7 +326,7 @@ static int __init rt2880_mtd_init(void)
 
 		ralink_map[i].virt = ioremap_nocache(ralink_map[i].phys, ralink_map[i].size);
 		if (!ralink_map[i].virt) {
-			printk("%s: failed to ioremap 0x%08x\n", __FUNCTION__, ralink_map[i].phys);
+			printk(KERN_ERR "%s: failed to ioremap 0x%08x\n", __FUNCTION__, ralink_map[i].phys);
 			return -EIO;
 		}
 		simple_map_init(&ralink_map[i]);
@@ -343,33 +340,25 @@ static int __init rt2880_mtd_init(void)
 			iounmap(ralink_map[i].virt);
 	}
 
-#if defined (CONFIG_RT2880_FLASH_AUTO)
-	if (ralink_mtd[0])
-		flash_size = ralink_mtd[0]->size;
-#endif
-#if defined (CONFIG_RT2880_ROOTFS_IN_FLASH) && defined (CONFIG_ROOTFS_IN_FLASH_NO_PADDING)
-	ptr = (char *)CKSEG1ADDR(CONFIG_RT2880_MTD_PHYSMAP_START + MTD_KERNEL_PART_OFFSET);
-	memcpy(&hdr, ptr, sizeof(hdr));
-	if (hdr.ih_ksz != 0)
-		kernel_size = ntohl(hdr.ih_ksz);
-#endif
-
-	/* calculate partition table */
-	recalc_partitions(flash_size, kernel_size);
-
 	/* register the partitions */
 	if (found == NUM_FLASH_BANKS) {
-		ret = add_mtd_partitions(ralink_mtd[0], rt2880_partitions, ARRAY_SIZE(rt2880_partitions));
+		part_num = parse_mtd_partitions(ralink_mtd[0], part_probes, &mtd_parts, 0);
+		if (part_num > 0) {
+			ret = add_mtd_partitions(ralink_mtd[0], mtd_parts, part_num);
+			kfree(mtd_parts);
+		} else {
+			ret = -1;
+			printk(KERN_ERR "No partitions found on a flash");
+		}
 		if (ret) {
 			for (i = 0; i < NUM_FLASH_BANKS; i++)
 				iounmap(ralink_map[i].virt);
 			return ret;
 		}
 	} else {
-		printk("%s: error: %d flash device was found\n", __FUNCTION__, found);
+		printk(KERN_ERR "%s: error: %d flash device was found\n", __FUNCTION__, found);
 		return -ENXIO;
 	}
-
 	return 0;
 }
 

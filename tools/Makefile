@@ -24,9 +24,7 @@ install :
 	make -C mktplinkfw
 	make -C sstrip
 	make -C mksquash_lzma-3.2 install
-ifeq ($(CONFIG_RT2880_ROOTFS_IN_FLASH),y)
 	make -C mksquash_xz-4.0 install
-endif
 
 clean:
 	rm -rf ./bin

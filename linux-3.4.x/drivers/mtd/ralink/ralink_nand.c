@@ -9,6 +9,7 @@
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
 #include <linux/mtd/partitions.h>
+#include "../mtdcore.h"
 #include <asm/io.h>
 #include <linux/sched.h>
 #if defined (RANDOM_GEN_BAD_BLOCK)
@@ -19,10 +20,13 @@
 
 #include "ralink-flash.h"
 #include "ralink_nand.h"
-#if defined (CONFIG_MTD_NAND_USE_UBI_PART)
-#include "ralink-nand-map-ubi.h"
-#else
-#include "ralink-nand-map.h"
+
+static const char *part_probes[] __initdata = { "mtdsplitter", NULL };
+static struct mtd_partition *mtd_parts = NULL;
+static int part_num;
+
+#if defined (CONFIG_JFFS2_FS) || defined (CONFIG_JFFS2_FS_MODULE)
+#define JFFS2_WORKAROUND
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3,2,0)
@@ -33,14 +37,19 @@
 
 #if defined (CONFIG_MTD_UBI) || defined (CONFIG_MTD_UBI_MODULE)
 #define UBIFS_ECC_0_PATCH
-#if defined (CONFIG_MTD_NAND_USE_UBI_PART)
-#define UBI_PART_START_OFFSET	NAND_MTD_UBI_PART_OFFSET
-#else
-#define UBI_PART_START_OFFSET	NAND_MTD_RWFS_PART_OFFSET
-#endif
 #endif
 
 #define SKIP_BAD_BLOCK
+
+// workround for bad blocks problem
+static loff_t next_block_check = 0;
+static int need_block_check = 1;
+// rwfs info
+static uint32_t rwfs_offset_begin = 0, rwfs_offset_end = 0;
+static uint32_t firmware_offset_begin, firmware_size;
+
+static int8_t kernel_idx = -1, rootfs_idx = -1;
+
 #define NOT_SUPPORT_WP		// no WP signal for chip.
 #if !defined (CONFIG_RALINK_MT7620)
 #define NOT_SUPPORT_RB
@@ -75,7 +84,7 @@ int nand_addrlen = 4;
 int is_nand_page_2048 = 0;
 const unsigned int nand_size_map[2][3] = {{25, 30, 30}, {20, 27, 30}};
 
-#ifdef SKIP_BAD_BLOCK
+#if defined (SKIP_BAD_BLOCK)
 static int page_remap(struct ra_nand_chip *ra, int page);
 static int write_next_on_fail(struct ra_nand_chip *ra, char *write_buf, int page, int flags, int * to_blk);
 static int is_skip_bad_block(struct ra_nand_chip *ra, int page);
@@ -984,9 +993,9 @@ int nfc_read_page(struct ra_nand_chip *ra, char *buf, int page, int flags)
 
 	// verify and correct ecc
 	if ((flags & (FLAG_VERIFY | FLAG_ECC_EN)) == (FLAG_VERIFY | FLAG_ECC_EN)) {
-		status = nfc_ecc_verify(ra, buf, page, FL_READING);	
+		status = nfc_ecc_verify(ra, buf, page, FL_READING);
 		if (status != 0) {
-			printk("%s: fail, buf:%x, page:%x, flag:%x\n", 
+			printk("%s: fail, buf:%x, page:%x, flag:%x\n",
 			       __func__, (unsigned int)buf, page, flags);
 			return -EBADMSG;
 		}
@@ -1295,7 +1304,7 @@ int nand_erase_nand(struct ra_nand_chip *ra, struct erase_info *instr)
 			goto erase_exit;
 		}
 
-#ifdef SKIP_BAD_BLOCK
+#if defined (SKIP_BAD_BLOCK)
 		do {
 			int newpage = page_remap(ra, page);
 
@@ -1711,7 +1720,7 @@ static int nand_do_write_ops(struct ra_nand_chip *ra, loff_t to,
 			ecc_en = FLAG_ECC_EN;
 		}
 
-#ifdef SKIP_BAD_BLOCK
+#if defined (SKIP_BAD_BLOCK)
 		do {
 			int newpage = page_remap(ra, page);
 			if (newpage < 0)
@@ -1799,6 +1808,48 @@ static int nand_do_write_ops(struct ra_nand_chip *ra, loff_t to,
 	return 0;
 }
 
+/*
+ * Try to fix nand problem. What we do:
+ * - First io operation is header reading. So check bads only for it.
+ * - Make full bad scan from firmware header when partitions is detected.
+ * All these actions because of rwfs. This partition contains UBIFS filesystem
+ * with internal bad block correction. Therefore we must skip checking this area.
+*/
+static void nand_do_badscan(struct ra_nand_chip *ra, loff_t from, size_t count)
+{
+	loff_t block_end;
+	// check if scan process is not fully completed yet
+	if (need_block_check) {
+		// pass negative value for full bad scanning
+		if (from != -1) {
+			// get end block for reading. check bad must include this block.
+			block_end = from + count;
+			// make scan if end block next after last checked block
+			if (block_end > next_block_check) {
+				if (next_block_check != 0) {
+					// start scan from last checked block
+					from = next_block_check;
+				}
+				printk(KERN_INFO "ralink_nand: checking bads from addr:%llx to addr:%llx", from, block_end);
+				// do bad block check until block_end or nand_block_checkbad is false
+				while(from < block_end &&
+					(need_block_check = nand_block_checkbad(ra, from)) == 1) {
+					from += CFG_BLOCKSIZE;
+				}
+				// store next block for check
+				next_block_check = from;
+			}
+			// now we ready for reading data
+		} else {
+			// finally scan whole flash
+			printk(KERN_INFO "ralink_nand: complete checking bads from addr:%llx", next_block_check);
+			while((need_block_check = nand_block_checkbad(ra, next_block_check)) == 1) {
+				next_block_check += CFG_BLOCKSIZE;
+			}
+		}
+	}
+}
+
 /**
  * nand_do_read_ops - [Internal] Read data with ECC
  *
@@ -1829,6 +1880,9 @@ static int nand_do_read_ops(struct ra_nand_chip *ra, loff_t from,
 	if (data == 0)
 		datalen = 0;
 
+	// make bad scan to avoid error while read
+	nand_do_badscan(ra, from, ops->len);
+
 	while(datalen || ooblen) {
 		int len;
 		int ret;
@@ -1841,7 +1895,7 @@ static int nand_do_read_ops(struct ra_nand_chip *ra, loff_t from,
 			return -EIO;
 
 		page = (int)((addr & ((1<<ra->chip_shift)-1)) >> ra->page_shift); 
-#ifdef SKIP_BAD_BLOCK
+#if defined (SKIP_BAD_BLOCK)
 		do {
 			int newpage = page_remap(ra, page);
 			if (newpage < 0)
@@ -2059,6 +2113,7 @@ static int ramtd_nand_readoob(struct mtd_info *mtd, loff_t from,
 	return ret;
 }
 
+#if !defined (JFFS2_WORKAROUND)
 /**
  * nand_write_oob - [MTD Interface] NAND write data and/or out-of-band
  * @mtd:	MTD device structure
@@ -2079,6 +2134,7 @@ static int ramtd_nand_writeoob(struct mtd_info *mtd, loff_t to,
 
 	return ret;
 }
+#endif // JFFS2_WORKAROUND
 
 /**
  * nand_block_isbad - [MTD Interface] Check if block at offset is bad
@@ -2116,41 +2172,38 @@ static int ramtd_nand_block_markbad(struct mtd_info *mtd, loff_t ofs)
 	return ret;
 }
 
-#ifdef SKIP_BAD_BLOCK
-
+#if defined (SKIP_BAD_BLOCK)
 static int get_start_end_block(struct ra_nand_chip *ra, int block, int *start_blk, int *end_blk)
 {
-	int i, end_blk_last, part_num = ARRAY_SIZE(rt2880_partitions);
-
-	*start_blk = 0;
-	end_blk_last = 0;
+        int i, end_blk_last, er_shift;
+	er_shift = ra->erase_shift;
 
 	for (i = 0; i < part_num; i++) {
-		if (rt2880_partitions[i].offset == MTDPART_OFS_APPEND)
-			*start_blk = end_blk_last;
-		else
-			*start_blk = (int)(rt2880_partitions[i].offset >> ra->erase_shift);
-		end_blk_last = *start_blk + (int)(rt2880_partitions[i].size >> ra->erase_shift);
-		
+	        uint64_t off = mtd_parts[i].offset;
+		uint64_t size = mtd_parts[i].size;
+
+		/* Skip partition with full flash */
+		if (size == MTDPART_SIZ_FULL)
+		    continue;
+
+		*start_blk = off >> er_shift;
+		end_blk_last = *start_blk + (size >> er_shift);
+
 		if (end_blk_last > *start_blk)
 			*end_blk = end_blk_last - 1;
 		else
 			*end_blk = end_blk_last;
 		
-		if ((block >= *start_blk) && (block <= *end_blk)) {
-#if !defined (CONFIG_MTD_NAND_USE_UBI_PART)
-#if defined (CONFIG_RT2880_ROOTFS_IN_FLASH)
-			/* use merged partition */
-			if (i == NAND_MTD_KERNEL_PART_IDX || i == NAND_MTD_ROOTFS_PART_IDX) {
-				*start_blk = (NAND_MTD_KERNEL_PART_OFFSET >> ra->erase_shift);
-				*end_blk = *start_blk + (NAND_MTD_KERNEL_PART_SIZE >> ra->erase_shift) - 1;
+		if (block >= *start_blk &&
+		    block <= *end_blk) {
+		        /* Use merged partition */
+		        if (i == kernel_idx || i == rootfs_idx) {
+			    *start_blk = firmware_offset_begin >> er_shift;
+			    *end_blk = *start_blk + (firmware_size >> er_shift) - 1;
 			}
-#endif
-#endif
 			return 0;
 		}
 	}
-
 	return -1;
 }
 
@@ -2320,12 +2373,30 @@ static int page_remap(struct ra_nand_chip *ra, int page)
 	return -1;
 }
 
+static inline bool is_rwfs_exists(void)
+{
+	return rwfs_offset_begin ? true : false;
+}
+
+static inline bool is_rwfs_off(uint32_t off)
+{
+        if (off >= rwfs_offset_begin &&
+	    off <= rwfs_offset_end)
+	        return true;
+
+	return false;
+}
+
 static int is_skip_bad_block(struct ra_nand_chip *ra, int page)
 {
-#if defined (CONFIG_MTD_UBI) || defined (CONFIG_MTD_UBI_MODULE)
-	if ((page << ra->page_shift) >= UBI_PART_START_OFFSET)
-		return 0;
-#endif
+	if (is_rwfs_exists()) {
+		uint32_t off = page << ra->page_shift;
+
+		/* Disable skip bad block for RWFS. */
+		if (is_rwfs_off(off))
+			return 0;
+	}
+
 	return 1;
 }
 
@@ -2357,19 +2428,33 @@ static struct nand_ecclayout ra_oob_layout_2k = {
 	.oobavail = 16 - (CONFIG_ECC_BYTES + 1),
 };
 
+static struct mtd_partition *mtd_part_find_by_name(const char *name, int8_t *idx)
+{
+        int i;
+
+	for (i = 0; i < part_num; i++) {
+	        struct mtd_partition *mp = mtd_parts + i;
+
+		if (mp->name && !strcmp(name, mp->name)) {
+		        if (idx)
+			        *idx = i;
+			return mp;
+		}
+	}
+
+	return NULL;
+}
+
 static int __init ra_nand_init(void)
 {
 	struct ra_nand_chip *ra;
+	int err = 0;
 	int alloc_size, bbt_size, buffers_size;
-#if !defined (CONFIG_MTD_NAND_USE_UBI_PART)
-	uint32_t kernel_size = 0x200000;
-#if defined (CONFIG_RT2880_ROOTFS_IN_FLASH) && defined (CONFIG_ROOTFS_IN_FLASH_NO_PADDING)
-	_ihdr_t hdr;
-	loff_t offs;
-	size_t ret_len = 0;
-	int check;
-#endif
-#endif
+	const char *s;
+	char rootfs_name[] = "RootFS";
+	char kernel_name[] = "Kernel";
+	char fwstub_name[] = "Firmware_Stub";
+	struct mtd_partition *mp;
 
 	if (ra_check_flash_type() != BOOT_FROM_NAND)
 		return 0;
@@ -2420,55 +2505,82 @@ static int __init ra_nand_init(void)
 	ranfc_mtd->size		= CONFIG_NUMCHIPS * CFG_CHIPSIZE;
 	ranfc_mtd->erasesize	= CFG_BLOCKSIZE;
 	ranfc_mtd->writesize	= CFG_PAGESIZE;
+	ranfc_mtd->writebufsize = CFG_PAGESIZE;
 	ranfc_mtd->oobsize	= CFG_PAGE_OOBSIZE;
 	ranfc_mtd->oobavail	= ra->oob->oobavail;
 	ranfc_mtd->ecclayout	= ra->oob;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0)
 	ranfc_mtd->_erase	= ramtd_nand_erase;
 	ranfc_mtd->_read	= ramtd_nand_read;
 	ranfc_mtd->_write	= ramtd_nand_write;
 	ranfc_mtd->_read_oob	= ramtd_nand_readoob;
+#if defined (JFFS2_WORKAROUND)
+	ranfc_mtd->_write_oob	= NULL;
+#else
 	ranfc_mtd->_write_oob	= ramtd_nand_writeoob;
+#endif
 	ranfc_mtd->_block_isbad		= ramtd_nand_block_isbad;
 	ranfc_mtd->_block_markbad	= ramtd_nand_block_markbad;
-#else
-	ranfc_mtd->erase 	= ramtd_nand_erase;
-	ranfc_mtd->read		= ramtd_nand_read;
-	ranfc_mtd->write	= ramtd_nand_write;
-	ranfc_mtd->read_oob	= ramtd_nand_readoob;
-	ranfc_mtd->write_oob	= ramtd_nand_writeoob;
-	ranfc_mtd->block_isbad		= ramtd_nand_block_isbad;
-	ranfc_mtd->block_markbad	= ramtd_nand_block_markbad;
-#endif
+
 	ranfc_mtd->priv = ra;
 
 	ranfc_mtd->owner = THIS_MODULE;
 	ra->controller = &ra->hwcontrol;
 	mutex_init(ra->controller);
 
-#if !defined (CONFIG_MTD_NAND_USE_UBI_PART)
-#if defined (CONFIG_RT2880_ROOTFS_IN_FLASH) && defined (CONFIG_ROOTFS_IN_FLASH_NO_PADDING)
-	/* try to trigger nand_bbt_set, make the following read operation success */
-	check = NAND_MTD_KERNEL_PART_OFFSET;
-	while (nand_block_checkbad(ra, check)) {
-		check += ranfc_mtd->erasesize;
+	// start parse partitions
+	part_num = parse_mtd_partitions(ranfc_mtd, part_probes, &mtd_parts, 0);
+	if (part_num > 0) {
+	    err = add_mtd_partitions(ranfc_mtd, mtd_parts, part_num);
+	} else {
+	    // NOTE: if parse_mtd_partitions <= 0 then mtd_parts is not changed (see mtd_device_parse_register code). So do not free memory on it
+	    err = -1;
+	    printk("No partitions found on a flash.");
 	}
-	offs = NAND_MTD_KERNEL_PART_OFFSET;
-	memset(&hdr, 0, sizeof(hdr));
-	ramtd_nand_read(ranfc_mtd, offs, sizeof(hdr), &ret_len, (u_char *)(&hdr));
-	if (ret_len == sizeof(hdr) && hdr.ih_ksz != 0)
-		kernel_size = ntohl(hdr.ih_ksz);
-#endif
-	/* calculate partition table */
-	recalc_partitions(ranfc_mtd->size, kernel_size);
-#else
-	/* calculate partition table for UBIFS */
-	recalc_partitions(ranfc_mtd->size);
-#endif
+	if (err)
+	    goto out_err;
 
-	/* register the partitions */
-	return mtd_device_register(ranfc_mtd, rt2880_partitions, ARRAY_SIZE(rt2880_partitions));
+	err = -ENXIO;
+
+	s = kernel_name;
+	mp = mtd_part_find_by_name(s, &kernel_idx);
+	if (mp == NULL)
+	        goto out_err_part;
+
+	s = rootfs_name;
+	mp = mtd_part_find_by_name(s, &rootfs_idx);
+	if (mp == NULL)
+	        goto out_err_part;
+
+	s = fwstub_name;
+	mp = mtd_part_find_by_name(s, NULL);
+	if (mp == NULL)
+	        goto out_err_part;
+
+	firmware_offset_begin = mp->offset;
+	firmware_size = mp->size;
+
+	/* Optional partition */
+	mp = mtd_part_find_by_name("RWFS", NULL);
+	if (mp) {
+		rwfs_offset_begin = mp->offset;
+		rwfs_offset_end = mp->offset + mp->size - 1;
+	}
+
+	// scan remaining nand blocks
+	nand_do_badscan(ra, -1, 0);
+	return 0;
+out_err_part:
+	printk("Unable to find partition \"%s\"\n", s);
+
+out_err:
+	printk(KERN_ERR "%s: [%s] failed, err = %d!\n", "Ralink NFC", __FUNCTION__, err);
+
+	if (mtd_parts != NULL)
+	    kfree(mtd_parts);
+	kfree(ra);
+	ranfc_mtd = NULL;
+	return err;
 }
 
 static void __exit ra_nand_exit(void)
@@ -2477,9 +2589,9 @@ static void __exit ra_nand_exit(void)
 
 	if (ranfc_mtd) {
 		ra = (struct ra_nand_chip  *)ranfc_mtd->priv;
-		mtd_device_unregister(ranfc_mtd);
-		if (ra)
-			kfree(ra);
+		if (mtd_parts != NULL)
+		    kfree(mtd_parts);
+		kfree(ra);
 		ranfc_mtd = NULL;
 	}
 }
