@@ -705,7 +705,7 @@ static void prom_init_sysclk(void)
 	vendor_name = "Ralink";
 #endif
 
-	printk("\n%s SoC: %s, RevID: %04X, RAM: %s, XTAL: %dMHz\n",
+	printk(KERN_INFO "%s SoC: %s, RevID: %04X, RAM: %s, XTAL: %dMHz\n",
 		vendor_name,
 		asic_id,
 		ralink_asic_rev_id & 0xffff,
@@ -713,7 +713,7 @@ static void prom_init_sysclk(void)
 		xtal
 	);
 
-	printk("CPU/OCP/SYS frequency: %d/%d/%d MHz\n",
+	printk(KERN_INFO "CPU/OCP/SYS frequency: %d/%d/%d MHz\n",
 		mips_cpu_feq / 1000 / 1000,
 		ocp_freq / 1000 / 1000,
 		surfboard_sysclk / 1000 / 1000

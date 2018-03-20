@@ -591,7 +591,7 @@ static void __exit fini(void)
 
 static int __init init(void)
 {
-	printk("nf_nat_rtsp v" IP_NF_RTSP_VERSION " loading\n");
+	printk(KERN_INFO "nf_nat_rtsp v" IP_NF_RTSP_VERSION " loading\n");
 
 	BUG_ON(nf_nat_rtsp_hook);
 	rcu_assign_pointer(nf_nat_rtsp_hook, nf_nat_rtsp);

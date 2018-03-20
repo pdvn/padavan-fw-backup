@@ -285,7 +285,7 @@ void __init arch_init_irq(void)
 				ARRAY_SIZE(gic_intr_map), MIPS_GIC_IRQ_BASE);
 
 		GICREAD(GIC_REG(SHARED, GIC_SH_REVISIONID), gic_rev);
-		printk("MIPS GIC RevID: %d.%d\n", (gic_rev >> 8) & 0xff, gic_rev & 0xff);
+		printk(KERN_INFO "MIPS GIC RevID: %d.%d\n", (gic_rev >> 8) & 0xff, gic_rev & 0xff);
 
 		if (cpu_has_vint) {
 			pr_info("Setting up vectored interrupts\n");

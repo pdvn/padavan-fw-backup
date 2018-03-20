@@ -1742,7 +1742,7 @@ ip_set_init(void)
 		return ret;
 	}
 
-	pr_notice("ip_set: protocol %u\n", IPSET_PROTOCOL);
+	pr_info("ip_set: protocol %u\n", IPSET_PROTOCOL);
 	return 0;
 }
 

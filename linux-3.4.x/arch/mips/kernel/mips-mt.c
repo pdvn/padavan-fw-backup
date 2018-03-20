@@ -234,7 +234,7 @@ void mips_mt_set_cpuoptions(void)
 		__asm__ __volatile("sync");
 		write_c0_config7(nconfig7);
 		ehb();
-		printk("Config7: 0x%08x\n", read_c0_config7());
+		printk(KERN_INFO "Config7: 0x%08x\n", read_c0_config7());
 	}
 
 	/* Report Cache management debug options */

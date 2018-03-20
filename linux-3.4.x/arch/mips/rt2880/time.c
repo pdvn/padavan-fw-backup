@@ -272,7 +272,7 @@ static int udelay_recal(void)
 	for (i=0; i < NR_CPUS; i++)
 		cpu_data[i].udelay_val = lpj;
 
-	printk("%d CPUs re-calibrate udelay (lpj = %d)\n", nr_cpu_ids, lpj);
+	printk(KERN_INFO "%d CPUs re-calibrate udelay (lpj = %d)\n", nr_cpu_ids, lpj);
 
 #if defined (CONFIG_RALINK_CPUSLEEP)
 	/* set CPU ratio for sleep mode */

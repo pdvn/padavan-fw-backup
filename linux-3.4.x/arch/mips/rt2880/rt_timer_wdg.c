@@ -227,14 +227,14 @@ int __init ralink_wdt_init_module(void)
 
 	set_wdg_timer_ebl(TMR1CTL, 1);
 
-	printk("Load Ralink WDG Timer Module\n");
+	printk(KERN_INFO "Load Ralink WDG Timer Module\n");
 
 	return 0;
 }
 
 void __exit ralink_wdt_exit_module(void)
 {
-	printk("Unload Ralink WDG Timer Module\n");
+	printk(KERN_INFO "Unload Ralink WDG Timer Module\n");
 
 	set_wdg_timer_ebl(TMR1CTL, 0);
 	del_timer_sync(&wdg_timer);
