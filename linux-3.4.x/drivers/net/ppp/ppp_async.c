@@ -356,7 +356,14 @@ ppp_asynctty_receive(struct tty_struct *tty, const unsigned char *buf,
 	if (!skb_queue_empty(&ap->rqueue))
 		tasklet_schedule(&ap->tsk);
 	ap_put(ap);
-	tty_unthrottle(tty);
+
+	/*
+	 * tty_unthrottle obtain mutex in irq context on low_latency flag is set.
+	 * TTY_THROTTLED flag set under PTY only. We can safe check this flag to
+	 * prevent unneeded call tty_unthrottle for most cases.
+	 */
+	if (test_bit(TTY_THROTTLED, &tty->flags))
+		tty_unthrottle(tty);
 }
 
 static void
