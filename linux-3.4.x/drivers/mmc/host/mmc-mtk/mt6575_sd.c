@@ -1813,17 +1813,20 @@ static void msdc_ops_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 /* ops.get_ro */
 static int msdc_ops_get_ro(struct mmc_host *mmc)
 {
+/*
     struct msdc_host *host = mmc_priv(mmc);
     u32 base = host->base;
     unsigned long flags;
     int ro = 0;
 
-    if (host->hw->flags & MSDC_WP_PIN_EN) { /* set for card */
+    if (host->hw->flags & MSDC_WP_PIN_EN) {
         spin_lock_irqsave(&host->lock, flags);
         ro = (sdr_read32(MSDC_PS) >> 31);
         spin_unlock_irqrestore(&host->lock, flags);
     }
     return ro;
+*/
+    return 0;
 }
 
 /* ops.get_cd */
