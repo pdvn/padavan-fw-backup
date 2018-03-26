@@ -625,7 +625,11 @@ struct nvram_pair router_defaults[] = {
 	{ "watchdog_cpu", "0" },
 	{ "front_led_all", "1" },
 	{ "front_led_wan", "2" },
+#if defined (BOARD_GPIO_LED_WAN) && defined (BOARD_GPIO_LED_WAN_PHY)
+	{ "front_led_lan", "2" },
+#else
 	{ "front_led_lan", "1" },
+#endif
 	{ "front_led_wif", "1" },
 	{ "front_led_usb", "1" },
 	{ "front_led_pwr", "1" },

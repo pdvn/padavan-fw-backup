@@ -100,6 +100,9 @@ dl_handle_link_wan(void)
 				int dl_state = (dl_status_wan && has_wan_gw4() && has_wan_ip4(1)) ? 1 : 0;
 				LED_CONTROL(BOARD_GPIO_LED_WAN, (dl_state) ? LED_ON : LED_OFF);
 			}
+#if defined (BOARD_GPIO_LED_WAN_PHY)
+			LED_CONTROL(BOARD_GPIO_LED_WAN_PHY, (dl_status_wan) ? LED_OFF : LED_ON);
+#endif
 		}
 #endif
 #if defined (BOARD_GPIO_LED_LAN)
@@ -293,6 +296,10 @@ dl_update_leds(void)
 		else if (front_led_x == 3)
 			dl_state = get_internet_state_cached();
 	}
+#if defined (BOARD_GPIO_LED_WAN_PHY)
+	if (front_led_x > 1)
+		LED_CONTROL(BOARD_GPIO_LED_WAN_PHY, (dl_status_wan) ? LED_OFF : LED_ON);
+#endif
 	LED_CONTROL(BOARD_GPIO_LED_WAN, (dl_state) ? LED_ON : LED_OFF);
 #endif
 #if defined (BOARD_GPIO_LED_LAN)

@@ -210,7 +210,29 @@ init_gpio_leds_buttons(void)
 	/* hide WAN soft-led  */
 #if defined (BOARD_GPIO_LED_WAN)
 	cpu_gpio_set_pin_direction(BOARD_GPIO_LED_WAN, 1);
+#if defined (BOARD_GPIO_LED_WAN_INVERTED)
+	cpu_gpio_set_pin(BOARD_GPIO_LED_WAN, LED_ON);
+#else
 	cpu_gpio_set_pin(BOARD_GPIO_LED_WAN, LED_OFF);
+#endif
+	/* hide WAN PHY soft-led */
+#if defined (BOARD_GPIO_LED_WAN_PHY)
+	cpu_gpio_set_pin_direction(BOARD_GPIO_LED_WAN_PHY, 1);
+	if (nvram_get_int("front_led_wan") > 1) {
+#if defined (BOARD_GPIO_LED_WAN_PHY_INVERTED)
+		cpu_gpio_set_pin(BOARD_GPIO_LED_WAN_PHY, LED_OFF);
+#else
+		cpu_gpio_set_pin(BOARD_GPIO_LED_WAN_PHY, LED_ON);
+#endif
+	} else {
+		// if wan mode no detect internet when hide it
+#if defined (BOARD_GPIO_LED_WAN_PHY_INVERTED)
+		cpu_gpio_set_pin(BOARD_GPIO_LED_WAN_PHY, LED_ON);
+#else
+		cpu_gpio_set_pin(BOARD_GPIO_LED_WAN_PHY, LED_OFF);
+#endif
+	}
+#endif
 #endif
 	/* hide LAN soft-led  */
 #if defined (BOARD_GPIO_LED_LAN)
@@ -679,7 +701,18 @@ LED_CONTROL(int gpio_led, int flag)
 #if defined (BOARD_GPIO_LED_WAN)
 	case BOARD_GPIO_LED_WAN:
 		front_led_x = nvram_get_int("front_led_wan");
+#if defined (BOARD_GPIO_LED_WAN_INVERTED)
+		flag = !flag;
+#endif
 		break;
+#if defined (BOARD_GPIO_LED_WAN_PHY)
+	case BOARD_GPIO_LED_WAN_PHY:
+		front_led_x = nvram_get_int("front_led_wan");
+#if defined (BOARD_GPIO_LED_WAN_PHY_INVERTED)
+		flag = !flag;
+#endif
+		break;
+#endif
 #endif
 #if defined (BOARD_GPIO_LED_LAN)
 	case BOARD_GPIO_LED_LAN:
@@ -910,6 +943,9 @@ shutdown_router(int level)
 	}
 #if defined (BOARD_GPIO_LED_WAN)
 	LED_CONTROL(BOARD_GPIO_LED_WAN, LED_OFF);
+#if defined (BOARD_GPIO_LED_WAN_PHY)
+	LED_CONTROL(BOARD_GPIO_LED_WAN_PHY, LED_OFF);
+#endif
 #endif
 
 	storage_save_time(10);
