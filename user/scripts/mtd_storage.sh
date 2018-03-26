@@ -17,7 +17,7 @@ func_get_mtd()
 	mtd_char=`echo $mtd_part | cut -d':' -f1`
 	mtd_hex=`echo $mtd_part | cut -d' ' -f2`
 	mtd_idx=`echo $mtd_char | cut -c4-5`
-	if [ -n "$mtd_idx" ] && [ $mtd_idx -ge 4 ] ; then
+	if [ -n "$mtd_idx" ] && [ $mtd_idx -ge 3 ] ; then
 		mtd_part_dev="/dev/mtdblock${mtd_idx}"
 		mtd_part_size=`echo $((0x$mtd_hex))`
 	else
