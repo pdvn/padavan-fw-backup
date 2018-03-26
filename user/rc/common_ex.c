@@ -17,6 +17,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <ctype.h>
 #include <errno.h>
 #include <time.h>
 #include <signal.h>
@@ -119,16 +120,6 @@ mac_conv2(const char *mac_nvkey, int idx, char *buf)
 	return (buf);
 }
 
-int
-valid_subver(char subfs)
-{
-	printf("validate subfs: %c\n", subfs);	// tmp test
-	if(((subfs >= 'a') && (subfs <= 'z' )) || ((subfs >= 'A') && (subfs <= 'Z' )))
-		return 1;
-	else
-		return 0;
-}
-
 void
 get_eeprom_params(void)
 {
@@ -146,7 +137,7 @@ get_eeprom_params(void)
 	char regspec_code[8];
 	char wps_pin[12];
 	char productid[16];
-	char fwver[8], fwver_sub[36];
+	char fwver[10], fwver_sub[36];
 
 #if (BOARD_5G_IN_SOC || !BOARD_HAS_5G_RADIO)
 	i_offset = OFFSET_MAC_ADDR_WSOC;
@@ -299,36 +290,32 @@ get_eeprom_params(void)
 		}
 	}
 #endif
-
-	/* read firmware header */
+	/* build firmware vesion vars */
+	snprintf(productid, sizeof(productid), "%s", BOARD_PID);
+#if defined(FWVERSTR)
+	if (sizeof(FWVERSTR) > 0 && sizeof(FWVERSTR) <= 9) {
+		// check if FWVERSTR have subversion code
+		strcpy(fwver_sub, FWVERSTR);
+		strcpy(fwver, fwver_sub);
+		// remove alphabet code from fwver if exist
+		if (isalpha(fwver[sizeof(FWVERSTR) - 2]))
+			fwver[sizeof(FWVERSTR) - 2] = 0;
+	} else {
+#endif
 	strcpy(fwver, "3.0.0.0");
 	strcpy(fwver_sub, fwver);
-	snprintf(productid, sizeof(productid), "%s", BOARD_PID);
-	memset(buffer, 0, sizeof(buffer));
-	i_ret = flash_mtd_read(MTD_PART_NAME_KERNEL, 0x20, buffer, 32);
-	if (i_ret < 0) {
-		nvram_set_temp("productid", "unknown");
-		nvram_set_temp("firmver", "unknown");
-	} else {
-		strncpy(productid, buffer + 4, 12);
-		productid[12] = 0;
-
-		if(valid_subver(buffer[27]))
-			sprintf(fwver_sub, "%d.%d.%d.%d%c", buffer[0], buffer[1], buffer[2], buffer[3], buffer[27]);
-		else
-			sprintf(fwver_sub, "%d.%d.%d.%d", buffer[0], buffer[1], buffer[2], buffer[3]);
-
-		sprintf(fwver, "%d.%d.%d.%d", buffer[0], buffer[1], buffer[2], buffer[3]);
+#if defined(FWVERSTR)
 	}
-
+#endif
 #if defined(FWBLDSTR)
 	if (sizeof(FWBLDSTR) > 0 && sizeof(FWBLDSTR) <= 4) {
 		strcat(fwver_sub, "-"FWBLDSTR);
 	}
 #endif
 #if defined(FWREVSTR)
-	if (sizeof(FWREVSTR) > 0 && sizeof(FWREVSTR) <= 9) {
-		strcat(fwver_sub, "_"FWREVSTR);
+	if (sizeof(FWREVSTR) > 0) {
+		// copy only 7 symbols of revision version
+		strncat(fwver_sub, "_"FWREVSTR, 8);
 	}
 #endif
 	nvram_set_temp("productid", trim_r(productid));
