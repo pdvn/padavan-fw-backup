@@ -640,6 +640,10 @@ KBUILD_CFLAGS += $(call cc-option,-fno-strict-overflow)
 # conserve stack if available
 KBUILD_CFLAGS += $(call cc-option,-fconserve-stack)
 
+# disable new loop optimization mode in gcc-4.8.x (and later) and
+# incorrect code generation in some situations
+KBUILD_CFLAGS += $(call cc-option,-fno-aggressive-loop-optimizations)
+
 # use the deterministic mode of AR if available
 KBUILD_ARFLAGS := $(call ar-option,D)
 
