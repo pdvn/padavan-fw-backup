@@ -8,6 +8,9 @@ SHDIR = $(ROOTDIR)/user/shared
 include $(SHDIR)/boards.mk
 include $(SHDIR)/cflags.mk
 
+CFLAGS += $(if $(TPLINK_HWID),-DTPLINK_HWID=$(TPLINK_HWID),)
+CFLAGS += $(if $(TPLINK_HWREV),-DTPLINK_HWREV=$(TPLINK_HWREV),)
+
 CFLAGS += -Wall -I. -I$(SHDIR) -I$(SHDIR)/include
 CFLAGS += -I$(USERDIR)/wireless_tools
 

@@ -29,7 +29,11 @@
 #include <sys/stat.h>
 #include <sys/reboot.h>
 
-#include <image.h>
+#if defined(TPLINK_HWID) && defined(TPLINK_HWREV)
+#include <image_tplink.h>
+#else
+#include <image_uimage.h>
+#endif
 
 #include "common.h"
 #include "httpd.h"
@@ -78,6 +82,62 @@ check_header_nvram(const char *buf, long *file_len)
 
 	return -1;
 }
+
+#if defined(TPLINK_HWID) && defined(TPLINK_HWREV)
+static int
+check_header_image(const char *buf, long *file_len)
+{
+	int res = -2;
+	unsigned int hw_id, hw_rev, boot_ofs, boot_len, root_ofs, root_len;
+	struct tplink_fw_header *hdr = (struct tplink_fw_header *)buf;
+	switch(hdr->version) {
+	case 1:
+		if (ntohl(hdr->v1.kernel_ofs) == sizeof(struct tplink_fw_header)) {
+			boot_ofs = ntohl(hdr->v1.boot_ofs);
+			boot_len = ntohl(hdr->v1.boot_len);
+			root_ofs = ntohl(hdr->v1.rootfs_ofs);
+			root_len = ntohl(hdr->v1.rootfs_len);
+			hw_id = ntohl(hdr->v1.hw_id);
+			hw_rev = ntohl(hdr->v1.hw_rev);
+		} else {
+			res = -1;
+		}
+		break;
+	case 2:
+	case 3:
+		if (ntohl(hdr->v2.kernel_ofs) == sizeof(struct tplink_fw_header)) {
+			boot_ofs = ntohl(hdr->v2.boot_ofs);
+			boot_len = ntohl(hdr->v2.boot_len);
+			root_ofs = ntohl(hdr->v2.rootfs_ofs);
+			root_len = ntohl(hdr->v2.rootfs_len);
+			hw_id = ntohl(hdr->v2.hw_id);
+			hw_rev = ntohl(hdr->v2.hw_rev);
+		} else {
+			res = -1;
+		}
+		break;
+	default:
+		res = -1;
+		break;
+	}
+	if (res == -1) {
+		httpd_log("%s: Incorrect %s header!", "Firmware update", "image");
+	} else {
+		if (boot_ofs != 0 || boot_len != 0) {
+			httpd_log("%s: Incorrect image. Please strip uboot from it", "Firmware update");
+		} else if (hw_id != TPLINK_HWID) {
+			httpd_log("%s: Incorrect image hw id: 0x%X! Expected is 0x%X.", "Firmware update", hw_id, TPLINK_HWID);
+		} else if (hw_rev != TPLINK_HWREV) {
+			httpd_log("%s: Incorrect image hw rev: 0x%X! Expected is 0x%X.", "Firmware update", hw_rev, TPLINK_HWREV);
+		} else {
+			*file_len = (long)(root_ofs + root_len); // need padding?
+			res = 0;
+		}
+	}
+	return res;
+}
+
+#else
 
 static int
 check_header_image(const char *buf, long *file_len)
@@ -188,6 +248,7 @@ checkcrc_fail:
 
 	return ret;
 }
+#endif
 
 static int
 do_upload_file(FILE *stream, int clen, char *bndr, const char *fn, const char *obj_name, check_header_t func_hdr, int hdr_size)
@@ -234,25 +295,25 @@ do_upload_file(FILE *stream, int clen, char *bndr, const char *fn, const char *o
 		count = fread(ptr + offset, 1, MIN(clen, UPLOAD_BUF_SIZE-offset), stream);
 		if (count <= 0)
 			goto err;
-		
+
 		clen -= count;
-		
+
 		if (cnt == 0) {
 			if (count + offset < hdr_size) {
 				offset += count;
 				continue;
 			}
-			
+
 			count += offset;
 			offset = 0;
 			cnt++;
-			
+
 			if (func_hdr(ptr, &filelen) != 0)
 				goto err;
-			
+
 			valid_header = 1;
 		}
-		
+
 		/* check boundary marker (after \r\n or \n) */
 		if (bndr) {
 			char *pb = memmem(buf, 64 + count, bndr, strlen(bndr));
@@ -269,13 +330,13 @@ do_upload_file(FILE *stream, int clen, char *bndr, const char *fn, const char *o
 				}
 			}
 		}
-		
+
 		if (count > filelen)
 			count = filelen;
-		
+
 		filelen -= count;
 		fwrite(ptr, 1, count, fp);
-		
+
 		if (bndr && count >= 64)
 			memcpy(buf, ptr + count - 64, 64);
 	}
@@ -287,7 +348,7 @@ do_upload_file(FILE *stream, int clen, char *bndr, const char *fn, const char *o
 	while (clen-- > 0) {
 		if((ch = fgetc(stream)) == EOF)
 			break;
-		
+
 		if (filelen > 0) {
 			fwrite(&ch, 1, 1, fp);
 			filelen--;
@@ -332,12 +393,16 @@ do_upgrade_fw_post(const char *url, FILE *stream, int clen, char *boundary)
 	/* reclaim RAM from caches */
 	fput_int("/proc/sys/vm/drop_caches", 1);
 
+#if defined(TPLINK_HWID) && defined(TPLINK_HWREV)
+	ret = do_upload_file(stream, clen, NULL, upload_file, "file", check_header_image, sizeof(struct tplink_fw_header));
+#else
 	ret = do_upload_file(stream, clen, NULL, upload_file, "file", check_header_image, sizeof(image_header_t));
 	if (ret == 0) {
 		ret = check_crc_image(upload_file);
 		if (ret != 0)
 			unlink(upload_file);
 	}
+#endif
 }
 
 void
