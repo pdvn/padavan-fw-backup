@@ -1,3 +1,14 @@
+v1.3.11 (March 7, 2018)
+* Build packages for Xenial by default (Simon Deziel)
+* Bump d/compat to 9 (Simon Deziel)
+* Drop d/repack.sh script and refresh d/watch (Simon Deziel)
+* Refresh d/control by partly sync'ing from Debian (Simon Deziel)
+* Use HTTPS URL in d/copyright (Simon Deziel)
+
+v1.3.10.1 (November 16, 2017)
+* Have max retries as a configuration [Samir Hussain]
+* Add more into to "select timeout" debug message [Samir Hussain]
+
 v1.3.10 (August 2, 2017)
 * Update STRLEN in file.h to 100 (from 80) [Samir Hussain]
 * xl2tpd-control: fix xl2tpd hanged up in "fopen" [wendy2001011]
