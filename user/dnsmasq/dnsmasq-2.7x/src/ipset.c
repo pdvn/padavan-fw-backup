@@ -157,7 +157,7 @@ int add_to_ipset(const char *setname, const struct all_addr *ipaddr, int flags, 
   if (flags & F_IPV6)
       af = AF_INET6;
 #endif
-
+  
   ret = new_add_to_ipset(setname, ipaddr, af, remove);
   if (ret == -1)
      my_syslog(LOG_ERR, _("failed to update ipset %s: %s"), setname, strerror(errno));
