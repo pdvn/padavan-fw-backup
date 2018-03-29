@@ -353,6 +353,8 @@ write_textarea_to_file(const char* value, const char* dir_name, const char* file
 			else
 				chmod(real_path, 0644);
 			ret = 1;
+			if (nvram_get_int("nvram_manual") != 1)
+				doSystem("/sbin/mtd_storage.sh %s", "save");			
 		}
 	}
 
@@ -713,6 +715,10 @@ ej_dump(int eid, webs_t wp, int argc, char **argv)
 		snprintf(filename, sizeof(filename), "%s/%s", STORAGE_SCRIPTS_DIR, file+8);
 	else if (strncmp(file, "crontab.", 8)==0)
 		snprintf(filename, sizeof(filename), "%s/%s", STORAGE_CRONTAB_DIR, nvram_safe_get("http_username"));
+	else if (strncmp(file, "torconf.", 8)==0)
+		snprintf(filename, sizeof(filename), "%s/%s", STORAGE_TORCONF_DIR, file+8);
+	else if (strncmp(file, "privoxy.", 8)==0)
+		snprintf(filename, sizeof(filename), "%s/%s", STORAGE_PRIVOXY_DIR, file+8);
 	else
 		snprintf(filename, sizeof(filename), "%s/%s", "/tmp", file);
 
@@ -909,6 +915,18 @@ validate_asp_apply(webs_t wp, int sid)
 					restart_needed_bits |= event_mask;
 			} else if (!strncmp(v->name, "ovpncli.", 8)) {
 				if (write_textarea_to_file(value, STORAGE_OVPNCLI_DIR, file_name))
+					restart_needed_bits |= event_mask;
+			}
+#endif
+#if defined(APP_TOR)
+			else if (!strncmp(v->name, "torconf.", 8)) {
+				if (write_textarea_to_file(value, STORAGE_TORCONF_DIR, file_name))
+					restart_needed_bits |= event_mask;
+			}
+#endif
+#if defined(APP_PRIVOXY)
+			else if (!strncmp(v->name, "privoxy.", 8)) {
+				if (write_textarea_to_file(value, STORAGE_PRIVOXY_DIR, file_name))
 					restart_needed_bits |= event_mask;
 			}
 #endif
@@ -2062,6 +2080,26 @@ ej_firmware_caps_hook(int eid, webs_t wp, int argc, char **argv)
 #else
 	int found_app_sshd = 0;
 #endif
+#if defined(APP_TOR)
+	int found_app_tor = 1;
+#else
+	int found_app_tor = 0;
+#endif
+#if defined(APP_PRIVOXY)
+	int found_app_privoxy = 1;
+#else
+	int found_app_privoxy = 0;
+#endif
+#if defined(APP_DNSCRYPT)
+	int found_app_dnscrypt = 1;
+#else
+	int found_app_dnscrypt = 0;
+#endif
+#if defined(SUPPORT_WPAD)
+	int found_support_wpad = 1;
+#else
+	int found_support_wpad = 0;
+#endif
 #if defined(APP_XUPNPD)
 	int found_app_xupnpd = 1;
 #else
@@ -2188,6 +2226,10 @@ ej_firmware_caps_hook(int eid, webs_t wp, int argc, char **argv)
 		"function found_srv_u2ec() { return %d;}\n"
 		"function found_srv_lprd() { return %d;}\n"
 		"function found_app_sshd() { return %d;}\n"
+		"function found_app_tor() { return %d;}\n"
+		"function found_app_privoxy() { return %d;}\n"
+		"function found_app_dnscrypt() { return %d;}\n"
+		"function found_support_wpad() { return %d;}\n"
 		"function found_app_xupnpd() { return %d;}\n",
 		found_utl_hdparm,
 		found_app_ovpn,
@@ -2203,6 +2245,10 @@ ej_firmware_caps_hook(int eid, webs_t wp, int argc, char **argv)
 		found_srv_u2ec,
 		found_srv_lprd,
 		found_app_sshd,
+		found_app_tor,
+		found_app_privoxy,
+		found_app_dnscrypt,
+		found_support_wpad,
 		found_app_xupnpd
 	);
 
@@ -3545,6 +3591,16 @@ struct mime_handler mime_handlers[] = {
 	{ "restore_nv.cgi*", "text/html", no_cache_IE, do_restore_nv_post, do_restore_nv_cgi, 1 },
 	{ "restore_st.cgi*", "text/html", no_cache_IE, do_restore_st_post, do_restore_st_cgi, 1 },
 
+#if defined(APP_DNSCRYPT)
+	/* DNSCrypt proxy resolvers file */
+	{ "**.csv", "text/csv", NULL, NULL, do_file, 0 }, // qwe
+#endif
+#if defined(SUPPORT_WPAD)
+	/* Support wpad.dat file */
+	{ "wpad.da", "application/x-ns-proxy-autoconfig", no_cache_IE, NULL, do_file, 0 }, // qwe
+	{ "wpad.dat", "application/x-ns-proxy-autoconfig", no_cache_IE, NULL, do_file, 0 }, // qwe
+	{ "proxy.pac", "application/x-ns-proxy-autoconfig", no_cache_IE, NULL, do_file, 0 }, // qwe
+#endif
 	{ NULL, NULL, NULL, NULL, NULL, 0 }
 };
 

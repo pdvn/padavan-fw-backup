@@ -64,6 +64,8 @@
 #define VPN_CLIENT_PPPD_OPTIONS		"/tmp/ppp/options.vpnc"
 #define VPN_CLIENT_UPDOWN_SCRIPT	"/etc/storage/vpnc_server_script.sh"
 
+#define WPAD_DAT_SCRIPT				"/etc/storage/wpad.dat"
+
 #define IPT_CHAIN_NAME_VPN_LIST		"vpnlist"
 #define IPT_CHAIN_NAME_MAC_LIST		"maclist"
 #define IPT_CHAIN_NAME_URL_LIST		"urllist"
@@ -512,6 +514,25 @@ int start_services_once(int is_ap_mode);
 void stop_services(int stopall);
 void stop_services_lan_wan(void);
 void stop_misc(void);
+
+#if defined(APP_TOR)
+int is_tor_run(void);
+void stop_tor(void);
+void run_tor(void);
+void restart_tor(void);
+#endif
+#if defined(APP_PRIVOXY)
+int is_privoxy_run(void);
+void stop_privoxy(void);
+void run_privoxy(void);
+void restart_privoxy(void);
+#endif
+#if defined(APP_DNSCRYPT)
+int is_dnscrypt_run(void);
+void stop_dnscrypt(void);
+void run_dnscrypt(void);
+void restart_dnscrypt(void);
+#endif
 
 /* services_ex.c */
 int fill_dnsmasq_servers(void);

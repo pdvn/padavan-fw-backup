@@ -63,6 +63,11 @@ function initial(){
 		showhide_div('row_dservers', 0);
 		showhide_div('row_hosts', 0);
 	}
+	if(!found_support_wpad()){
+		showhide_div('row_wpad', 0);
+	}else{
+		if(get_ap_mode()) showhide_div('row_wpad', 0);
+	}
 
 	if((inet_network(document.form.lan_ipaddr.value)>=inet_network(document.form.dhcp_start.value))&&
 	   (inet_network(document.form.lan_ipaddr.value)<=inet_network(document.form.dhcp_end.value)))
@@ -525,6 +530,14 @@ function changeBgColor(obj, num){
                                                 <a href="javascript:spoiler_toggle('spoiler_hosts')"><span><#CustomConf#> "hosts"</span></a>
                                                 <div id="spoiler_hosts" style="display:none;">
                                                     <textarea rows="16" wrap="off" spellcheck="false" maxlength="8192" class="span12" name="dnsmasq.hosts" style="font-family:'Courier New'; font-size:12px;"><% nvram_dump("dnsmasq.hosts",""); %></textarea>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <tr id="row_wpad">
+                                            <td colspan="2" style="padding-bottom: 0px;">
+                                                <a href="javascript:spoiler_toggle('spoiler_wpad')"><span><#LANHostConfig_WPAD#> "wpad.dat"</span></a>
+                                                <div id="spoiler_wpad" style="display:none;">
+                                                    <textarea rows="16" wrap="off" spellcheck="false" maxlength="65536" class="span12" name="scripts.wpad.dat" style="font-family:'Courier New'; font-size:12px;"><% nvram_dump("scripts.wpad.dat",""); %></textarea>
                                                 </div>
                                             </td>
                                         </tr>

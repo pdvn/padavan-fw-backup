@@ -233,6 +233,127 @@ restart_sshd(void)
 }
 #endif
 
+#if defined(APP_TOR)
+int
+is_tor_run(void)
+{
+	if (check_if_file_exist("/usr/sbin/tor"))
+	{
+		if (pids("tor"))
+			return 1;
+	}
+	
+	return 0;
+}
+
+void
+stop_tor(void)
+{
+	eval("/usr/bin/tor.sh", "stop");
+}
+
+void
+start_tor(void)
+{
+	int tor_mode = nvram_get_int("tor_enable");
+
+	if (tor_mode == 1)
+		eval("/usr/bin/tor.sh", "start");
+}
+
+void
+restart_tor(void)
+{
+	int is_run_before = is_tor_run();
+	int is_run_after;
+
+	stop_tor();
+	start_tor();
+
+	is_run_after = is_tor_run();
+}
+#endif
+#if defined(APP_PRIVOXY)
+int
+is_privoxy_run(void)
+{
+	if (check_if_file_exist("/usr/sbin/privoxy"))
+	{
+		if (pids("privoxy"))
+			return 1;
+	}
+	
+	return 0;
+}
+
+void
+stop_privoxy(void)
+{
+	eval("/usr/bin/privoxy.sh", "stop");
+}
+
+void
+start_privoxy(void)
+{
+	int privoxy_mode = nvram_get_int("privoxy_enable");
+
+	if (privoxy_mode == 1)
+		eval("/usr/bin/privoxy.sh", "start");
+}
+
+void
+restart_privoxy(void)
+{
+	int is_run_before = is_privoxy_run();
+	int is_run_after;
+
+	stop_privoxy();
+	start_privoxy();
+
+	is_run_after = is_privoxy_run();
+}
+#endif
+#if defined(APP_DNSCRYPT)
+int
+is_dnscrypt_run(void)
+{
+	if (check_if_file_exist("/usr/sbin/dnscrypt-proxy"))
+	{
+		if (pids("dnscrypt-proxy"))
+			return 1;
+	}
+	
+	return 0;
+}
+
+void
+stop_dnscrypt(void)
+{
+	eval("/usr/bin/dnscrypt-proxy.sh", "stop");
+}
+
+void
+start_dnscrypt(void)
+{
+	int dnscrypt_mode = nvram_get_int("dnscrypt_enable");
+
+	if (dnscrypt_mode > 0)
+		eval("/usr/bin/dnscrypt-proxy.sh", "start");
+}
+
+void
+restart_dnscrypt(void)
+{
+	int is_run_before = is_dnscrypt_run();
+	int is_run_after;
+
+	stop_dnscrypt();
+	start_dnscrypt();
+
+	is_run_after = is_dnscrypt_run();
+}
+#endif
+
 void
 start_httpd(int restart_fw)
 {
@@ -412,6 +533,15 @@ start_services_once(int is_ap_mode)
 #if defined(APP_SSHD)
 	start_sshd();
 #endif
+#if defined(APP_TOR)
+	start_tor();
+#endif
+#if defined(APP_PRIVOXY)
+	start_privoxy();
+#endif
+#if defined(APP_DNSCRYPT)
+	start_dnscrypt();
+#endif
 	start_vpn_server();
 	start_watchdog();
 	start_infosvr();
@@ -459,6 +589,15 @@ stop_services(int stopall)
 #if defined (SRV_U2EC)
 	stop_u2ec();
 #endif
+#endif
+#if defined(APP_TOR)
+	stop_tor();
+#endif
+#if defined(APP_PRIVOXY)
+	stop_privoxy();
+#endif
+#if defined(APP_DNSCRYPT)
+	stop_dnscrypt();
 #endif
 	stop_networkmap();
 	stop_lltd();

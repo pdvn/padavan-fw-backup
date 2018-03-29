@@ -30,7 +30,8 @@ $j(document).ready(function() {
 	init_itoggle('adsc_enable');
 	init_itoggle('crond_enable', change_crond_enabled);
 	init_itoggle('watchdog_cpu');
-	
+	init_itoggle('tor_enable', change_tor_enabled);
+	init_itoggle('privoxy_enable', change_privoxy_enabled);
 });
 
 </script>
@@ -68,6 +69,33 @@ function initial(){
 		http_proto_change();
 	}
 	change_crond_enabled();
+	
+	if(found_app_tor() || found_app_privoxy() || found_app_dnscrypt()){
+		showhide_div('tbl_anon', 1);
+	}
+
+	if(!found_app_tor()){
+		showhide_div('row_tor', 0);
+		showhide_div('row_tor_conf', 0);
+	}else
+		change_tor_enabled();
+		
+	if(!found_app_privoxy()){
+		showhide_div('row_privoxy', 0);
+		showhide_div('row_privoxy_conf', 0);
+		showhide_div('row_privoxy_action', 0);
+		showhide_div('row_privoxy_filter', 0);
+		showhide_div('row_privoxy_trust', 0);
+	}else
+		change_privoxy_enabled();
+		
+	if(!found_app_dnscrypt()){
+		showhide_div('row_dnscrypt', 0);
+		showhide_div('row_dnscrypt_resolver', 0);
+		showhide_div('row_dnscrypt_ipaddr', 0);
+		showhide_div('row_dnscrypt_port', 0);
+	}else
+		dnscrypt_mode_change();
 }
 
 function applyRule(){
@@ -80,6 +108,27 @@ function applyRule(){
 		
 		document.form.submit();
 	}
+
+	if(!found_app_tor()){
+		showhide_div('row_tor', 0);
+		showhide_div('row_tor_conf', 0);
+	}
+
+	if(!found_app_privoxy()){
+		showhide_div('row_privoxy', 0);
+		showhide_div('row_privoxy_conf', 0);
+		showhide_div('row_privoxy_action', 0);
+		showhide_div('row_privoxy_filter', 0);
+		showhide_div('row_privoxy_trust', 0);
+	}
+
+	if(!found_app_dnscrypt()){
+		showhide_div('row_dnscrypt', 0);
+		showhide_div('row_dnscrypt_resolver', 0);
+		showhide_div('row_dnscrypt_ipaddr', 0);
+		showhide_div('row_dnscrypt_port', 0);
+	}
+
 }
 
 function validForm(){
@@ -125,6 +174,17 @@ function textarea_https_enabled(v){
 
 function textarea_sshd_enabled(v){
 	inputCtrl(document.form['scripts.authorized_keys'], v);
+}
+
+function textarea_tor_enabled(v){
+	inputCtrl(document.form['torconf.torrc'], v);
+}
+
+function textarea_privoxy_enabled(v){
+	inputCtrl(document.form['privoxy.config'], v);
+	inputCtrl(document.form['privoxy.user.action'], v);
+	inputCtrl(document.form['privoxy.user.filter'], v);
+	inputCtrl(document.form['privoxy.user.trust'], v);
 }
 
 function textarea_crond_enabled(v){
@@ -215,6 +275,33 @@ function change_wins_enabled(){
 	var v = document.form.wins_enable[0].checked;
 	showhide_div('row_smb_wgrp', v);
 	showhide_div('row_smb_lmb', v);
+}
+
+function change_tor_enabled(){
+	var v = document.form.tor_enable[0].checked;
+	showhide_div('row_tor_conf', v);
+	if (!login_safe())
+		v = 0;
+	textarea_tor_enabled(v);
+}
+
+function change_privoxy_enabled(){
+	var v = document.form.privoxy_enable[0].checked;
+	showhide_div('row_privoxy_conf', v);
+	showhide_div('row_privoxy_action', v);
+	showhide_div('row_privoxy_filter', v);
+	showhide_div('row_privoxy_trust', v);
+	if (!login_safe())
+		v = 0;
+	textarea_privoxy_enabled(v);
+}
+
+function dnscrypt_mode_change(){
+	var mode = document.form.dnscrypt_enable.value;
+	var v = (mode != "0") ? 1 : 0;
+	showhide_div('row_dnscrypt_resolver', v);
+	showhide_div('row_dnscrypt_ipaddr', v);
+	showhide_div('row_dnscrypt_port', v);
 }
 
 function change_crond_enabled(){
@@ -462,6 +549,119 @@ function change_crond_enabled(){
                                                 </select>
                                             </td>
                                         </tr>
+                                    </table>
+
+                                    <table width="100%" cellpadding="4" cellspacing="0" class="table" id="tbl_anon" style="display:none">
+                                        <tr>
+                                            <th colspan="2" style="background-color: #E3E3E3;"><#Adm_System_anon#></th>
+                                        </tr>
+                                        <tr id="row_tor">
+                                            <th width="50%"><#Adm_Svc_tor#></th>
+                                            <td>
+                                                <div class="main_itoggle">
+                                                    <div id="tor_enable_on_of">
+                                                        <input type="checkbox" id="tor_enable_fake" <% nvram_match_x("", "tor_enable", "1", "value=1 checked"); %><% nvram_match_x("", "tor_enable", "0", "value=0"); %>>
+                                                    </div>
+                                                </div>
+                                                <div style="position: absolute; margin-left: -10000px;">
+                                                    <input type="radio" name="tor_enable" id="tor_enable_1" class="input" value="1" <% nvram_match_x("", "tor_enable", "1", "checked"); %>/><#checkbox_Yes#>
+                                                    <input type="radio" name="tor_enable" id="tor_enable_0" class="input" value="0" <% nvram_match_x("", "tor_enable", "0", "checked"); %>/><#checkbox_No#>
+                                                </div>
+                                            </td>
+                                        </tr>
+										<tr id="row_tor_conf" style="display:none">
+											<td colspan="2">
+												<a href="javascript:spoiler_toggle('spoiler_tor_conf')"><span><#CustomConf#> "torrc"</span></a>
+												<div id="spoiler_tor_conf" style="display:none;">
+													<textarea rows="16" wrap="off" spellcheck="false" maxlength="4096" class="span12" name="torconf.torrc" style="font-family:'Courier New'; font-size:12px;"><% nvram_dump("torconf.torrc",""); %></textarea>
+												</div>
+											</td>
+										</tr>
+                                        <tr id="row_privoxy">
+                                            <th width="50%"><#Adm_Svc_privoxy#></th>
+                                            <td>
+                                                <div class="main_itoggle">
+                                                    <div id="privoxy_enable_on_of">
+                                                        <input type="checkbox" id="privoxy_enable_fake" <% nvram_match_x("", "privoxy_enable", "1", "value=1 checked"); %><% nvram_match_x("", "privoxy_enable", "0", "value=0"); %>>
+                                                    </div>
+                                                </div>
+                                                <div style="position: absolute; margin-left: -10000px;">
+                                                    <input type="radio" name="privoxy_enable" id="privoxy_enable_1" class="input" value="1" <% nvram_match_x("", "privoxy_enable", "1", "checked"); %>/><#checkbox_Yes#>
+                                                    <input type="radio" name="privoxy_enable" id="privoxy_enable_0" class="input" value="0" <% nvram_match_x("", "privoxy_enable", "0", "checked"); %>/><#checkbox_No#>
+                                                </div>
+                                            </td>
+                                        </tr>
+										<tr id="row_privoxy_conf" style="display:none">
+											<td colspan="2">
+												<a href="javascript:spoiler_toggle('spoiler_privoxy_conf')"><span><#CustomConf#> "config"</span></a>
+												<div id="spoiler_privoxy_conf" style="display:none;">
+													<textarea rows="16" wrap="off" spellcheck="false" maxlength="65536" class="span12" name="privoxy.config" style="font-family:'Courier New'; font-size:12px;"><% nvram_dump("privoxy.config",""); %></textarea>
+												</div>
+											</td>
+										</tr>
+										<tr id="row_privoxy_action" style="display:none">
+											<td colspan="2">
+												<a href="javascript:spoiler_toggle('spoiler_privoxy_action')"><span><#CustomConf#> "user.action"</span></a>
+												<div id="spoiler_privoxy_action" style="display:none;">
+													<textarea rows="16" wrap="off" spellcheck="false" maxlength="65536" class="span12" name="privoxy.user.action" style="font-family:'Courier New'; font-size:12px;"><% nvram_dump("privoxy.user.action",""); %></textarea>
+												</div>
+											</td>
+										</tr>
+										<tr id="row_privoxy_filter" style="display:none">
+											<td colspan="2">
+												<a href="javascript:spoiler_toggle('spoiler_privoxy_filter')"><span><#CustomConf#> "user.filter"</span></a>
+												<div id="spoiler_privoxy_filter" style="display:none;">
+													<textarea rows="16" wrap="off" spellcheck="false" maxlength="65536" class="span12" name="privoxy.user.filter" style="font-family:'Courier New'; font-size:12px;"><% nvram_dump("privoxy.user.filter",""); %></textarea>
+												</div>
+											</td>
+										</tr>
+										<tr id="row_privoxy_trust" style="display:none">
+											<td colspan="2">
+												<a href="javascript:spoiler_toggle('spoiler_privoxy_trust')"><span><#CustomConf#> "user.trust"</span></a>
+												<div id="spoiler_privoxy_trust" style="display:none;">
+													<textarea rows="16" wrap="off" spellcheck="false" maxlength="65536" class="span12" name="privoxy.user.trust" style="font-family:'Courier New'; font-size:12px;"><% nvram_dump("privoxy.user.trust",""); %></textarea>
+												</div>
+											</td>
+										</tr>
+                                        <tr id="row_dnscrypt">
+                                            <th width="50%"><a class="help_tooltip" href="javascript:void(0);" onmouseover="openTooltip(this, 25, 1);"><#Adm_Svc_dnscrypt#></a></th>
+                                            <td>
+                                                <select name="dnscrypt_enable" class="input" onchange="dnscrypt_mode_change();">
+                                                    <option value="0" <% nvram_match_x("", "dnscrypt_enable", "0","selected"); %>><#checkbox_No#> (*)</option>
+                                                    <option value="1" <% nvram_match_x("", "dnscrypt_enable", "1","selected"); %>><#checkbox_Yes#></option>
+                                                    <option value="2" <% nvram_match_x("", "dnscrypt_enable", "2","selected"); %>><#checkbox_Yes#> (integrated with dnsmasq)</option>
+                                                    <option value="3" <% nvram_match_x("", "dnscrypt_enable", "3","selected"); %>><#checkbox_Yes#> (integrated with iptables)</option>
+                                                </select>
+                                            </td>
+                                        </tr>
+										<tr id="row_dnscrypt_resolver" style="display:none">
+                                            <th style="text-align: right;"><#Adm_Svc_dnscrypt_resolver#></th>
+                                            <td>
+                                                <input type="text" maxlength="64" size="15" name="dnscrypt_resolver" class="input" value="<% nvram_get_x("", "dnscrypt_resolver"); %>" onkeypress="return is_string(this,event);"/>
+                                                &nbsp;<a href="dnscrypt-resolvers.csv" target="_blank"><span><#Adm_Svc_dnscrypt_list#></span></a>
+                                            </td>
+										</tr>
+										<tr id="row_dnscrypt_ipaddr" style="display:none">
+                                            <th style="text-align: right;"><#Adm_Svc_dnscrypt_ipaddr#></th>
+                                            <td>
+												<select name="dnscrypt_ipaddr" class="input">
+													<option value="127.0.0.1" <% nvram_match_x("", "dnscrypt_ipaddr", "127.0.0.1","selected"); %>>127.0.0.1 (*)</option>
+													<option id="localip" value="<% nvram_get_x("", "lan_ipaddr"); %>"><% nvram_get_x("", "lan_ipaddr"); %></option>
+													<option value="0.0.0.0" <% nvram_match_x("", "dnscrypt_ipaddr", "0.0.0.0","selected"); %>><#Adm_Svc_dnscrypt_all#></option>
+													<script type="text/javascript">
+														if("<% nvram_get_x("", "lan_ipaddr"); %>"=="<% nvram_get_x("", "dnscrypt_ipaddr"); %>")
+															lip=document.getElementById("localip").selected="selected";
+													</script>
+												</select>
+                                            </td>
+										</tr>
+										<tr id="row_dnscrypt_port" style="display:none">
+                                            <th style="text-align: right;"><#Adm_Svc_dnscrypt_port#></th>
+                                            <td>
+                                                <input type="text" maxlength="5" size="15" name="dnscrypt_port" class="input" value="<% nvram_get_x("", "dnscrypt_port"); %>" onkeypress="return is_ipaddrport(this,event);"/>
+                                                &nbsp;<span style="color:#888;">[53..65535]</span>
+                                            </td>
+										</tr>
                                     </table>
 
                                     <table width="100%" cellpadding="4" cellspacing="0" class="table">

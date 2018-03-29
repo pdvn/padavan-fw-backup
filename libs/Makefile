@@ -27,6 +27,7 @@ LIBS_INCLUDE_LIBSSL=n
 LIBS_INCLUDE_LIBICONV=n
 LIBS_INCLUDE_LIBUSB_0=n
 LIBS_INCLUDE_LIBUSB_1=n
+LIBS_INCLUDE_LIBEVENT=n
 LIBS_INCLUDE_MEDIA=n
 STORAGE_ENABLED=n
 
@@ -67,6 +68,7 @@ ifeq ($(STORAGE_ENABLED),y)
 LIBS_INCLUDE_LIBICONV=y
 ifeq ($(CONFIG_FIRMWARE_INCLUDE_TRANSMISSION),y)
 LIBS_INCLUDE_LIBSSL=y
+LIBS_INCLUDE_LIBEVENT=y
 endif
 ifeq ($(CONFIG_FIRMWARE_INCLUDE_ARIA),y)
 LIBS_INCLUDE_LIBSSL=y
@@ -91,12 +93,18 @@ ifdef CONFIG_MTD_UBI
 LIBS_INCLUDE_LIBLZO=y
 endif
 
+ifeq ($(CONFIG_FIRMWARE_INCLUDE_TOR),y)
+LIBS_INCLUDE_LIBSSL=y
+LIBS_INCLUDE_LIBEVENT=y
+endif
+
 dir_y						+= libz
 dir_$(LIBS_INCLUDE_LIBLZO)			+= liblzo
 dir_$(LIBS_INCLUDE_LIBICONV)			+= libiconv
 dir_$(LIBS_INCLUDE_LIBSSL)			+= libssl
 dir_$(LIBS_INCLUDE_LIBUSB_0)			+= libusb
 dir_$(LIBS_INCLUDE_LIBUSB_1)			+= libusb-1.0
+dir_$(LIBS_INCLUDE_LIBEVENT)			+= libevent
 dir_y						+= libnfnetlink
 
 # ipset shared libs
@@ -117,10 +125,15 @@ dir_$(LIBS_INCLUDE_MEDIA)			+= libsqlite
 
 # transmission shared libs
 dir_$(CONFIG_FIRMWARE_INCLUDE_TRANSMISSION)	+= libcurl
-dir_$(CONFIG_FIRMWARE_INCLUDE_TRANSMISSION)	+= libevent
 
 # aria2 shared libs
 dir_$(CONFIG_FIRMWARE_INCLUDE_ARIA)		+= libxml2
+
+# privoxy shared libs
+dir_$(CONFIG_FIRMWARE_INCLUDE_PRIVOXY)		+= libpcre
+
+# dnscrypt extra libs
+dir_$(CONFIG_FIRMWARE_INCLUDE_DNSCRYPT)	+= libsodium
 
 all:
 	for i in $(dir_y) ; do \

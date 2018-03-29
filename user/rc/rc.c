@@ -1183,6 +1183,24 @@ handle_notifications(void)
 			restart_sshd();
 		}
 #endif
+#if defined(APP_TOR)
+		else if (strcmp(entry->d_name, RCN_RESTART_TOR) == 0)
+		{
+			restart_tor();
+		}
+#endif
+#if defined(APP_PRIVOXY)
+		else if (strcmp(entry->d_name, RCN_RESTART_PRIVOXY) == 0)
+		{
+			restart_privoxy();
+		}
+#endif
+#if defined(APP_DNSCRYPT)
+		else if (strcmp(entry->d_name, RCN_RESTART_DNSCRYPT) == 0)
+		{
+			restart_dnscrypt();
+		}
+#endif
 #if defined(APP_SMBD) || defined(APP_NMBD)
 		else if (strcmp(entry->d_name, RCN_RESTART_NMBD) == 0)
 		{
@@ -1262,6 +1280,7 @@ handle_notifications(void)
 		{
 			stop_logger();
 			start_logger(0);
+			restart_crond();
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_WDG) == 0)
 		{

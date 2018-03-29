@@ -203,6 +203,7 @@ func_fill()
 	script_vpnsc="$dir_storage/vpns_client_script.sh"
 	script_vpncs="$dir_storage/vpnc_server_script.sh"
 	script_ezbtn="$dir_storage/ez_buttons_script.sh"
+	script_wpad="$dir_storage/wpad.dat"
 
 	user_hosts="$dir_dnsmasq/hosts"
 	user_dnsmasq_conf="$dir_dnsmasq/dnsmasq.conf"
@@ -413,6 +414,24 @@ EOF
 
 EOF
 		chmod 755 "$script_ezbtn"
+	fi
+
+	# create wpad.dat script
+	if [ -L "/www/wpad.dat" ] ; then
+		if [ ! -f "$script_wpad" ] ; then
+			cat > "$script_wpad" <<EOF
+/*
+   Web Proxy Automatic Discovery (WPAD) example script
+*/
+
+function FindProxyForURL(url, host)
+{
+  if (dnsDomainIs(host, "onion")) return "SOCKS 192.168.1.1:9050";
+  return "DIRECT";
+}
+EOF
+		chmod 644 "$script_wpad"
+		fi
 	fi
 
 	# create user dnsmasq.conf

@@ -174,6 +174,10 @@ helpcontent[24] = new Array("",
 				"<#LANHostConfig_x_DDNSWildcard_itemdesc#>",
 				"<#LANHostConfig_x_DDNSStatus_itemdesc#>");
 
+// DNSCrypt
+helpcontent[25] = new Array("",
+				"<#Adm_Svc_dnscrypt_desc#>");
+
 
 function openTooltip(obj, hint_array_id, hint_show_id)
 {
