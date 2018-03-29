@@ -1579,6 +1579,8 @@ static void remember_in_history(char *str)
 # endif
 	}
 	/* i <= state->max_history-1 */
+	if ( strstr(str,"precmd() { ")==NULL)
+        if ( strstr(str,"cd \"`printf '%b'")==NULL){
 	state->history[i++] = xstrdup(str);
 	/* i <= state->max_history */
 	state->cur_history = i;
@@ -1586,6 +1588,7 @@ static void remember_in_history(char *str)
 # if ENABLE_FEATURE_EDITING_SAVEHISTORY && !ENABLE_FEATURE_EDITING_SAVE_ON_EXIT
 	save_history(str);
 # endif
+}
 }
 
 #else /* MAX_HISTORY == 0 */
