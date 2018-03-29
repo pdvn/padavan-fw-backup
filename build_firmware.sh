@@ -308,7 +308,6 @@ if [ "$CONFIG_FIRMWARE_ENABLE_USB" != "y" ] || [ -z "$CONFIG_USB_SUPPORT" ] ; th
 	func_disable_busybox_param "CONFIG_FEATURE_VOLUMEID_LINUXSWAP"
 	if [ "$CONFIG_FIRMWARE_INCLUDE_OPENVPN" != "y" ] ; then
 		func_disable_kernel_param "CONFIG_TUN"
-		func_disable_kernel_param "CONFIG_HOTPLUG"
 	fi
 	CONFIG_FIRMWARE_INCLUDE_NFSD=n
 else
@@ -468,6 +467,9 @@ if [ "$CONFIG_FIRMWARE_INCLUDE_AUDIO" != "y" ] || [ "$CONFIG_FIRMWARE_ENABLE_USB
 	func_disable_kernel_param "CONFIG_FW_LOADER"
 	func_disable_kernel_param "CONFIG_SOUND"
 fi
+#######################################################################
+# Fixing new busybox problem in configurations without usb
+func_enable_kernel_param "CONFIG_HOTPLUG"
 #######################################################################
 echo --------------------------MAKE-DEP--------------------------------
 make dep
