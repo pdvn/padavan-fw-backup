@@ -98,6 +98,10 @@ max-concurrent-downloads=5
 max-connection-per-server=1
 min-split-size=20M
 
+### HTTPS
+
+check-certificate=false
+
 ### Log
 log=$DIR_CFG/aria2.log
 log-level=notice
