@@ -85,11 +85,11 @@ if [ ! -d "$ROOTDIR/linux-$kernel_id" ] ; then
 	exit 1
 fi
 
-board_h="$ROOTDIR/configs/boards/$CONFIG_FIRMWARE_PRODUCT_ID/board.h"
-board_mk="$ROOTDIR/configs/boards/$CONFIG_FIRMWARE_PRODUCT_ID/board.mk"
-partitions_cf="$ROOTDIR/configs/boards/$CONFIG_FIRMWARE_PRODUCT_ID/partitions.config"
+board_h="$ROOTDIR/configs/boards/$CONFIG_VENDOR/$CONFIG_FIRMWARE_PRODUCT_ID/board.h"
+board_mk="$ROOTDIR/configs/boards/$CONFIG_VENDOR/$CONFIG_FIRMWARE_PRODUCT_ID/board.mk"
+partitions_cf="$ROOTDIR/configs/boards/$CONFIG_VENDOR/$CONFIG_FIRMWARE_PRODUCT_ID/partitions.config"
 partitions_tcf="$ROOTDIR/linux-$kernel_id/drivers/mtd/mtdsplitter_parts.h"
-kernel_cd="$ROOTDIR/configs/boards/$CONFIG_FIRMWARE_PRODUCT_ID"
+kernel_cd="$ROOTDIR/configs/boards/$CONFIG_VENDOR/$CONFIG_FIRMWARE_PRODUCT_ID"
 kernel_tf="$ROOTDIR/linux-$kernel_id/.config"
 kernel_cf="${kernel_cd}/kernel-${kernel_id}.config"
 

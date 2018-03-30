@@ -12,14 +12,9 @@ fi
 . $ROOTDIR/.config
 
 kernel_id="3.4.x"
-kernel_cd="$ROOTDIR/configs/boards/$CONFIG_FIRMWARE_PRODUCT_ID"
+kernel_cd="$ROOTDIR/configs/boards/$CONFIG_VENDOR/$CONFIG_FIRMWARE_PRODUCT_ID"
 kernel_tf="$ROOTDIR/linux-$kernel_id/.config"
-
-if [ "$CONFIG_FIRMWARE_TYPE_ROOTFS_IN_RAM" = "y" ] ; then
-        kernel_cf="${kernel_cd}/kernel-${kernel_id}.ram.config"
-else
-        kernel_cf="${kernel_cd}/kernel-${kernel_id}.config"
-fi
+kernel_cf="${kernel_cd}/kernel-${kernel_id}.config"
 
 if [ ! -f "$kernel_cf" ] ; then
         echo "Target kernel config ($kernel_cf) not found! Terminate."
