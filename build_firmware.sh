@@ -468,9 +468,6 @@ if [ "$CONFIG_FIRMWARE_INCLUDE_AUDIO" != "y" ] || [ "$CONFIG_FIRMWARE_ENABLE_USB
 	func_disable_kernel_param "CONFIG_SOUND"
 fi
 #######################################################################
-# Fixing new busybox problem in configurations without usb
-func_enable_kernel_param "CONFIG_HOTPLUG"
-#######################################################################
 echo --------------------------MAKE-DEP--------------------------------
 make dep
 echo --------------------------MAKE-ALL--------------------------------
