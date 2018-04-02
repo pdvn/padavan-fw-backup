@@ -6,9 +6,9 @@ self_name="opt-mount.sh"
 [ -z "$1" ] || [ -z "$2" ] && exit 1
 
 mtd_device=`echo "$1" | egrep '^/dev/mtd|^/dev/ubi'`
+optw_enable=`nvram get optw_enable`
 
 if [ -z "$mtd_device" ] ; then
-	optw_enable=`nvram get optw_enable`
 	[ "$optw_enable" != "1" -a "$optw_enable" != "2" ] && exit 0
 fi
 
@@ -32,8 +32,8 @@ for i in "bin" "etc/init.d" "home/admin" "lib" "sbin" "var/log" ; do
 	[ ! -d /opt/${i} ] && mkdir -p /opt/${i}
 done
 
-# check opt profile exist
-if [ ! -f /opt/etc/profile ] ; then
+# check opt profile exist only for optware
+if [ "$optw_enable" == "1" ] && [ ! -f /opt/etc/profile ] ; then
 	cat > /opt/etc/profile <<EOF
 
 # If running interactively, then
@@ -59,7 +59,9 @@ if [ -d /opt/home/admin ] ; then
 fi
 
 # prepare /etc/localtime
-ln -sf /opt/etc/localtime /etc/localtime
+if [ -f /opt/etc/localtime ] ; then
+	ln -sf /opt/etc/localtime /etc/localtime
+fi
 
 # prepare ssh authorized_keys
 if [ -f /etc/storage/authorized_keys ] && [ ! -f /opt/home/admin/.ssh/authorized_keys ] ; then

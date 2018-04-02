@@ -26,12 +26,20 @@ dl () {
 	[ -z "$3" ] || chmod +x $2
 }
 
+install_link () {
+	if [ -f /etc/$1 ] ; then
+		ln -sf /etc/$1 /opt/etc/$1
+	else
+		cp /opt/etc/$1.1 /opt/etc/$1
+	fi
+}
+
 # check opkg installed
 if [ ! -f /opt/bin/opkg ] ; then
 	logger -t "${self_name}" "Installing entware opkg...."
 
 	logger -t "${self_name}" "Creating folders..."
-	for folder in bin etc/init.d lib/opkg sbin share tmp usr var/log var/lock var/run ; do
+	for folder in bin etc lib/opkg tmp var/lock ; do
 		if [ -d "/opt/$folder" ] ; then
 			logger -t "${self_name}" "Warning: Folder /opt/$folder exists! If something goes wrong please clean /opt folder and try again."
 		else
@@ -39,12 +47,17 @@ if [ ! -f /opt/bin/opkg ] ; then
 		fi
 	done
 
-	URL=http://pkg.entware.net/binaries/mipsel/installer
+	URL=http://bin.entware.net/mipselsf-k3.4/installer
 	dl $URL/opkg /opt/bin/opkg x
 	dl $URL/opkg.conf /opt/etc/opkg.conf
-	dl $URL/profile /opt/etc/profile x
-	dl $URL/rc.func /opt/etc/init.d/rc.func
-	dl $URL/rc.unslung /opt/etc/init.d/rc.unslung x
+	dl $URL/ld-2.27.so /opt/lib/ld-2.27.so x
+	dl $URL/libc-2.27.so /opt/lib/libc-2.27.so
+	dl $URL/libgcc_s.so.1 /opt/lib/libgcc_s.so.1
+	dl $URL/libpthread-2.27.so /opt/lib/libpthread-2.27.so
+	cd /opt/lib
+	ln -s ld-2.27.so ld.so.1
+	ln -s libc-2.27.so libc.so.6
+	ln -s libpthread-2.27.so libpthread.so.0
 
 	logger -t "${self_name}" "Updating opkg packages list..."
 	opkg update
@@ -54,17 +67,32 @@ if [ ! -f /opt/bin/opkg ] ; then
 		logger -t "${self_name}" "FAILED!"
 		exit 1
 	fi
-	logger -t "${self_name}" "Installing ldconfig findutils..."
-	opkg install ldconfig findutils
+	logger -t "${self_name}" "Basic packages installation..."
+	opkg install entware-opt
 	if [ $? -eq 0 ] ; then
 		logger -t "${self_name}" "SUCCESS!"
 	else
 		logger -t "${self_name}" "FAILED!"
 		exit 1
 	fi
-	ln -sf /etc/TZ /opt/etc/TZ
-	ldconfig > /dev/null 2>&1
+
+	chmod 777 /opt/tmp
+
+	install_link passwd
+	install_link group
+	install_link shells
+
+	if [ -f /etc/shadow ] ; then
+		ln -sf /etc/shadow /opt/etc/shadow
+	fi
+	if [ -f /etc/gshadow ] ; then
+		ln -sf /etc/gshadow /opt/etc/gshadow
+	fi
+	if [ -f /etc/localtime ] ; then
+		ln -sf /etc/localtime /opt/etc/localtime
+	fi
+
 	logger -t "${self_name}" "Congratulations!"
 	logger -t "${self_name}" "If there are no errors above then Entware successfully initialized."
-	logger -t "${self_name}" "Found a Bug? Please report at https://github.com/Entware-ng/Entware-ng/issues"
+	logger -t "${self_name}" "Found a Bug? Please report at https://github.com/Entware/Entware/issues"
 fi
