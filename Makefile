@@ -142,6 +142,7 @@ dep:
 		echo "ERROR: you need to do a 'make config' first" ; \
 		exit 1 ; \
 	fi
+	$(MAKEARCH_KERNEL) -C $(LINUXDIR) olddefconfig
 	$(MAKEARCH_KERNEL) -C $(LINUXDIR) prepare
 	$(MAKEARCH_KERNEL) -C $(LINUXDIR) dep
 
