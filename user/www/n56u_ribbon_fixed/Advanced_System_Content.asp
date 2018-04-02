@@ -49,7 +49,9 @@ function initial(){
 		showhide_div('row_pass1', 1);
 		showhide_div('row_pass2', 1);
 	}
-
+	if (!found_support_zram()) {
+		showhide_div("row_zram", 0);
+	}
 	load_body();
 }
 
@@ -376,7 +378,15 @@ function openLink(s) {
                                                 <input type="text" maxlength="15" class="input" size="15" name="log_ipaddr" style="width: 145px" value="<% nvram_get_x("", "log_ipaddr"); %>" onKeyPress="return is_ipaddr(this,event);" />&nbsp;:
                                                 <input type="text" maxlength="5" class="input" size="10" name="log_port" style="width: 44px;"  value="<% nvram_get_x("","log_port"); %>" onkeypress="return is_number(this,event);"/>
                                             </td>
-                                        </tr>
+                                        </tr id="row_zram">
+                                            <th><#Adm_System_zram#></th>
+                                            <td>
+                                                <select name="zram_enable" class="input">
+                                                    <option value="0"   <% nvram_match_x("","zram_enable",  "0","selected"); %>><#btn_Disable#></option>
+                                                    <option value="1"   <% nvram_match_x("","zram_enable",  "1","selected"); %>>25% Ram</option>
+                                                    <option value="2"   <% nvram_match_x("","zram_enable",  "2","selected"); %>>50% Ram</option>
+                                                </select>
+                                            </td>
                                         <tr>
                                             <th><#Adm_System_logf#></th>
                                             <td>

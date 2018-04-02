@@ -41,6 +41,7 @@
 #define RCN_RESTART_TELNETD		"restart_telnetd"
 #define RCN_RESTART_SSHD		"restart_sshd"
 #define RCN_RESTART_TOR		"restart_tor"
+#define RCN_RESTART_ZRAM		"restart_zram"
 #define RCN_RESTART_PRIVOXY		"restart_privoxy"
 #define RCN_RESTART_DNSCRYPT		"restart_dnscrypt"
 #define RCN_RESTART_WINS		"restart_wins"

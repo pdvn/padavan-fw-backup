@@ -2105,6 +2105,11 @@ ej_firmware_caps_hook(int eid, webs_t wp, int argc, char **argv)
 #else
 	int found_app_xupnpd = 0;
 #endif
+#if defined(SUPPORT_ZRAM)
+	int found_support_zram = 1;
+#else
+	int found_support_zram = 0;
+#endif
 #if defined(USE_IPV6)
 	int has_ipv6 = 1;
 #else
@@ -2230,6 +2235,7 @@ ej_firmware_caps_hook(int eid, webs_t wp, int argc, char **argv)
 		"function found_app_privoxy() { return %d;}\n"
 		"function found_app_dnscrypt() { return %d;}\n"
 		"function found_support_wpad() { return %d;}\n"
+		"function found_support_zram() { return %d;}\n"
 		"function found_app_xupnpd() { return %d;}\n",
 		found_utl_hdparm,
 		found_app_ovpn,
@@ -2249,6 +2255,7 @@ ej_firmware_caps_hook(int eid, webs_t wp, int argc, char **argv)
 		found_app_privoxy,
 		found_app_dnscrypt,
 		found_support_wpad,
+		found_support_zram,
 		found_app_xupnpd
 	);
 

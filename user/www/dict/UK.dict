@@ -221,6 +221,7 @@ Adm_System_admin=Логін адміністратора:
 Adm_System_help=Увімкнути контекстну довідку?
 Adm_System_logf=Увімкнути верхню панель журналу?
 Adm_System_logf_item2=Останні 100 рядків
+Adm_System_zram=Увімкнути ZRAM?
 Adm_Svc_desc=Керування сервісами маршрутизатора.
 Adm_Svc_wins=Сервіс WINS?
 Adm_Svc_lltd=Сервіс LLTD (Link Layer Topology Discovery)?

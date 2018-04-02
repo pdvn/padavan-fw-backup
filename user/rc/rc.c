@@ -1213,6 +1213,12 @@ handle_notifications(void)
 			reapply_vpn_server();
 		}
 #endif
+#if defined(SUPPORT_ZRAM)
+		else if (strcmp(entry->d_name, RCN_RESTART_ZRAM) == 0)
+		{
+			restart_zram();
+		}
+#endif
 		else if (strcmp(entry->d_name, RCN_RESTART_LLTD) == 0)
 		{
 			restart_lltd();

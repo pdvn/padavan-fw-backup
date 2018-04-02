@@ -20,6 +20,21 @@ func_enable_kernel_param()
 {
 	if [ -n "`grep \^\"\# $1 is not set\" $kernel_tf`" ] ; then
 		sed -i "s/\# $1 is not set/$1=y/" $kernel_tf
+	elif [ -n "`grep \^$1=m $kernel_tf`" ] ; then
+		sed -i "s/$1=m/$1=y/" $kernel_tf
+	elif [ ! -n "`grep \^$1=y $kernel_tf`" ] ; then
+		echo "$1=y" >> $kernel_tf
+	fi
+}
+
+func_enable_kernel_param_as_m()
+{
+	if [ -n "`grep \^\"\# $1 is not set\" $kernel_tf`" ] ; then
+		sed -i "s/\# $1 is not set/$1=m/" $kernel_tf
+	elif [ -n "`grep \^$1=y $kernel_tf`" ] ; then
+		sed -i "s/$1=y/$1=m/" $kernel_tf
+	elif [ ! -n "`grep \^$1=m $kernel_tf`" ] ; then
+		echo "$1=m" >> $kernel_tf
 	fi
 }
 
@@ -466,6 +481,20 @@ fi
 if [ "$CONFIG_FIRMWARE_INCLUDE_AUDIO" != "y" ] || [ "$CONFIG_FIRMWARE_ENABLE_USB" != "y" ] || [ -z "$CONFIG_USB_SUPPORT" ] ; then
 	func_disable_kernel_param "CONFIG_FW_LOADER"
 	func_disable_kernel_param "CONFIG_SOUND"
+fi
+############################# ZRAM SUPPORT ############################
+if [ "$CONFIG_FIRMWARE_INCLUDE_ZRAM" = "y" ] ; then
+	func_enable_kernel_param "CONFIG_SWAP"
+	func_enable_kernel_param "CONFIG_ZSMALLOC"
+	func_enable_kernel_param_as_m "CONFIG_ZRAM"
+	func_enable_kernel_param_as_m "CONFIG_LZO_COMPRESS"
+	func_enable_kernel_param_as_m "CONFIG_LZO_DECOMPRESS"
+	func_enable_busybox_param "CONFIG_MKSWAP"
+	func_enable_busybox_param "CONFIG_SWAPON"
+	func_enable_busybox_param "CONFIG_SWAPOFF"
+	func_enable_busybox_param "CONFIG_FEATURE_SWAPON_DISCARD"
+	func_enable_busybox_param "CONFIG_FEATURE_VOLUMEID_LINUXSWAP"
+	func_enable_busybox_param "CONFIG_FEATURE_SWAPONOFF_LABEL"
 fi
 #######################################################################
 echo --------------------------MAKE-DEP--------------------------------

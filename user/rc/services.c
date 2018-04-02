@@ -23,6 +23,7 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/sysinfo.h>
 
 #include "rc.h"
 
@@ -230,6 +231,48 @@ restart_sshd(void)
 
 	if ((is_run_after != is_run_before) && nvram_match("sshd_wopen", "1") && nvram_match("fw_enable_x", "1"))
 		restart_firewall();
+}
+#endif
+
+#if defined(SUPPORT_ZRAM)
+int
+get_zram_disksize(void)
+{
+	int result = 0;
+	struct sysinfo info;
+	int mode = nvram_get_int("zram_enable");
+	if (mode > 0 && mode < 3 && sysinfo(&info) == 0) {
+		result = (int)(info.totalram >> (3 - mode));
+	}
+	return result;
+}
+
+void
+stop_zram(void)
+{
+	if (is_module_loaded("zram")) {
+		doSystem("swapoff /dev/zram0");
+		module_smart_unload("zram", 1);
+	}
+}
+
+void
+start_zram(void)
+{
+	int disksize = get_zram_disksize();
+	if (disksize) {
+		module_smart_load("zram", "num_devices=1");
+		fput_int("/sys/block/zram0/disksize", disksize);
+		doSystem("mkswap /dev/zram0");
+		doSystem("swapon -d /dev/zram0");
+	}
+}
+
+void
+restart_zram(void)
+{
+	stop_zram();
+	start_zram();
 }
 #endif
 
@@ -526,6 +569,9 @@ restart_watchdog_cpu(void)
 int
 start_services_once(int is_ap_mode)
 {
+#if defined(SUPPORT_ZRAM)
+	start_zram();
+#endif
 	start_8021x_wl();
 	start_8021x_rt();
 	start_httpd(0);
@@ -606,6 +652,9 @@ stop_services(int stopall)
 	stop_infosvr();
 	stop_crond();
 	stop_igmpproxy(NULL);
+#if defined(SUPPORT_ZRAM)
+	stop_zram();
+#endif
 }
 
 void
