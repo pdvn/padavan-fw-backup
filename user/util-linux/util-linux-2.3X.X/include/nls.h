@@ -25,7 +25,7 @@ struct lconv
 # include <libintl.h>
 /*
  * For NLS support in the public shared libraries we have to specify text
- * domain name to be independend on the main program. For this purpose define
+ * domain name to be independent on the main program. For this purpose define
  * UL_TEXTDOMAIN_EXPLICIT before you include nls.h to your shared library code.
  */
 # ifdef UL_TEXTDOMAIN_EXPLICIT
@@ -121,5 +121,35 @@ enum {
 };
 
 #endif /* !HAVE_LANGINFO_H */
+
+#ifndef HAVE_LANGINFO_ALTMON
+# define ALTMON_1 MON_1
+# define ALTMON_2 MON_2
+# define ALTMON_3 MON_3
+# define ALTMON_4 MON_4
+# define ALTMON_5 MON_5
+# define ALTMON_6 MON_6
+# define ALTMON_7 MON_7
+# define ALTMON_8 MON_8
+# define ALTMON_9 MON_9
+# define ALTMON_10 MON_10
+# define ALTMON_11 MON_11
+# define ALTMON_12 MON_12
+#endif /* !HAVE_LANGINFO_ALTMON */
+
+#ifndef HAVE_LANGINFO_NL_ABALTMON
+# define _NL_ABALTMON_1 ABMON_1
+# define _NL_ABALTMON_2 ABMON_2
+# define _NL_ABALTMON_3 ABMON_3
+# define _NL_ABALTMON_4 ABMON_4
+# define _NL_ABALTMON_5 ABMON_5
+# define _NL_ABALTMON_6 ABMON_6
+# define _NL_ABALTMON_7 ABMON_7
+# define _NL_ABALTMON_8 ABMON_8
+# define _NL_ABALTMON_9 ABMON_9
+# define _NL_ABALTMON_10 ABMON_10
+# define _NL_ABALTMON_11 ABMON_11
+# define _NL_ABALTMON_12 ABMON_12
+#endif /* !HAVE_LANGINFO_NL_ABALTMON */
 
 #endif /* UTIL_LINUX_NLS_H */

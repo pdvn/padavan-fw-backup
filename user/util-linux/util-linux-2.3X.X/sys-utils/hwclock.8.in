@@ -4,9 +4,9 @@
 .\"   Authored new section: DATE-TIME CONFIGURATION.
 .\"   Subsections: Keeping Time..., LOCAL vs UTC, POSIX vs 'RIGHT'.
 .\"
-.TH HWCLOCK 8 "April 2015" "util-linux" "System Administration"
+.TH HWCLOCK 8 "July 2017" "util-linux" "System Administration"
 .SH NAME
-hwclock \- read or set the hardware clock (RTC)
+hwclock \- time clocks utility
 .SH SYNOPSIS
 .B hwclock
 .RI [ function ]
@@ -14,7 +14,7 @@ hwclock \- read or set the hardware clock (RTC)
 .
 .SH DESCRIPTION
 .B hwclock
-is a tool for accessing the Hardware Clock.  It can: display the
+is an administration tool for the time clocks.  It can: display the
 Hardware Clock time; set the Hardware Clock to a specified time; set the
 Hardware Clock from the System Clock; set the System Clock from the
 Hardware Clock; compensate for Hardware Clock drift; correct the System
@@ -34,7 +34,7 @@ was added.  See their respective descriptions below.
 The following functions are mutually exclusive, only one can be given at
 a time.  If none is given, the default is \fB\-\-show\fR.
 .TP
-.B \-\-adjust
+.B \-a, \-\-adjust
 Add or subtract time from the Hardware Clock to account for systematic
 drift since the last time the clock was set or adjusted.  See the
 discussion below, under
@@ -197,8 +197,9 @@ Set the Hardware Clock to the time given by the
 option, and update the timestamps in
 .IR @ADJTIME_PATH@ .
 With the
-.B --update-drift
-option (re)calculate the drift factor.
+.B \%\-\-update-drift
+option also (re)calculate the drift factor.  Try it without the option if
+.BR \%\-\-set " fails.  See " \%\-\-update-drift " below."
 .
 .TP
 .B \-\-systz
@@ -234,9 +235,10 @@ changed then a reboot would be required to inform the kernel.
 .BR \-w , \ \-\-systohc
 Set the Hardware Clock from the System Clock, and update the timestamps in
 .IR @ADJTIME_PATH@ .
-When the
-.B --update-drift
-option is given, then also (re)calculate the drift factor.
+With the
+.B \%\-\-update-drift
+option also (re)calculate the drift factor.  Try it without the option if
+.BR \%\-\-systohc " fails.  See " \%\-\-update-drift " below."
 .
 .TP
 .BR \-V , \ \-\-version
@@ -279,10 +281,9 @@ parameters should be observed.
 .
 .TP
 .BR \-D ", " \-\-debug
-Display a lot of information about what
-.B \%hwclock
-is doing internally.  Some of its functions are complex and this output
-can help you understand how the program works.
+.RB Use\  \-\-verbose .
+.RB The\  \%\-\-debug\  option
+has been deprecated and may be repurposed or removed in a future release.
 .
 .TP
 .B \-\-directisa
@@ -305,6 +306,9 @@ methods fail.  See the
 .BI \-\-epoch= year
 This option is required when using the
 .BR \%\-\-setepoch \ function.
+.RI "The minimum " year
+value is 1900. The maximum is system dependent
+.RB ( ULONG_MAX\ -\ 1 ).
 .
 .TP
 .BR \-f , \ \-\-rtc=\fIfilename\fR
@@ -329,7 +333,7 @@ use the first one found in this order:
 .in
 .
 .TP
-.B \-\-localtime
+.BR \-l , \ \-\-localtime
 .TQ
 .BR \-u ", " \-\-utc
 Indicate which timescale the Hardware Clock is set to.
@@ -367,18 +371,17 @@ must be specified when using this option.
 .
 .TP
 .B \-\-test
-Do not actually change anything on the system, i.e., the Clocks or
-adjtime file.  This is useful, especially in conjunction with
-.BR \%\-\-debug ,
-in learning about the internal operations of hwclock.
+Do not actually change anything on the system, that is, the Clocks or
+.I @ADJTIME_PATH@
+.RB ( \%\-\-verbose
+is implicit with this option).
 .
 .TP
 .B \-\-update\-drift
 Update the Hardware Clock's drift factor in
 .IR @ADJTIME_PATH@ .
-It is used with
+It can only be used with
 .BR \-\-set " or " \%\-\-systohc ,
-otherwise it is ignored.
 .sp
 A minimum four hour period between settings is required.  This is to
 avoid invalid calculations.  The longer the period, the more precise the
@@ -402,6 +405,11 @@ on the drift factor.
 (Re)calculating drift factor on every shutdown delivers suboptimal
 results.  For example, if ephemeral conditions cause the machine to be
 abnormally hot the drift factor calculation would be out of range.
+.IP \(bu 2
+Significantly increased system shutdown times (as of v2.31 when not
+using
+.B \%\-\-update\-drift
+the RTC is not read).
 .PP
 .RB "Having " \%hwclock
 calculate the drift factor is a good starting point, but for optimal
@@ -412,7 +420,20 @@ crafted it should not need to be changed.  Therefore, the old behavior to
 automatically (re)calculate drift was changed and now requires this
 option to be used.  See the discussion below, under
 .BR "The Adjust Function" .
+.PP
+This option requires reading the Hardware Clock before setting it.  If
+it cannot be read, then this option will cause the set functions to fail.
+This can happen, for example, if the Hardware Clock is corrupted by a
+power failure.  In that case, the clock must first be set without this
+option.  Despite it not working, the resulting drift correction factor
+would be invalid anyway.
 .RE
+.
+.TP
+.BR \-v ", " \-\-verbose
+Display more details about what
+.B \%hwclock
+is doing internally.
 .
 .SH NOTES
 .
@@ -531,11 +552,6 @@ direct I/O and disable interrupts.
 provides it for testing, troubleshooting, and  because it may be the
 only method available on ISA systems which do not have a working rtc
 device driver.
-.PP
-On an m68k system,
-.B \%hwclock
-can access the clock with the console driver, via the device special file
-.IR \%/dev/tty1 .
 .SS The Adjust Function
 .PP
 The Hardware Clock is usually not very accurate.  However, much of its
@@ -906,6 +922,14 @@ timescale. The zoneinfo database must be configured to use either posix
 or 'right', as described above, or by assigning a database path to the
 .SB TZDIR
 environment variable.
+.SH EXIT STATUS
+One of the following exit values will be returned:
+.TP
+.BR EXIT_SUCCESS " ('0' on POSIX systems)"
+Successful program execution.
+.TP
+.BR EXIT_FAILURE " ('1' on POSIX systems)"
+The operation failed or the command syntax was not valid.
 .SH ENVIRONMENT
 .TP
 .B TZ
@@ -939,10 +963,6 @@ may try for Hardware Clock access:
 .I /dev/efirtc
 .br
 .I /dev/misc/efirtc
-.br
-.I /dev/port
-.br
-.I /dev/tty1
 .SH "SEE ALSO"
 .BR date (1),
 .BR adjtimex (8),

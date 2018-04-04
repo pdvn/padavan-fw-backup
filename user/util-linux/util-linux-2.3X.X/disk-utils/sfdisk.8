@@ -58,6 +58,22 @@ does.
 It is necessary to explicitly create all partitions including whole-disk system
 partitions.
 
+.B sfdisk
+uses BLKRRPART (reread partition table) ioctl to make sure that the device is
+not used by system or another tools (see also --no-reread).  It's possible that
+this feature or another sfdisk activity races with \fBudevd\fR.  The recommended way
+how to avoid possible collisions is to use exclusive flock for the whole-disk
+device to serialize device access.  The exclusive lock will cause udevd to skip
+the event handling on the device.  For example:
+.RS
+.sp
+.nf
+.B "flock /dev/sdc sfdisk /dev/sdc"
+.fi
+.sp
+.RE
+Note, this semantic is not currently supported by udevd for MD and DM devices.
+
 .SH COMMANDS
 The commands are mutually exclusive.
 .TP
@@ -78,10 +94,14 @@ partitions may be smaller.  In this case \fBsfdisk\fR follows the default
 values from the partition table and does not use built-in defaults for the
 unused partition given with \fB\-N\fR.  See also \fB\-\-append\fR.
 .TP
-.BR \-A , " \-\-activate \fIdevice " [ \fIpartition-number ...]
-Switch on the bootable flag for the specified partitions.
-If no \fIpartition-number\fR is specified,
-then list the partitions with an enabled flag.
+.BR \-A , " \-\-activate \fIdevice " [ \fIpartition-number...]
+Switch on the bootable flag for the specified partitions and switch off the
+bootable flag on all unspecified partitions. The special placeholder '-'
+may be used instead of the partition numbers to switch off the bootable flag
+on all partitions.
+
+If no \fIpartition-number\fR is specified, then list the partitions with an
+enabled flag.
 .TP
 .BR "\-\-delete \fIdevice " [ \fIpartition-number ...]
 Delete all or the specified partitions.
@@ -357,6 +377,12 @@ linux extended partition; means 85 for MBR.
 .TP
 .B U
 EFI System partition, means EF for MBR and C12A7328-F81F-11D2-BA4B-00A0C93EC93B for GPT
+.TP
+.B R
+Linux RAID; means FD for MBR and A19D880F-05FC-4D3B-A006-743F0F84911E for GPT
+.TP
+.B V
+LVM; means 8E for MBR and E6D6D379-F507-44C2-A23C-238F2A3DF928 for GPT
 .RE
 .PP
 The default

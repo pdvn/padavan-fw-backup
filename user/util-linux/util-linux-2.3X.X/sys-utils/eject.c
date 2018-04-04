@@ -127,8 +127,9 @@ static inline void info(const char *fmt, ...)
 	va_end(va);
 }
 
-static void __attribute__ ((__noreturn__)) usage(FILE * out)
+static void __attribute__((__noreturn__)) usage(void)
 {
+	FILE *out = stdout;
 	fputs(USAGE_HEADER, out);
 	fprintf(out,
 		_(" %s [options] [<device>|<mountpoint>]\n"), program_invocation_short_name);
@@ -158,13 +159,12 @@ static void __attribute__ ((__noreturn__)) usage(FILE * out)
 		out);
 
 	fputs(USAGE_SEPARATOR, out);
-	fputs(USAGE_HELP, out);
-	fputs(USAGE_VERSION, out);
+	printf(USAGE_HELP_OPTIONS(29));
 
 	fputs(_("\nBy default tries -r, -s, -f, and -q in order until success.\n"), out);
-	fprintf(out, USAGE_MAN_TAIL("eject(1)"));
+	printf(USAGE_MAN_TAIL("eject(1)"));
 
-	exit(out == stderr ? EXIT_FAILURE : EXIT_SUCCESS);
+	exit(EXIT_SUCCESS);
 }
 
 
@@ -223,7 +223,7 @@ static void parse_args(struct eject_control *ctl, int argc, char **argv)
 			ctl->F_option = 1;
 			break;
 		case 'h':
-			usage(stdout);
+			usage();
 			break;
 		case 'i':
 			ctl->i_option = 1;
@@ -548,7 +548,6 @@ static int read_speed(const char *devname)
  */
 static void list_speeds(struct eject_control *ctl)
 {
-#ifdef CDROM_SELECT_SPEED
 	int max_speed, curr_speed = 0;
 
 	select_speed(ctl);
@@ -565,9 +564,6 @@ static void list_speeds(struct eject_control *ctl)
 	}
 
 	printf("\n");
-#else
-	warnx(_("CD-ROM select speed command not supported by this kernel"));
-#endif
 }
 
 /*
@@ -671,7 +667,7 @@ static void umount_one(const struct eject_control *ctl, const char *name)
 		else
 			execl("/bin/umount", "/bin/umount", name, NULL);
 
-		errx(EXIT_FAILURE, _("unable to exec /bin/umount of `%s'"), name);
+		errexec("/bin/umount");
 
 	case -1:
 		warn( _("unable to fork"));

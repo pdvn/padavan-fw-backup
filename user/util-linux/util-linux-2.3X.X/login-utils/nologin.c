@@ -19,8 +19,9 @@
  * Always return EXIT_FAILURE (1), don't try to be smart!
  */
 
-static void __attribute__((__noreturn__)) usage(FILE *out)
+static void __attribute__((__noreturn__)) usage(void)
 {
+	FILE *out = stdout;
 	fputs(USAGE_HEADER, out);
 	fprintf(out,
 		_(" %s [options]\n"), program_invocation_short_name);
@@ -29,10 +30,9 @@ static void __attribute__((__noreturn__)) usage(FILE *out)
 	fputs(_("Politely refuse a login.\n"), out);
 
 	fputs(USAGE_OPTIONS, out);
-	fputs(USAGE_HELP, out);
-	fputs(USAGE_VERSION, out);
+	printf(USAGE_HELP_OPTIONS(16));
 
-	fprintf(out, USAGE_MAN_TAIL("nologin(8)"));
+	printf(USAGE_MAN_TAIL("nologin(8)"));
 	exit(EXIT_FAILURE);
 }
 
@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
 	while ((c = getopt_long(argc, argv, "hV", longopts, NULL)) != -1) {
 		switch (c) {
 		case 'h':
-			usage(stdout);
+			usage();
 			break;
 		case 'V':
 			printf(UTIL_LINUX_VERSION);

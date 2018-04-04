@@ -69,15 +69,18 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "lp.h"
-#include "nls.h"
-#include "xalloc.h"
-#include "closestream.h"
+#include <linux/lp.h>
 
-#define STRTOXX_EXIT_CODE	3
+#include "nls.h"
+#include "closestream.h"
+#include "strutils.h"
+
+#define EXIT_LP_MALLOC		2
+#define EXIT_LP_BADVAL		3
 #define EXIT_LP_IO_ERR		4
 
-#include "strutils.h"
+#define XALLOC_EXIT_CODE EXIT_LP_MALLOC
+#include "xalloc.h"
 
 struct command {
 	long op;
@@ -85,8 +88,9 @@ struct command {
 	struct command *next;
 };
 
-static void __attribute__((__noreturn__)) print_usage(FILE *out)
+static void __attribute__((__noreturn__)) usage(void)
 {
+	FILE *out = stdout;
 	fputs(USAGE_HEADER, out);
 	fprintf(out, _(" %s [options] <device>\n"), program_invocation_short_name);
 
@@ -105,15 +109,13 @@ static void __attribute__((__noreturn__)) print_usage(FILE *out)
 	fputs(_(" -o, --check-status <on|off>  check printer status before printing\n"), out);
 	fputs(_(" -C, --careful <on|off>       extra checking to status check\n"), out);
 	fputs(_(" -s, --status                 query printer status\n"), out);
-	fputs(_(" -T, --trust-irq <on|off>     make driver to trust irq\n"), out);
 	fputs(_(" -r, --reset                  reset the port\n"), out);
 	fputs(_(" -q, --print-irq <on|off>     display current irq setting\n"), out);
 	fputs(USAGE_SEPARATOR, out);
-	fputs(USAGE_HELP, out);
-	fputs(USAGE_VERSION, out);
-	fprintf(out, USAGE_MAN_TAIL("tunelp(8)"));
+	printf(USAGE_HELP_OPTIONS(30));
+	printf(USAGE_MAN_TAIL("tunelp(8)"));
 
-	exit(out == stderr ? EXIT_FAILURE : EXIT_SUCCESS);
+	exit(EXIT_SUCCESS);
 }
 
 int main(int argc, char **argv)
@@ -144,8 +146,12 @@ int main(int argc, char **argv)
 	textdomain(PACKAGE);
 	atexit(close_stdout);
 
-	if (argc < 2)
-		print_usage(stderr);
+	strutils_set_exitcode(EXIT_LP_BADVAL);
+
+	if (argc < 2) {
+		warnx(_("not enough arguments"));
+		errtryhelp(EXIT_FAILURE);
+	}
 
 	cmdst = cmds = xmalloc(sizeof(struct command));
 	cmds->next = NULL;
@@ -154,7 +160,7 @@ int main(int argc, char **argv)
 	while ((c = getopt_long(argc, argv, "t:c:w:a:i:ho:C:sq:rT:vV", longopts, NULL)) != -1) {
 		switch (c) {
 		case 'h':
-			print_usage(stdout);
+			usage();
 			break;
 		case 'i':
 			cmds->op = LPSETIRQ;
@@ -223,16 +229,6 @@ int main(int argc, char **argv)
 			cmds = cmds->next;
 			cmds->next = NULL;
 			break;
-		case 'T':
-			/* Note: this will do the wrong thing on
-			 * 2.0.36 when compiled under 2.2.x
-			 */
-			cmds->op = LPTRUSTIRQ;
-			cmds->val = parse_switch(optarg, _("argument error"), "on", "off", NULL);
-			cmds->next = xmalloc(sizeof(struct command));
-			cmds = cmds->next;
-			cmds->next = NULL;
-			break;
 		case 'v':
 		case 'V':
 			printf(UTIL_LINUX_VERSION);
@@ -242,8 +238,10 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if (optind != argc - 1)
-		print_usage(stderr);
+	if (optind != argc - 1) {
+		warnx(_("no device specified"));
+		errtryhelp(EXIT_FAILURE);
+	}
 
 	filename = xstrdup(argv[optind]);
 	fd = open(filename, O_WRONLY | O_NONBLOCK, 0);
@@ -259,7 +257,7 @@ int main(int argc, char **argv)
 
 	if (!S_ISCHR(statbuf.st_mode)) {
 		warnx(_("%s not an lp device"), filename);
-		print_usage(stderr);
+		errtryhelp(EXIT_FAILURE);
 	}
 	/* Allow for binaries compiled under a new kernel to work on
 	 * the old ones The irq argument to ioctl isn't touched by

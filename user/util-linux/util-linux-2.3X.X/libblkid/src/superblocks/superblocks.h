@@ -30,6 +30,7 @@ extern const struct blkid_idinfo jbd_idinfo;
 extern const struct blkid_idinfo jfs_idinfo;
 extern const struct blkid_idinfo xfs_idinfo;
 extern const struct blkid_idinfo xfs_log_idinfo;
+extern const struct blkid_idinfo exfs_idinfo;
 extern const struct blkid_idinfo gfs_idinfo;
 extern const struct blkid_idinfo gfs2_idinfo;
 extern const struct blkid_idinfo romfs_idinfo;
@@ -53,6 +54,7 @@ extern const struct blkid_idinfo lvm2_idinfo;
 extern const struct blkid_idinfo lvm1_idinfo;
 extern const struct blkid_idinfo snapcow_idinfo;
 extern const struct blkid_idinfo verity_hash_idinfo;
+extern const struct blkid_idinfo integrity_idinfo;
 extern const struct blkid_idinfo luks_idinfo;
 extern const struct blkid_idinfo highpoint37x_idinfo;
 extern const struct blkid_idinfo highpoint45x_idinfo;
@@ -62,6 +64,7 @@ extern const struct blkid_idinfo netware_idinfo;
 extern const struct blkid_idinfo sysv_idinfo;
 extern const struct blkid_idinfo xenix_idinfo;
 extern const struct blkid_idinfo btrfs_idinfo;
+extern const struct blkid_idinfo ubi_idinfo;
 extern const struct blkid_idinfo ubifs_idinfo;
 extern const struct blkid_idinfo zfs_idinfo;
 extern const struct blkid_idinfo bfs_idinfo;
@@ -75,6 +78,9 @@ extern const struct blkid_idinfo nilfs2_idinfo;
 extern const struct blkid_idinfo exfat_idinfo;
 extern const struct blkid_idinfo f2fs_idinfo;
 extern const struct blkid_idinfo bcache_idinfo;
+extern const struct blkid_idinfo mpool_idinfo;
+extern const struct blkid_idinfo vdo_idinfo;
+extern const struct blkid_idinfo stratis_idinfo;
 
 /*
  * superblock functions

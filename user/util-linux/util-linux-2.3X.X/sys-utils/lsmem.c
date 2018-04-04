@@ -42,11 +42,25 @@
 #define MEMORY_STATE_GOING_OFFLINE	2
 #define MEMORY_STATE_UNKNOWN		3
 
+enum zone_id {
+	ZONE_DMA = 0,
+	ZONE_DMA32,
+	ZONE_NORMAL,
+	ZONE_HIGHMEM,
+	ZONE_MOVABLE,
+	ZONE_DEVICE,
+	ZONE_NONE,
+	ZONE_UNKNOWN,
+	MAX_NR_ZONES,
+};
+
 struct memory_block {
 	uint64_t	index;
 	uint64_t	count;
 	int		state;
 	int		node;
+	int		nr_zones;
+	int		zones[MAX_NR_ZONES];
 	unsigned int	removable:1;
 };
 
@@ -68,12 +82,15 @@ struct lsmem {
 				summary : 1,
 				list_all : 1,
 				bytes : 1,
-				want_node : 1,
-				want_state : 1,
-				want_removable : 1,
 				want_summary : 1,
-				want_table : 1;
+				want_table : 1,
+				split_by_node : 1,
+				split_by_state : 1,
+				split_by_removable : 1,
+				split_by_zones : 1,
+				have_zones : 1;
 };
+
 
 enum {
 	COL_RANGE,
@@ -82,6 +99,18 @@ enum {
 	COL_REMOVABLE,
 	COL_BLOCK,
 	COL_NODE,
+	COL_ZONES,
+};
+
+static char *zone_names[] = {
+	[ZONE_DMA]	= "DMA",
+	[ZONE_DMA32]	= "DMA32",
+	[ZONE_NORMAL]	= "Normal",
+	[ZONE_HIGHMEM]	= "Highmem",
+	[ZONE_MOVABLE]	= "Movable",
+	[ZONE_DEVICE]	= "Device",
+	[ZONE_NONE]	= "None",	/* block contains more than one zone, can't be offlined */
+	[ZONE_UNKNOWN]	= "Unknown",
 };
 
 /* column names */
@@ -102,6 +131,7 @@ static struct coldesc coldescs[] = {
 	[COL_REMOVABLE]	= { "REMOVABLE", 0, SCOLS_FL_RIGHT, N_("memory is removable")},
 	[COL_BLOCK]	= { "BLOCK", 0, SCOLS_FL_RIGHT, N_("memory block number or blocks range")},
 	[COL_NODE]	= { "NODE", 0, SCOLS_FL_RIGHT, N_("numa node of memory")},
+	[COL_ZONES]	= { "ZONES", 0, SCOLS_FL_RIGHT, N_("valid zones for the memory range")},
 };
 
 /* columns[] array specifies all currently wanted output column. The columns
@@ -118,6 +148,20 @@ static inline size_t err_columns_index(size_t arysz, size_t idx)
 				     "the limit is %zu columns"),
 				arysz - 1);
 	return idx;
+}
+
+/*
+ * name must be null-terminated
+ */
+static int zone_name_to_id(const char *name)
+{
+	size_t i;
+
+	for (i = 0; i < ARRAY_SIZE(zone_names); i++) {
+		if (!strcasecmp(name, zone_names[i]))
+			return i;
+	}
+	return ZONE_UNKNOWN;
 }
 
 #define add_column(ary, n, id)	\
@@ -151,14 +195,38 @@ static inline struct coldesc *get_column_desc(int num)
 	return &coldescs[ get_column_id(num) ];
 }
 
-static inline int has_column(int id)
+static inline void reset_split_policy(struct lsmem *l, int enable)
+{
+	l->split_by_state = enable;
+	l->split_by_node = enable;
+	l->split_by_removable = enable;
+	l->split_by_zones = enable;
+}
+
+static void set_split_policy(struct lsmem *l, int cols[], size_t ncols)
 {
 	size_t i;
 
-	for (i = 0; i < ncolumns; i++)
-		if (columns[i] == id)
-			return 1;
-	return 0;
+	reset_split_policy(l, 0);
+
+	for (i = 0; i < ncols; i++) {
+		switch (cols[i]) {
+		case COL_STATE:
+			l->split_by_state = 1;
+			break;
+		case COL_NODE:
+			l->split_by_node = 1;
+			break;
+		case COL_REMOVABLE:
+			l->split_by_removable = 1;
+			break;
+		case COL_ZONES:
+			l->split_by_zones = 1;
+			break;
+		default:
+			break;
+		}
+	}
 }
 
 static void add_scols_line(struct lsmem *lsmem, struct memory_block *blk)
@@ -214,6 +282,25 @@ static void add_scols_line(struct lsmem *lsmem, struct memory_block *blk)
 			else
 				str = xstrdup("-");
 			break;
+		case COL_ZONES:
+			if (lsmem->have_zones) {
+				char valid_zones[BUFSIZ];
+				int j, zone_id;
+
+				valid_zones[0] = '\0';
+				for (j = 0; j < blk->nr_zones; j++) {
+					zone_id = blk->zones[j];
+					if (strlen(valid_zones) +
+					    strlen(zone_names[zone_id]) > BUFSIZ - 2)
+						break;
+					strcat(valid_zones, zone_names[zone_id]);
+					if (j + 1 < blk->nr_zones)
+						strcat(valid_zones, "/");
+				}
+				str = xstrdup(valid_zones);
+			} else
+				str = xstrdup("-");
+			break;
 		}
 
 		if (str && scols_line_refer_data(line, i, str) != 0)
@@ -236,27 +323,33 @@ static void print_summary(struct lsmem *lsmem)
 		printf("%-23s %15"PRId64"\n",_("Total online memory:"), lsmem->mem_online);
 		printf("%-23s %15"PRId64"\n",_("Total offline memory:"), lsmem->mem_offline);
 	} else {
-		printf("%-23s %5s\n",_("Memory block size:"),
-			size_to_human_string(SIZE_SUFFIX_1LETTER, lsmem->block_size));
-		printf("%-23s %5s\n",_("Total online memory:"),
-			size_to_human_string(SIZE_SUFFIX_1LETTER, lsmem->mem_online));
-		printf("%-23s %5s\n",_("Total offline memory:"),
-			size_to_human_string(SIZE_SUFFIX_1LETTER, lsmem->mem_offline));
+		char *p;
+
+		if ((p = size_to_human_string(SIZE_SUFFIX_1LETTER, lsmem->block_size)))
+			printf("%-23s %5s\n",_("Memory block size:"), p);
+		free(p);
+
+		if ((p = size_to_human_string(SIZE_SUFFIX_1LETTER, lsmem->mem_online)))
+			printf("%-23s %5s\n",_("Total online memory:"), p);
+		free(p);
+
+		if ((p = size_to_human_string(SIZE_SUFFIX_1LETTER, lsmem->mem_offline)))
+			printf("%-23s %5s\n",_("Total offline memory:"), p);
+		free(p);
 	}
 }
 
 static int memory_block_get_node(char *name)
 {
 	struct dirent *de;
-	char *path;
+	const char *path;
 	DIR *dir;
 	int node;
 
-	path = path_strdup(_PATH_SYS_MEMORY"/%s", name);
-	dir = opendir(path);
-	free(path);
-	if (!dir)
-		err(EXIT_FAILURE, _("Failed to open %s"), path);
+	path = path_get(_PATH_SYS_MEMORY"/%s", name);
+	if (!path || !(dir= opendir(path)))
+		err(EXIT_FAILURE, _("Failed to open %s"), path ? path : name);
+
 	node = -1;
 	while ((de = readdir(dir)) != NULL) {
 		if (strncmp("node", de->d_name, 4))
@@ -273,26 +366,44 @@ static int memory_block_get_node(char *name)
 static void memory_block_read_attrs(struct lsmem *lsmem, char *name,
 				    struct memory_block *blk)
 {
+	char *token = NULL;
 	char line[BUFSIZ];
+	int i;
 
 	blk->count = 1;
 	blk->index = strtoumax(name + 6, NULL, 10); /* get <num> of "memory<num>" */
-	blk->removable = path_read_u64(_PATH_SYS_MEMORY"/%s/%s", name, "removable");
+	blk->removable = path_read_u64(_PATH_SYS_MEMORY"/%s/removable", name);
 	blk->state = MEMORY_STATE_UNKNOWN;
-	path_read_str(line, sizeof(line), _PATH_SYS_MEMORY"/%s/%s", name, "state");
+
+	path_read_str(line, sizeof(line), _PATH_SYS_MEMORY"/%s/state", name);
 	if (strcmp(line, "offline") == 0)
 		blk->state = MEMORY_STATE_OFFLINE;
 	else if (strcmp(line, "online") == 0)
 		blk->state = MEMORY_STATE_ONLINE;
 	else if (strcmp(line, "going-offline") == 0)
 		blk->state = MEMORY_STATE_GOING_OFFLINE;
+
 	if (lsmem->have_nodes)
 		blk->node = memory_block_get_node(name);
+
+	blk->nr_zones = 0;
+	if (lsmem->have_zones) {
+		path_read_str(line, sizeof(line), _PATH_SYS_MEMORY"/%s/valid_zones", name);
+		token = strtok(line, " ");
+	}
+	for (i = 0; i < MAX_NR_ZONES; i++) {
+		if (token) {
+			blk->zones[i] = zone_name_to_id(token);
+			blk->nr_zones++;
+			token = strtok(NULL, " ");
+		}
+	}
 }
 
 static int is_mergeable(struct lsmem *lsmem, struct memory_block *blk)
 {
 	struct memory_block *curr;
+	int i;
 
 	if (!lsmem->nblocks)
 		return 0;
@@ -301,13 +412,22 @@ static int is_mergeable(struct lsmem *lsmem, struct memory_block *blk)
 		return 0;
 	if (curr->index + curr->count != blk->index)
 		return 0;
-	if (lsmem->want_state && curr->state != blk->state)
+	if (lsmem->split_by_state && curr->state != blk->state)
 		return 0;
-	if (lsmem->want_removable && curr->removable != blk->removable)
+	if (lsmem->split_by_removable && curr->removable != blk->removable)
 		return 0;
-	if (lsmem->want_node && lsmem->have_nodes) {
+	if (lsmem->split_by_node && lsmem->have_nodes) {
 		if (curr->node != blk->node)
 			return 0;
+	}
+	if (lsmem->split_by_zones && lsmem->have_zones) {
+		if (curr->nr_zones != blk->nr_zones)
+			return 0;
+		for (i = 0; i < curr->nr_zones; i++) {
+			if (curr->zones[i] == ZONE_UNKNOWN ||
+			    curr->zones[i] != blk->zones[i])
+				return 0;
+		}
 	}
 	return 1;
 }
@@ -323,6 +443,10 @@ static void read_info(struct lsmem *lsmem)
 
 	for (i = 0; i < lsmem->ndirs; i++) {
 		memory_block_read_attrs(lsmem, lsmem->dirs[i]->d_name, &blk);
+		if (blk.state == MEMORY_STATE_ONLINE)
+			lsmem->mem_online += lsmem->block_size;
+		else
+			lsmem->mem_offline += lsmem->block_size;
 		if (is_mergeable(lsmem, &blk)) {
 			lsmem->blocks[lsmem->nblocks - 1].count++;
 			continue;
@@ -330,12 +454,6 @@ static void read_info(struct lsmem *lsmem)
 		lsmem->nblocks++;
 		lsmem->blocks = xrealloc(lsmem->blocks, lsmem->nblocks * sizeof(blk));
 		*&lsmem->blocks[lsmem->nblocks - 1] = blk;
-	}
-	for (i = 0; i < lsmem->nblocks; i++) {
-		if (lsmem->blocks[i].state == MEMORY_STATE_ONLINE)
-			lsmem->mem_online += lsmem->block_size * lsmem->blocks[i].count;
-		else
-			lsmem->mem_offline += lsmem->block_size * lsmem->blocks[i].count;
 	}
 }
 
@@ -348,24 +466,31 @@ static int memory_block_filter(const struct dirent *de)
 
 static void read_basic_info(struct lsmem *lsmem)
 {
-	char *dir;
+	const char *dir;
 
 	if (!path_exist(_PATH_SYS_MEMORY_BLOCK_SIZE))
 		errx(EXIT_FAILURE, _("This system does not support memory blocks"));
 
-	dir = path_strdup(_PATH_SYS_MEMORY);
+	dir = path_get(_PATH_SYS_MEMORY);
+	if (!dir)
+		err(EXIT_FAILURE, _("Failed to read %s"), _PATH_SYS_MEMORY);
+
 	lsmem->ndirs = scandir(dir, &lsmem->dirs, memory_block_filter, versionsort);
-	free(dir);
 	if (lsmem->ndirs <= 0)
 		err(EXIT_FAILURE, _("Failed to read %s"), _PATH_SYS_MEMORY);
 
 	if (memory_block_get_node(lsmem->dirs[0]->d_name) != -1)
 		lsmem->have_nodes = 1;
+
+	/* The valid_zones sysfs attribute was introduced with kernel 3.18 */
+	if (path_exist(_PATH_SYS_MEMORY "/memory0/valid_zones"))
+		lsmem->have_zones = 1;
 }
 
-static void __attribute__((__noreturn__)) lsmem_usage(FILE *out)
+static void __attribute__((__noreturn__)) usage(void)
 {
-	unsigned int i;
+	FILE *out = stdout;
+	size_t i;
 
 	fputs(USAGE_HEADER, out);
 	fprintf(out, _(" %s [options]\n"), program_invocation_short_name);
@@ -381,19 +506,18 @@ static void __attribute__((__noreturn__)) lsmem_usage(FILE *out)
 	fputs(_(" -n, --noheadings     don't print headings\n"), out);
 	fputs(_(" -o, --output <list>  output columns\n"), out);
 	fputs(_(" -r, --raw            use raw output format\n"), out);
+	fputs(_(" -S, --split <list>   split ranges by specified columns\n"), out);
 	fputs(_(" -s, --sysroot <dir>  use the specified directory as system root\n"), out);
 	fputs(_("     --summary[=when] print summary information (never,always or only)\n"), out);
 
 	fputs(USAGE_SEPARATOR, out);
-	fputs(USAGE_HELP, out);
-	fputs(USAGE_VERSION, out);
+	printf(USAGE_HELP_OPTIONS(22));
 
-	fputs(_("\nAvailable columns:\n"), out);
-
+	fputs(USAGE_COLUMNS, out);
 	for (i = 0; i < ARRAY_SIZE(coldescs); i++)
-		fprintf(out, " %10s  %s\n", coldescs[i].name, coldescs[i].help);
+		fprintf(out, " %10s  %s\n", coldescs[i].name, _(coldescs[i].help));
 
-	fprintf(out, USAGE_MAN_TAIL("lsmem(1)"));
+	printf(USAGE_MAN_TAIL("lsmem(1)"));
 
 	exit(out == stderr ? EXIT_FAILURE : EXIT_SUCCESS);
 }
@@ -405,7 +529,7 @@ int main(int argc, char **argv)
 			.want_summary = 1
 		}, *lsmem = &_lsmem;
 
-	const char *outarg = NULL;
+	const char *outarg = NULL, *splitarg = NULL;
 	int c;
 	size_t i;
 
@@ -423,12 +547,14 @@ int main(int argc, char **argv)
 		{"pairs",	no_argument,		NULL, 'P'},
 		{"raw",		no_argument,		NULL, 'r'},
 		{"sysroot",	required_argument,	NULL, 's'},
+		{"split",       required_argument,      NULL, 'S'},
 		{"version",	no_argument,		NULL, 'V'},
 		{"summary",     optional_argument,	NULL, LSMEM_OPT_SUMARRY },
 		{NULL,		0,			NULL, 0}
 	};
 	static const ul_excl_t excl[] = {	/* rows and cols in ASCII order */
 		{ 'J', 'P', 'r' },
+		{ 'S', 'a' },
 		{ 0 }
 	};
 	int excl_st[ARRAY_SIZE(excl)] = UL_EXCL_STATUS_INIT;
@@ -438,7 +564,7 @@ int main(int argc, char **argv)
 	textdomain(PACKAGE);
 	atexit(close_stdout);
 
-	while ((c = getopt_long(argc, argv, "abhJno:Prs:V", longopts, NULL)) != -1) {
+	while ((c = getopt_long(argc, argv, "abhJno:PrS:s:V", longopts, NULL)) != -1) {
 
 		err_exclusive_options(c, longopts, excl, excl_st);
 
@@ -450,7 +576,7 @@ int main(int argc, char **argv)
 			lsmem->bytes = 1;
 			break;
 		case 'h':
-			lsmem_usage(stdout);
+			usage();
 			break;
 		case 'J':
 			lsmem->json = 1;
@@ -471,7 +597,11 @@ int main(int argc, char **argv)
 			lsmem->want_summary = 0;
 			break;
 		case 's':
-			path_set_prefix(optarg);
+			if(path_set_prefix(optarg))
+				err(EXIT_FAILURE, _("invalid argument to %s"), "--sysroot");
+			break;
+		case 'S':
+			splitarg = optarg;
 			break;
 		case 'V':
 			printf(UTIL_LINUX_VERSION);
@@ -494,8 +624,10 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if (argc != optind)
-		lsmem_usage(stderr);
+	if (argc != optind) {
+		warnx(_("bad usage"));
+		errtryhelp(EXIT_FAILURE);
+	}
 
 	if (lsmem->want_table + lsmem->want_summary == 0)
 		errx(EXIT_FAILURE, _("options --{raw,json,pairs} and --summary=only are mutually exclusive"));
@@ -544,12 +676,21 @@ int main(int argc, char **argv)
 			err(EXIT_FAILURE, _("Failed to initialize output column"));
 	}
 
-	if (has_column(COL_STATE))
-		lsmem->want_state = 1;
-	if (has_column(COL_NODE))
-		lsmem->want_node = 1;
-	if (has_column(COL_REMOVABLE))
-		lsmem->want_removable = 1;
+	if (splitarg) {
+		int split[ARRAY_SIZE(coldescs)] = { 0 };
+		static size_t nsplits = 0;
+
+		if (strcasecmp(splitarg, "none") == 0)
+			;
+		else if (string_add_to_idarray(splitarg, split, ARRAY_SIZE(split),
+					&nsplits, column_name_to_id) < 0)
+			return EXIT_FAILURE;
+
+		set_split_policy(lsmem, split, nsplits);
+
+	} else
+		/* follow output columns */
+		set_split_policy(lsmem, columns, ncolumns);
 
 	/*
 	 * Read data and print output

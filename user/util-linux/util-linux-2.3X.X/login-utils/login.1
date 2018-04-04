@@ -130,8 +130,14 @@ Used by other servers (i.e.,
 to tell
 .B login
 that printing the hostname should be suppressed in the login: prompt.
+See also LOGIN_PLAIN_PROMPT below if your server does not allow to configure
+.B login
+command line.
 .TP
-.B \-V
+\fB\-\-help\fR
+Display help text and exit.
+.TP
+\fB\-V\fR, \fB\-\-version\fR
 Display version information and exit.
 .SH CONFIG FILE ITEMS
 .B login
@@ -155,6 +161,15 @@ is not displayed.  Note that the same functionality is also provided
 by
 .BR pam_motd (8)
 PAM module.
+.RE
+.PP
+.B LOGIN_PLAIN_PROMPT
+(boolean)
+.RS 4
+Tell login that printing the hostname should be suppressed in the login:
+prompt.  This is alternative to the \fB\-H\fR command line option.  The default
+value is
+.IR no .
 .RE
 .PP
 .B LOGIN_TIMEOUT

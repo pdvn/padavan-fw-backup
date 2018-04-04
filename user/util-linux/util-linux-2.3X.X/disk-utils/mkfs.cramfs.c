@@ -39,7 +39,7 @@
 
 /* We don't use our include/crc32.h, but crc32 from zlib!
  *
- * The zlib implemenation performs pre/post-conditioning. The util-linux
+ * The zlib implementation performs pre/post-conditioning. The util-linux
  * imlemenation requires post-conditioning (xor) in the applications.
  */
 #include <zlib.h>
@@ -98,7 +98,7 @@ struct entry {
 	/* stats */
 	unsigned char *name;
 	unsigned int mode, size, uid, gid;
-	unsigned char md5sum[MD5LENGTH];
+	unsigned char md5sum[UL_MD5LENGTH];
 	unsigned char flags;	   /* CRAMFS_EFLAG_* */
 
 	/* FS data */
@@ -122,32 +122,30 @@ struct entry {
 #define CRAMFS_GID_WIDTH 8
 #define CRAMFS_OFFSET_WIDTH 26
 
-/* Input status of 0 to print help and exit without an error. */
-static void
-usage(int status) {
-	FILE *stream = status ? stderr : stdout;
-
-	fprintf(stream,
+static void __attribute__((__noreturn__)) usage(void)
+{
+	printf(
 		_("usage: %s [-h] [-v] [-b blksize] [-e edition] [-N endian] [-i file] "
 		  "[-n name] dirname outfile\n"
-		  " -h         print this help\n"
 		  " -v         be verbose\n"
 		  " -E         make all warnings errors "
 		    "(non-zero exit status)\n"
 		  " -b blksize use this blocksize, must equal page size\n"
 		  " -e edition set edition number (part of fsid)\n"
 		  " -N endian  set cramfs endianness (big|little|host), default host\n"
-		  " -i file    insert a file image into the filesystem "
-		    "(requires >= 2.4.0)\n"
+		  " -i file    insert a file image into the filesystem\n"
 		  " -n name    set name of cramfs filesystem\n"
 		  " -p         pad by %d bytes for boot code\n"
 		  " -s         sort directory entries (old option, ignored)\n"
-		  " -z         make explicit holes (requires >= 2.3.39)\n"
+		  " -z         make explicit holes\n"
 		  " dirname    root of the filesystem to be compressed\n"
 		  " outfile    output file\n"),
 		program_invocation_short_name, PAD_SIZE);
 
-	exit(status);
+	fputs(USAGE_SEPARATOR, stdout);
+	printf(USAGE_HELP_OPTIONS(16));
+	printf(USAGE_MAN_TAIL("mkfs.cramfs(8)"));
+	exit(MKFS_EX_OK);
 }
 
 static char *
@@ -196,16 +194,17 @@ do_munmap(char *start, unsigned int size, unsigned int mode){
 /* compute md5sums, so that we do not have to compare every pair of files */
 static void
 mdfile(struct entry *e) {
-	MD5_CTX ctx;
 	char *start;
 
 	start = do_mmap(e->path, e->size, e->mode);
 	if (start == NULL) {
 		e->flags |= CRAMFS_EFLAG_INVALID;
 	} else {
-		MD5Init(&ctx);
-		MD5Update(&ctx, (unsigned char *) start, e->size);
-		MD5Final(e->md5sum, &ctx);
+		UL_MD5_CTX ctx;
+
+		ul_MD5Init(&ctx);
+		ul_MD5Update(&ctx, (unsigned char *) start, e->size);
+		ul_MD5Final(e->md5sum, &ctx);
 
 		do_munmap(start, e->size, e->mode);
 
@@ -257,7 +256,7 @@ static int find_identical_file(struct entry *orig, struct entry *new, loff_t *fs
 
 		if ((orig->flags & CRAMFS_EFLAG_MD5) &&
 		    (new->flags & CRAMFS_EFLAG_MD5) &&
-		    !memcmp(orig->md5sum, new->md5sum, MD5LENGTH) &&
+		    !memcmp(orig->md5sum, new->md5sum, UL_MD5LENGTH) &&
 		    identical_file(orig, new)) {
 			new->same = orig;
 			*fslen_ub -= new->size;
@@ -717,11 +716,22 @@ int main(int argc, char **argv)
 	textdomain(PACKAGE);
 	atexit(close_stdout);
 
+	if (argc > 1) {
+		/* first arg may be one of our standard longopts */
+		if (!strcmp(argv[1], "--help"))
+			usage();
+		if (!strcmp(argv[1], "--version")) {
+			printf(UTIL_LINUX_VERSION);
+			exit(MKFS_EX_OK);
+		}
+	}
+	strutils_set_exitcode(MKFS_EX_USAGE);
+
 	/* command line options */
 	while ((c = getopt(argc, argv, "hb:Ee:i:n:N:psVvz")) != EOF) {
 		switch (c) {
 		case 'h':
-			usage(MKFS_EX_OK);
+			usage();
 		case 'b':
 			blksize = strtou32_or_err(optarg, _("invalid blocksize argument"));
 			break;
@@ -773,8 +783,10 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if ((argc - optind) != 2)
-		usage(MKFS_EX_USAGE);
+	if ((argc - optind) != 2) {
+		warnx(_("bad usage"));
+		errtryhelp(MKFS_EX_USAGE);
+	}
 	dirname = argv[optind];
 	outfile = argv[optind + 1];
 
@@ -910,5 +922,5 @@ int main(int argc, char **argv)
 	    (warn_namelen|warn_skip|warn_size|warn_uid|warn_gid|warn_dev))
 		exit(MKFS_EX_ERROR);
 
-	return EXIT_SUCCESS;
+	return MKFS_EX_OK;
 }

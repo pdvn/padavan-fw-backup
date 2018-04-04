@@ -82,7 +82,7 @@ static int start_command(struct child_process *cmd)
 
 		cmd->preexec_cb();
 		execvp(cmd->argv[0], (char *const*) cmd->argv);
-		exit(127); /* cmd not found */
+		errexec(cmd->argv[0]);
 	}
 
 	if (cmd->pid < 0) {
@@ -192,6 +192,8 @@ static int has_command(const char *cmd)
 
 	for(s = strtok(p, ":"); s; s = strtok(NULL, ":")) {
 		int fd = open(s, O_RDONLY|O_CLOEXEC);
+		if (fd < 0)
+			continue;
 		rc = faccessat(fd, cmd, X_OK, 0) == 0;
 		close(fd);
 		if (rc)

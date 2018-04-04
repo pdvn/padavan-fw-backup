@@ -102,9 +102,7 @@ static void print_utline(struct utmpx *ut, FILE *out)
 	tv.tv_sec = ut->ut_tv.tv_sec;
 	tv.tv_usec = ut->ut_tv.tv_usec;
 
-	if (strtimeval_iso(&tv,
-			   ISO_8601_DATE | ISO_8601_TIME | ISO_8601_COMMAUSEC |
-			   ISO_8601_TIMEZONE | ISO_8601_GMTIME, time_string,
+	if (strtimeval_iso(&tv, ISO_TIMESTAMP_COMMA_GT, time_string,
 			   sizeof(time_string)) != 0)
 		return;
 	cleanse(ut->ut_id);
@@ -296,8 +294,9 @@ static void undump(FILE *in, FILE *out)
 	free(linestart);
 }
 
-static void __attribute__((__noreturn__)) usage(FILE *out)
+static void __attribute__((__noreturn__)) usage(void)
 {
+	FILE *out = stdout;
 	fputs(USAGE_HEADER, out);
 
 	fprintf(out,
@@ -310,11 +309,10 @@ static void __attribute__((__noreturn__)) usage(FILE *out)
 	fputs(_(" -f, --follow         output appended data as the file grows\n"), out);
 	fputs(_(" -r, --reverse        write back dumped data into utmp file\n"), out);
 	fputs(_(" -o, --output <file>  write to file instead of standard output\n"), out);
-	fputs(USAGE_HELP, out);
-	fputs(USAGE_VERSION, out);
+	printf(USAGE_HELP_OPTIONS(22));
 
-	fprintf(out, USAGE_MAN_TAIL("utmpdump(1)"));
-	exit(out == stderr ? EXIT_FAILURE : EXIT_SUCCESS);
+	printf(USAGE_MAN_TAIL("utmpdump(1)"));
+	exit(EXIT_SUCCESS);
 }
 
 int main(int argc, char **argv)
@@ -356,7 +354,7 @@ int main(int argc, char **argv)
 			break;
 
 		case 'h':
-			usage(stdout);
+			usage();
 			break;
 		case 'V':
 			printf(UTIL_LINUX_VERSION);

@@ -43,6 +43,9 @@
 #define cellpadding_symbol(tb)  ((tb)->padding_debug ? "." : \
 				 ((tb)->symbols->cell_padding ? (tb)->symbols->cell_padding: " "))
 
+#define want_repeat_header(tb)	(!(tb)->header_repeat || (tb)->header_next <= (tb)->termlines_used)
+
+
 /* This is private struct to work with output data */
 struct libscols_buffer {
 	char	*begin;		/* begin of the buffer */
@@ -129,7 +132,9 @@ static char *buffer_get_data(struct libscols_buffer *buf)
 }
 
 /* encode data by mbs_safe_encode() to avoid control and non-printable chars */
-static char *buffer_get_safe_data(struct libscols_buffer *buf, size_t *cells,
+static char *buffer_get_safe_data(struct libscols_table *tb,
+				  struct libscols_buffer *buf,
+				  size_t *cells,
 				  const char *safechars)
 {
 	char *data = buffer_get_data(buf);
@@ -144,7 +149,14 @@ static char *buffer_get_safe_data(struct libscols_buffer *buf, size_t *cells,
 			goto nothing;
 	}
 
-	res = mbs_safe_encode_to_buffer(data, cells, buf->encdata, safechars);
+	if (tb->no_encode) {
+		*cells = mbs_safe_width(data);
+		strcpy(buf->encdata, data);
+		res = buf->encdata;
+	} else {
+		res = mbs_safe_encode_to_buffer(data, cells, buf->encdata, safechars);
+	}
+
 	if (!res || !*cells || *cells == (size_t) -1)
 		goto nothing;
 	return res;
@@ -248,7 +260,7 @@ static void print_empty_cell(struct libscols_table *tb,
 				line_ascii_art_to_buffer(tb, ln, art);
 				if (!list_empty(&ln->ln_branch) && has_pending_data(tb))
 					buffer_append_data(art, vertical_symbol(tb));
-				data = buffer_get_safe_data(art, &len_pad, NULL);
+				data = buffer_get_safe_data(tb, art, &len_pad, NULL);
 				if (data && len_pad)
 					fputs(data, tb->out);
 				free_buffer(art);
@@ -307,6 +319,7 @@ static void print_newline_padding(struct libscols_table *tb,
 	assert(cl);
 
 	fputs(linesep(tb), tb->out);		/* line break */
+	tb->termlines_used++;
 
 	/* fill cells after line break */
 	for (i = 0; i <= (size_t) cl->seqnum; i++)
@@ -374,6 +387,8 @@ static int print_pending_data(
 
 	if (!cl->pending_data)
 		return 0;
+	if (!width)
+		return -EINVAL;
 
 	DBG(COL, ul_debugobj(cl, "printing pending data"));
 
@@ -392,7 +407,8 @@ static int print_pending_data(
 	if (bytes == (size_t) -1)
 		goto err;
 
-	step_pending_data(cl, bytes);
+	if (bytes)
+		step_pending_data(cl, bytes);
 
 	if (color)
 		fputs(color, tb->out);
@@ -427,10 +443,6 @@ static int print_data(struct libscols_table *tb,
 
 	assert(tb);
 	assert(cl);
-
-	DBG(TAB, ul_debugobj(tb,
-			" -> data, column=%p, line=%p, cell=%p, buff=%p",
-			cl, ln, ce, buf));
 
 	data = buffer_get_data(buf);
 	if (!data)
@@ -471,7 +483,7 @@ static int print_data(struct libscols_table *tb,
 
 	/* Encode. Note that 'len' and 'width' are number of cells, not bytes.
 	 */
-	data = buffer_get_safe_data(buf, &len, scols_column_get_safechars(cl));
+	data = buffer_get_safe_data(tb, buf, &len, scols_column_get_safechars(cl));
 	if (!data)
 		data = "";
 	bytes = strlen(data);
@@ -650,6 +662,7 @@ static void fput_children_open(struct libscols_table *tb)
 	fputs(linesep(tb), tb->out);
 	tb->indent_last_sep = 1;
 	tb->indent++;
+	tb->termlines_used++;
 }
 
 static void fput_children_close(struct libscols_table *tb)
@@ -684,8 +697,10 @@ static void fput_line_close(struct libscols_table *tb, int last, int last_in_tab
 		if (!tb->no_linesep)
 			fputs(linesep(tb), tb->out);
 
-	} else if (tb->no_linesep == 0 && last_in_table == 0)
+	} else if (tb->no_linesep == 0 && last_in_table == 0) {
 		fputs(linesep(tb), tb->out);
+		tb->termlines_used++;
+	}
 
 	tb->indent_last_sep = 1;
 }
@@ -704,7 +719,7 @@ static int print_line(struct libscols_table *tb,
 
 	assert(ln);
 
-	DBG(TAB, ul_debugobj(tb, "printing line, line=%p, buff=%p", ln, buf));
+	DBG(TAB, ul_debugobj(tb, "printing line"));
 
 	/* regular line */
 	scols_reset_iter(&itr, SCOLS_ITER_FORWARD);
@@ -724,6 +739,7 @@ static int print_line(struct libscols_table *tb,
 	while (rc == 0 && pending) {
 		pending = 0;
 		fputs(linesep(tb), tb->out);
+		tb->termlines_used++;
 		scols_reset_iter(&itr, SCOLS_ITER_FORWARD);
 		while (rc == 0 && scols_table_next_column(tb, &itr, &cl) == 0) {
 			if (scols_column_is_hidden(cl))
@@ -744,7 +760,7 @@ static int print_title(struct libscols_table *tb)
 {
 	int rc, color = 0;
 	mbs_align_t align;
-	size_t width, bufsz, titlesz;
+	size_t width, len = 0, bufsz, titlesz;
 	char *title = NULL, *buf = NULL;
 
 	assert(tb);
@@ -755,21 +771,30 @@ static int print_title(struct libscols_table *tb)
 	DBG(TAB, ul_debugobj(tb, "printing title"));
 
 	/* encode data */
-	bufsz = mbs_safe_encode_size(strlen(tb->title.data)) + 1;
-	if (bufsz == 1) {
-		DBG(TAB, ul_debugobj(tb, "title is empty string -- ignore"));
-		return 0;
-	}
-	buf = malloc(bufsz);
-	if (!buf) {
-		rc = -ENOMEM;
-		goto done;
-	}
+	if (tb->no_encode) {
+		len = bufsz = strlen(tb->title.data) + 1;
+		buf = strdup(tb->title.data);
+		if (!buf) {
+			rc = -ENOMEM;
+			goto done;
+		}
+	} else {
+		bufsz = mbs_safe_encode_size(strlen(tb->title.data)) + 1;
+		if (bufsz == 1) {
+			DBG(TAB, ul_debugobj(tb, "title is empty string -- ignore"));
+			return 0;
+		}
+		buf = malloc(bufsz);
+		if (!buf) {
+			rc = -ENOMEM;
+			goto done;
+		}
 
-	if (!mbs_safe_encode_to_buffer(tb->title.data, &bufsz, buf, NULL) ||
-	    !bufsz || bufsz == (size_t) -1) {
-		rc = -EINVAL;
-		goto done;
+		if (!mbs_safe_encode_to_buffer(tb->title.data, &len, buf, NULL) ||
+		    !len || len == (size_t) -1) {
+			rc = -EINVAL;
+			goto done;
+		}
 	}
 
 	/* truncate and align */
@@ -792,6 +817,14 @@ static int print_title(struct libscols_table *tb)
 	case SCOLS_CELL_FL_LEFT:
 	default:
 		align = MBS_ALIGN_LEFT;
+		/*
+		 * Don't print extra blank chars after the title if on left
+		 * (that's same as we use for the last column in the table).
+		 */
+		if (len < width
+		    && !scols_table_is_maxout(tb)
+		    && isblank(*titlepadding_symbol(tb)))
+			width = len;
 		break;
 
 	}
@@ -833,7 +866,7 @@ static int print_header(struct libscols_table *tb, struct libscols_buffer *buf)
 
 	assert(tb);
 
-	if (tb->header_printed == 1 ||
+	if ((tb->header_printed == 1 && tb->header_repeat == 0) ||
 	    scols_table_is_noheadings(tb) ||
 	    scols_table_is_export(tb) ||
 	    scols_table_is_json(tb) ||
@@ -852,12 +885,19 @@ static int print_header(struct libscols_table *tb, struct libscols_buffer *buf)
 			rc = print_data(tb, cl, NULL, &cl->header, buf);
 	}
 
-	if (rc == 0)
+	if (rc == 0) {
 		fputs(linesep(tb), tb->out);
+		tb->termlines_used++;
+	}
 
 	tb->header_printed = 1;
+	tb->header_next = tb->termlines_used + tb->termheight;
+	if (tb->header_repeat)
+		DBG(TAB, ul_debugobj(tb, "\tnext header: %zu [current=%zu]",
+					tb->header_next, tb->termlines_used));
 	return rc;
 }
+
 
 static int print_range(	struct libscols_table *tb,
 			struct libscols_buffer *buf,
@@ -868,6 +908,7 @@ static int print_range(	struct libscols_table *tb,
 	struct libscols_line *ln;
 
 	assert(tb);
+	DBG(TAB, ul_debugobj(tb, "printing range"));
 
 	while (rc == 0 && scols_table_next_line(tb, itr, &ln) == 0) {
 
@@ -879,6 +920,9 @@ static int print_range(	struct libscols_table *tb,
 
 		if (end && ln == end)
 			break;
+
+		if (!last && want_repeat_header(tb))
+			print_header(tb, buf);
 	}
 
 	return rc;
@@ -1024,6 +1068,8 @@ static int count_column_width(struct libscols_table *tb,
 			size_t len = mbs_safe_width(scols_cell_get_data(&cl->header));
 			cl->width_min = max(cl->width_min, len);
 		}
+		if (!cl->width_min)
+			cl->width_min = 1;
 	}
 
 	scols_reset_iter(&itr, SCOLS_ITER_FORWARD);
@@ -1300,6 +1346,10 @@ static int recount_widths(struct libscols_table *tb, struct libscols_buffer *buf
 				width--;
 				break;
 			}
+
+			/* hide zero width columns */
+			if (cl->width == 0)
+				cl->flags |= SCOLS_FL_HIDDEN;
 		}
 
 		/* the current stage is without effect, go to the next */
@@ -1373,6 +1423,7 @@ static int initialize_printing(struct libscols_table *tb, struct libscols_buffer
 	int rc;
 
 	DBG(TAB, ul_debugobj(tb, "initialize printing"));
+	*buf = NULL;
 
 	if (!tb->symbols) {
 		rc = scols_table_set_default_symbols(tb);
@@ -1397,6 +1448,9 @@ static int initialize_printing(struct libscols_table *tb, struct libscols_buffer
 		bufsz = width;
 	} else
 		bufsz = BUFSIZ;
+
+	if (!tb->is_term || tb->format != SCOLS_FMT_HUMAN || scols_table_is_tree(tb))
+		tb->header_repeat = 0;
 
 	/*
 	 * Estimate extra space necessary for tree, JSON or another output
@@ -1477,14 +1531,14 @@ int scols_table_print_range(	struct libscols_table *tb,
 				struct libscols_line *start,
 				struct libscols_line *end)
 {
-	struct libscols_buffer *buf;
+	struct libscols_buffer *buf = NULL;
 	struct libscols_iter itr;
 	int rc;
 
 	if (scols_table_is_tree(tb))
 		return -EINVAL;
 
-	DBG(TAB, ul_debugobj(tb, "printing range"));
+	DBG(TAB, ul_debugobj(tb, "printing range from API"));
 
 	rc = initialize_printing(tb, &buf);
 	if (rc)
@@ -1563,7 +1617,7 @@ int scols_table_print_range_to_string(
 static int __scols_print_table(struct libscols_table *tb, int *is_empty)
 {
 	int rc = 0;
-	struct libscols_buffer *buf;
+	struct libscols_buffer *buf = NULL;
 
 	if (!tb)
 		return -EINVAL;
@@ -1635,9 +1689,9 @@ int scols_print_table(struct libscols_table *tb)
  *
  * Returns: 0, a negative value in case of an error.
  */
+#ifdef HAVE_OPEN_MEMSTREAM
 int scols_print_table_to_string(struct libscols_table *tb, char **data)
 {
-#ifdef HAVE_OPEN_MEMSTREAM
 	FILE *stream, *old_stream;
 	size_t sz;
 	int rc;
@@ -1659,8 +1713,13 @@ int scols_print_table_to_string(struct libscols_table *tb, char **data)
 	scols_table_set_stream(tb, old_stream);
 
 	return rc;
-#else
-	return -ENOSYS;
-#endif
 }
+#else
+int scols_print_table_to_string(
+		struct libscols_table *tb __attribute__((__unused__)),
+		char **data  __attribute__((__unused__)))
+{
+	return -ENOSYS;
+}
+#endif
 

@@ -121,8 +121,10 @@ static struct libscols_column *parse_column(FILE *f)
 		nlines++;
 	}
 
+	free(line);
 	return cl;
 fail:
+	free(line);
 	scols_unref_column(cl);
 	return NULL;
 }
@@ -152,6 +154,7 @@ static int parse_column_data(FILE *f, struct libscols_table *tb, int col)
 		scols_line_set_data(ln, col, str);
 	}
 
+	free(str);
 	return 0;
 
 }
@@ -194,8 +197,9 @@ static void compose_tree(struct libscols_table *tb, int parent_col, int id_col)
 }
 
 
-static void __attribute__ ((__noreturn__)) usage(FILE * out)
+static void __attribute__((__noreturn__)) usage(void)
 {
+	FILE *out = stdout;
 	fprintf(out,
 		"\n %s [options] <column-data-file> ...\n\n", program_invocation_short_name);
 
@@ -212,7 +216,7 @@ static void __attribute__ ((__noreturn__)) usage(FILE * out)
 	fputs(" -h, --help                     this help\n", out);
 	fputs("\n", out);
 
-	exit(out == stderr ? EXIT_FAILURE : EXIT_SUCCESS);
+	exit(EXIT_SUCCESS);
 }
 
 int main(int argc, char *argv[])
@@ -298,9 +302,9 @@ int main(int argc, char *argv[])
 			scols_table_set_termwidth(tb, strtou32_or_err(optarg, "failed to parse terminal width"));
 			break;
 		case 'h':
-			usage(stdout);
+			usage();
 		default:
-			usage(stderr);
+			errtryhelp(EXIT_FAILURE);
 		}
 	}
 
@@ -312,6 +316,8 @@ int main(int argc, char *argv[])
 
 		if (!ln || scols_table_add_line(tb, ln))
 			err(EXIT_FAILURE, "failed to add a new line");
+
+		scols_unref_line(ln);
 	}
 
 	n = 0;

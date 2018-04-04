@@ -151,8 +151,9 @@ static int prlimit(pid_t p, int resource,
 }
 #endif
 
-static void __attribute__ ((__noreturn__)) usage(FILE * out)
+static void __attribute__((__noreturn__)) usage(void)
 {
+	FILE *out = stdout;
 	size_t i;
 
 	fputs(USAGE_HEADER, out);
@@ -171,8 +172,8 @@ static void __attribute__ ((__noreturn__)) usage(FILE * out)
 		"     --noheadings       don't print headings\n"
 		"     --raw              use the raw output format\n"
 		"     --verbose          verbose output\n"
-		" -h, --help             display this help and exit\n"
-		" -V, --version          output version information and exit\n"), out);
+		), out);
+	printf(USAGE_HELP_OPTIONS(24));
 
 	fputs(_("\nResources Options:\n"), out);
 	fputs(_(" -c, --core             maximum size of core files created\n"
@@ -193,14 +194,13 @@ static void __attribute__ ((__noreturn__)) usage(FILE * out)
 		" -y, --rttime           CPU time in microseconds a process scheduled\n"
 		"                        under real-time scheduling\n"), out);
 
-	fputs(_("\nAvailable columns (for --output):\n"), out);
-
+	fputs(USAGE_COLUMNS, out);
 	for (i = 0; i < ARRAY_SIZE(infos); i++)
 		fprintf(out, " %11s  %s\n", infos[i].name, _(infos[i].help));
 
-	fprintf(out, USAGE_MAN_TAIL("prlimit(1)"));
+	printf(USAGE_MAN_TAIL("prlimit(1)"));
 
-	exit(out == stderr ? EXIT_FAILURE : EXIT_SUCCESS);
+	exit(EXIT_SUCCESS);
 }
 
 static inline int get_column_id(int num)
@@ -585,7 +585,7 @@ int main(int argc, char **argv)
 			pid = strtos32_or_err(optarg, _("invalid PID argument"));
 			break;
 		case 'h':
-			usage(stdout);
+			usage();
 		case 'o':
 			ncolumns = string_to_idarray(optarg,
 						     columns, ARRAY_SIZE(columns),
@@ -639,7 +639,7 @@ int main(int argc, char **argv)
 	if (argc > optind) {
 		/* prlimit [options] COMMAND */
 		execvp(argv[optind], &argv[optind]);
-		err(EXIT_FAILURE, _("failed to execute %s"), argv[optind]);
+		errexec(argv[optind]);
 	}
 
 	return EXIT_SUCCESS;

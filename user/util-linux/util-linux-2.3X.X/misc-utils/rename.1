@@ -20,10 +20,13 @@ in their name by
 Do not rename a symlink but its target.
 .TP
 .BR \-v , " \-\-verbose"
-Show which files where renamed, if any.
+Show which files were renamed, if any.
 .TP
-.BR \-n , " \-\-no-act"
+.BR \-n , " \-\-no\-act"
 Do not make any changes.
+.TP
+.BR \-o , " \-\-no\-overwrite"
+Do not overwrite existing files.
 .TP
 .BR \-V , " \-\-version"
 Display version information and exit.
@@ -37,7 +40,7 @@ the commands
 .RS
 .PP
 .nf
-rename foo foo0 foo?
+rename foo foo00 foo?
 rename foo foo0 foo??
 .fi
 .PP

@@ -269,8 +269,9 @@ static int parse_time_mode(const char *s)
 	errx(EXIT_FAILURE, _("unknown time format: %s"), s);
 }
 
-static void __attribute__ ((__noreturn__)) usage(FILE * out)
+static void __attribute__((__noreturn__)) usage(void)
 {
+	FILE *out = stdout;
 	size_t i;
 
 	fputs(USAGE_HEADER, out);
@@ -303,8 +304,7 @@ static void __attribute__ ((__noreturn__)) usage(FILE * out)
 	fputs(_(" -t, --time               show attach, detach and change times\n"), out);
 
 	fputs(USAGE_SEPARATOR, out);
-	fputs(USAGE_HELP, out);
-	fputs(USAGE_VERSION, out);
+	printf(USAGE_HELP_OPTIONS(26));
 
 	fprintf(out, _("\nGeneric columns:\n"));
 	for (i = COLDESC_IDX_GEN_FIRST; i <= COLDESC_IDX_GEN_LAST; i++)
@@ -326,8 +326,8 @@ static void __attribute__ ((__noreturn__)) usage(FILE * out)
 	for (i = COLDESC_IDX_SUM_FIRST; i <= COLDESC_IDX_SUM_LAST; i++)
 		fprintf(out, " %14s  %s\n", coldescs[i].name, _(coldescs[i].help));
 
-	fprintf(out, USAGE_MAN_TAIL("lsipc(1)"));
-	exit(out == stderr ? EXIT_FAILURE : EXIT_SUCCESS);
+	printf(USAGE_MAN_TAIL("lsipc(1)"));
+	exit(EXIT_SUCCESS);
 }
 
 static struct libscols_table *new_table(struct lsipc_control *ctl)
@@ -451,7 +451,7 @@ static char *make_time(int mode, time_t time)
 		strtime_short(&time, &now, 0, buf, sizeof(buf));
 		break;
 	case TIME_ISO:
-		strtime_iso(&time, ISO_8601_DATE|ISO_8601_TIME|ISO_8601_TIMEZONE, buf, sizeof(buf));
+		strtime_iso(&time, ISO_TIMESTAMP_T, buf, sizeof(buf));
 		break;
 	default:
 		errx(EXIT_FAILURE, _("unsupported time type"));
@@ -1223,12 +1223,12 @@ int main(int argc, char *argv[])
 			show_creat = 1;
 			break;
 		case 'h':
-			usage(stdout);
+			usage();
 		case 'V':
 			printf(UTIL_LINUX_VERSION);
 			return EXIT_SUCCESS;
 		default:
-			usage(stderr);
+			errtryhelp(EXIT_FAILURE);
 		}
 	}
 

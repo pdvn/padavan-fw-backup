@@ -30,7 +30,7 @@
 
 #define DEFAULT_SHELL "/bin/sh"
 
-void exec_shell(void)
+void __attribute__((__noreturn__)) exec_shell(void)
 {
 	const char *shell = getenv("SHELL");
 	char *shellc = xstrdup(shell);
@@ -46,5 +46,5 @@ void exec_shell(void)
 	strcpy(arg0 + 1, shell_basename);
 
 	execl(shell, arg0, NULL);
-	err(EXIT_FAILURE, _("failed to execute %s"), shell);
+	errexec(shell);
 }

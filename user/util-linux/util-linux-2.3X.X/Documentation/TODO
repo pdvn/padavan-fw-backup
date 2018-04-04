@@ -1,19 +1,62 @@
 
  Note that items with (!) have high priority.
 
-su/runuser
-----------
-  - (!) implement pty container for all su/runuser session (something like
-    script(1)) to separate user from the original terminal (see CVE-2016-2779)
+libsmartcols
+------------
+   - (!) add libscols_column->json_type and scols_column_set_jsontype()
+     to generate proper JSON output. Now the library uses quotes (= all is
+     string) for everything. See for example SIZE in "lsblk --json --bytes"
+     output.
 
-- add functions strtime_short(), strtime_iso(), strtime_ctime(), ...
+column
+------
+   - add option to NOT ignore empty lines
+     https://github.com/karelzak/util-linux/issues/593
 
-cleanup lib/path.c:
+script
+------
+   - (!) add terminal type ($TERM), columns and lines to the header line, something like:
+
+		Script started on 2018-03-05 13:02:08+0100 [term="xterm-256color", lines=53, columns=190]
+
+     see https://github.com/karelzak/util-linux/issues/583
+
+   - think about optional "event" records in timing file to save information
+     about non-data changes like signals (SIGWINCH, SIGSTOP, SIGCONT, etc.)
+     in format:
+
+             <time> 0 <name>[: var=data, ...]
+
+     for example:
+
+	     0.001296 256
+	     0.001297   0 SIGWINCH: columns=50, lines=20
+	     0.000010 275
+
+lsblk
+-----
+   The problem is NVMe-multipath driver where in /sys/.../slaves/ are nodes
+   that should be probably hidden for userspace. Note that kernel developers
+   promised to fix this issue in kernel *** so hold off from that for now***
+   [Mar 1, 2018].
+
+   Anyway, possible userspace solution is:
+
+   - verify that slave/holder nodes points to the real block devices
+     (/sys/dev/block/<maj:min> for the node exists), otherwise silently ignore
+     the slave/holder node -- see set_cxt().
+
+   - the same verification we necessary for nodes in /sys/block/<name>. It means
+     verify result from sysfs_devname_to_devno() in set_cxt().
+
+
+
+cleanup lib/path.c: [Karel Zak for v2.33]
 ------------------
    - always return rc from all functions
    - introduce control struct and use openat() from top-level path 
      (e.g. top-level is /proc, etc)
-- use lib/path.c as low-level API for lib/sysfs.c
+   - use lib/path.c as low-level API for lib/sysfs.c
    - now we duplicate code in functions like {path,sysfs}_read_u32, etc. 
    - it would be also nice to have a way how to redirect sysfs.c functions 
      to /sys snapshots (e.g. lsblk regression tests)
@@ -26,35 +69,10 @@ lscpu
 
 lsblk
 -----
-  - (!) add --tree to force tree output for operations like --sort where the
-    --list is enabled by default.
-
   - currently it does not show mountpoint for all devices in btrfs RAID. It's because
     /proc/#/mountinfo contains reference to the one device only. Maybe we can add some
     btrfs specific code to provide a better output for FS based stacks. Not sure.
     https://bugzilla.redhat.com/show_bug.cgi?id=1084453
-
-cfdisk
-------
-  - (!) add auto-sort support (sort partitions automatically) and
-    --sort={auto,never,always} command line option. This feature should be
-    enabled by default for logical partitions if we created all container (extended
-    partition) in the current session.
-      
-
-agetty
------
-  - support default issue (/etc/issue) output for agetty to make it agetty
-    usable on systems with empty /etc. 
-
-    This change is little bit controversial, because now agetty prints nothing 
-    by default and it's probably used by admins to hide information about the 
-    system to unauthorized users. We already have --noissue to disable issue 
-    output. The question is if admins use this option, "rm /etc/issue" is 
-    probably easer than modify inittab (or systemd unit file).
-
-    Maybe we can implement it by --enable-agetty-default-issue compile option and 
-    move the decision to downstream maintainers ;-)
 
 nsenter(1)
 ----------
@@ -78,10 +96,26 @@ bash completion
 libmount (mount/umount)
 -----------------------
 
- - (!) support "noauto,auto"; now mnt_context_next_mount() follows old mount(8)
-   behavior and search for "noauto" string. It seems the more correct behavior
-   would be to use the options as flags (mnt_context_set_user_mflags()) and check
-   for MNT_MS_NOAUT rather than for a string.
+ - remount all filesystems given their type, for example:
+        mount -a -t tmpfs -o remount
+   It should be probably enough to add remount_all() to mount(8) in way we
+   already have mount_all().  https://github.com/karelzak/util-linux/issues/589
+
+ - add --onlyonce to force mount(8) to check if mountpoint is already used. Now
+   "already mounted" detection is used for --all only. The problem is if you
+   call "mount <mountpoint>" more than once for in fstab defined tmpfs (or network
+   filesystem etc.). In this case kernel does not return EBUSY, but a new instance
+   of the FS is created. https://github.com/karelzak/util-linux/issues/448
+   (... just idea, maybe wrong idea)
+
+ - support CAP_SYS_ADMIN; for mount(2) syscall the CAP_SYS_ADMIN is good
+   enough. Unfortunately, mount(8) does more things like check for filesystem
+   type (but it's usually done by udev, so root perms are unnecessary), create
+   loop devices, write to /run/mount/utab or /etc/mtab, etc.
+
+   It would be nice to improve libmount to check for CAP_SYS_ADMIN if suid not
+   set and allow to use it for simple tasks where no another operation is
+   necessary.
 
  - allow to execute mount(2) in another namespace, something like:
 	mount --namespace=/proc/$n/ns/mnt  /dev/sda2 /bar
@@ -109,6 +143,13 @@ docs
 
  - (!) add API documentation to libuuid
 
+exit codes
+----------
+
+  - we need coreutils-like exit codes for failed exec(). See:
+    https://www.spinics.net/lists/util-linux-ng/msg12776.html
+    and original attempt:
+    https://github.com/karelzak/util-linux/pull/311
 
 login-utils:
 -----------
@@ -119,9 +160,10 @@ login-utils:
     * the unique functionality provided by newgpr(1) is support for group
       passwords [/etc/gshadow] -- do we really need this functionality?
     * maybe we can mark group-passwords as deprecated, and replace sg(1) and
-      newgpr(1) with su(1) code. The another way is to ask fro group password in
+      newgpr(1) with su(1) code. The another way is to ask for group password in
       su --group too.
     * note that shadow-utils newgpr(1) provides support for syslog and audit log.
+
 
 libblkid
 --------
@@ -136,20 +178,8 @@ libblkid
 libfdisk
 --------
 
- - (!) use fputs_quoted() when print partition name= and allow to use \x%02x
-       for input to escape unprintable chars and quotes.
-
  - add support for Apple Partition Map (see libblkid/src/partitions/mac.c)
    http://en.wikipedia.org/wiki/Apple_Partition_Map
-
- - catch SIGINT (Ctrl-C) and return to main menu.
-   From Red Hat bugzilla #545488:
-
-   While using fdisk normally, if you accidentally pressed the wrong button (to
-   start a sequence of questions for some operation, e.g. 'c' to create
-   partition).  The tool tries too hard to keep asking you for valid input.  You
-   can't provide a blank or invalid input to get it to break out of the current
-   dialog sequence and get back to the main menu.
 
 misc
 ----

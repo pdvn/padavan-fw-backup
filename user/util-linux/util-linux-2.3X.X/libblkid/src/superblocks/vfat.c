@@ -165,6 +165,8 @@ static unsigned char *search_fat_label(blkid_probe pr,
 		if ((ent->attr & (FAT_ATTR_VOLUME_ID | FAT_ATTR_DIR)) ==
 		    FAT_ATTR_VOLUME_ID) {
 			DBG(LOWPROBE, ul_debug("\tfound fs LABEL at entry %d", i));
+			if (ent->name[0] == 0x05)
+				ent->name[0] = 0xE5;
 			return ent->name;
 		}
 	}
@@ -197,8 +199,10 @@ static int fat_valid_superblock(blkid_probe pr,
 		 * FAT-like pseudo-header.
 		 */
 		if ((memcmp(ms->ms_magic, "JFS     ", 8) == 0) ||
-		    (memcmp(ms->ms_magic, "HPFS    ", 8) == 0))
+		    (memcmp(ms->ms_magic, "HPFS    ", 8) == 0)) {
+			DBG(LOWPROBE, ul_debug("\tJFS/HPFS detected"));
 			return 0;
+		}
 	}
 
 	/* fat counts(Linux kernel expects at least 1 FAT table) */
@@ -252,11 +256,15 @@ static int fat_valid_superblock(blkid_probe pr,
 		 * etc..) before MBR. Let's make sure that there is no MBR with
 		 * usable partition. */
 		unsigned char *buf = (unsigned char *) ms;
+
 		if (mbr_is_valid_magic(buf)) {
 			struct dos_partition *p0 = mbr_get_partition(buf, 0);
+
 			if (dos_partition_get_size(p0) != 0 &&
-			    (p0->boot_ind == 0 || p0->boot_ind == 0x80))
+			    (p0->boot_ind == 0 || p0->boot_ind == 0x80)) {
+				DBG(LOWPROBE, ul_debug("\tMBR detected"));
 				return 0;
+			}
 		}
 	}
 

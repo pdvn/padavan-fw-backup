@@ -35,7 +35,10 @@
 
 #include <sys/ioctl.h>
 #include <sys/stat.h>
-#include <linux/fs.h>
+
+#ifdef HAVE_SYS_FS_H
+# include <linux/fs.h>
+#endif
 
 #include "nls.h"
 #include "strutils.h"
@@ -43,7 +46,6 @@
 #include "closestream.h"
 #include "pathnames.h"
 #include "sysfs.h"
-#include "exitcodes.h"
 
 #include <libmount.h>
 
@@ -193,7 +195,7 @@ static int fstrim_all(struct fstrim_range *rangetpl, int verbose)
 	/* de-duplicate by mountpoints */
 	mnt_table_uniq_fs(tab, 0, uniq_fs_target_cmp);
 
-	/* de-duplicate by source and root */
+	/* de-duplicate by source */
 	mnt_table_uniq_fs(tab, MNT_UNIQ_FORWARD, uniq_fs_source_cmp);
 
 	while (mnt_table_next_fs(tab, itr, &fs) == 0) {
@@ -244,8 +246,9 @@ static int fstrim_all(struct fstrim_range *rangetpl, int verbose)
 	return EXIT_SUCCESS;
 }
 
-static void __attribute__((__noreturn__)) usage(FILE *out)
+static void __attribute__((__noreturn__)) usage(void)
 {
+	FILE *out = stdout;
 	fputs(USAGE_HEADER, out);
 	fprintf(out,
 	      _(" %s [options] <mount point>\n"), program_invocation_short_name);
@@ -261,10 +264,9 @@ static void __attribute__((__noreturn__)) usage(FILE *out)
 	fputs(_(" -v, --verbose       print number of discarded bytes\n"), out);
 
 	fputs(USAGE_SEPARATOR, out);
-	fputs(USAGE_HELP, out);
-	fputs(USAGE_VERSION, out);
-	fprintf(out, USAGE_MAN_TAIL("fstrim(8)"));
-	exit(out == stderr ? EXIT_FAILURE : EXIT_SUCCESS);
+	printf(USAGE_HELP_OPTIONS(21));
+	printf(USAGE_MAN_TAIL("fstrim(8)"));
+	exit(EXIT_SUCCESS);
 }
 
 int main(int argc, char **argv)
@@ -298,7 +300,7 @@ int main(int argc, char **argv)
 			all = 1;
 			break;
 		case 'h':
-			usage(stdout);
+			usage();
 			break;
 		case 'V':
 			printf(UTIL_LINUX_VERSION);
@@ -332,7 +334,7 @@ int main(int argc, char **argv)
 
 	if (optind != argc) {
 		warnx(_("unexpected number of arguments"));
-		usage(stderr);
+		errtryhelp(EXIT_FAILURE);
 	}
 
 	if (all)

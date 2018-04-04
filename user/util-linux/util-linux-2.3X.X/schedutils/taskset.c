@@ -45,8 +45,9 @@ struct taskset {
 			get_only:1;	/* print the mask, but not modify */
 };
 
-static void __attribute__((__noreturn__)) usage(FILE *out)
+static void __attribute__((__noreturn__)) usage(void)
 {
+	FILE *out = stdout;
 	fprintf(out,
 		_("Usage: %s [options] [mask | cpu-list] [pid|cmd [args...]]\n\n"),
 		program_invocation_short_name);
@@ -60,9 +61,10 @@ static void __attribute__((__noreturn__)) usage(FILE *out)
 		" -a, --all-tasks         operate on all the tasks (threads) for a given pid\n"
 		" -p, --pid               operate on existing given pid\n"
 		" -c, --cpu-list          display and specify cpus in list format\n"
-		" -h, --help              display this help\n"
-		" -V, --version           output version information\n\n"));
+		));
+	printf(USAGE_HELP_OPTIONS(25));
 
+	fputs(USAGE_SEPARATOR, out);
 	fprintf(out, _(
 		"The default behavior is to run a new command:\n"
 		"    %1$s 03 sshd -b 1024\n"
@@ -76,9 +78,8 @@ static void __attribute__((__noreturn__)) usage(FILE *out)
 		"    e.g. 0-31:2 is equivalent to mask 0x55555555\n"),
 		program_invocation_short_name);
 
-	fprintf(out, USAGE_MAN_TAIL("taskset(1)"));
-
-	exit(out == stderr ? EXIT_FAILURE : EXIT_SUCCESS);
+	printf(USAGE_MAN_TAIL("taskset(1)"));
+	exit(EXIT_SUCCESS);
 }
 
 static void print_affinity(struct taskset *ts, int isnew)
@@ -176,7 +177,7 @@ int main(int argc, char **argv)
 			printf(UTIL_LINUX_VERSION);
 			return EXIT_SUCCESS;
 		case 'h':
-			usage(stdout);
+			usage();
 			break;
 		default:
 			errtryhelp(EXIT_FAILURE);
@@ -184,8 +185,10 @@ int main(int argc, char **argv)
 	}
 
 	if ((!pid && argc - optind < 2)
-	    || (pid && (argc - optind < 1 || argc - optind > 2)))
-		usage(stderr);
+	    || (pid && (argc - optind < 1 || argc - optind > 2))) {
+		warnx(_("bad usage"));
+		errtryhelp(EXIT_FAILURE);
+	}
 
 	ncpus = get_max_number_of_cpus();
 	if (ncpus <= 0)
@@ -242,7 +245,7 @@ int main(int argc, char **argv)
 	if (!pid) {
 		argv += optind + 1;
 		execvp(argv[0], argv);
-		err(EXIT_FAILURE, _("failed to execute %s"), argv[0]);
+		errexec(argv[0]);
 	}
 
 	return EXIT_SUCCESS;

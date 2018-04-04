@@ -194,16 +194,15 @@ static int fincore_fd (struct fincore_control *ctl,
 		       off_t *count_incore)
 {
 	size_t window_size = N_PAGES_IN_WINDOW * ctl->pagesize;
-	off_t  file_offset;
-	void  *window = NULL;
+	off_t file_offset, len;
 	int rc = 0;
 	int warned_once = 0;
 
-	for (file_offset = 0; file_offset < file_size; file_offset += window_size) {
-		size_t len;
+	for (file_offset = 0; file_offset < file_size; file_offset += len) {
+		void  *window = NULL;
 
 		len = file_size - file_offset;
-		if (len >= window_size)
+		if (len >= (off_t) window_size)
 			len = window_size;
 
 		window = mmap(window, len, PROT_NONE, MAP_PRIVATE, fd, file_offset);
@@ -258,8 +257,9 @@ static int fincore_name(struct fincore_control *ctl,
 	return rc;
 }
 
-static void __attribute__((__noreturn__)) usage(FILE *out)
+static void __attribute__((__noreturn__)) usage(void)
 {
+	FILE *out = stdout;
 	size_t i;
 
 	fputs(USAGE_HEADER, out);
@@ -273,17 +273,16 @@ static void __attribute__((__noreturn__)) usage(FILE *out)
 	fputs(_(" -r, --raw             use raw output format\n"), out);
 
 	fputs(USAGE_SEPARATOR, out);
-	fputs(USAGE_HELP, out);
-	fputs(USAGE_VERSION, out);
+	printf(USAGE_HELP_OPTIONS(23));
 
-	fprintf(out, _("\nAvailable columns (for --output):\n"));
+	fprintf(out, USAGE_COLUMNS);
 
 	for (i = 0; i < ARRAY_SIZE(infos); i++)
 		fprintf(out, " %11s  %s\n", infos[i].name, _(infos[i].help));
 
-	fprintf(out, USAGE_MAN_TAIL("fincore(1)"));
+	printf(USAGE_MAN_TAIL("fincore(1)"));
 
-	exit(out == stderr ? EXIT_FAILURE : EXIT_SUCCESS);
+	exit(EXIT_SUCCESS);
 }
 
 int main(int argc, char ** argv)
@@ -334,7 +333,7 @@ int main(int argc, char ** argv)
 			printf(UTIL_LINUX_VERSION);
 			return EXIT_SUCCESS;
 		case 'h':
-			usage(stdout);
+			usage();
 		default:
 			errtryhelp(EXIT_FAILURE);
 		}

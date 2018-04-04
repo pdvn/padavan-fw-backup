@@ -334,7 +334,7 @@ char *next_proc_partition(FILE **f)
 		if (devno <= 0)
 			continue;
 
-		if (sysfs_devno_is_lvm_private(devno, NULL) ||
+		if (sysfs_devno_is_dm_private(devno, NULL) ||
 		    sysfs_devno_is_wholedisk(devno) <= 0)
 			continue;
 
@@ -429,7 +429,7 @@ void list_available_columns(FILE *out)
 
 	termwidth = get_terminal_width(80);
 
-	fprintf(out, _("\nAvailable columns (for -o):\n"));
+	fprintf(out, USAGE_COLUMNS);
 
 	while (fdisk_next_label(cxt, &lb) == 0) {
 		size_t width = 6;	/* label name and separators */

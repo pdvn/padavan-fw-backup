@@ -34,7 +34,6 @@
 
 #include "ismounted.h"
 
-#define STRTOXX_EXIT_CODE	BLKID_EXIT_OTHER	/* strtoxx_or_err() */
 #include "strutils.h"
 #define OPTUTILS_EXIT_CODE	BLKID_EXIT_OTHER	/* exclusive_option() */
 #include "optutils.h"
@@ -43,6 +42,8 @@
 
 #include "nls.h"
 #include "ttyutils.h"
+
+#define XALLOC_EXIT_CODE    BLKID_EXIT_OTHER    /* x.*alloc(), xstrndup() */
 #include "xalloc.h"
 
 struct blkid_control {
@@ -67,9 +68,9 @@ static void print_version(FILE *out)
 		LIBBLKID_VERSION, LIBBLKID_DATE);
 }
 
-static void usage(int error)
+static void __attribute__((__noreturn__)) usage(void)
 {
-	FILE *out = error ? stderr : stdout;
+	FILE *out = stdout;
 
 	fputs(USAGE_HEADER, out);
 	fprintf(out, _(	" %s --label <label> | --uuid <uuid>\n\n"), program_invocation_short_name);
@@ -102,10 +103,9 @@ static void usage(int error)
 	fputs(_(	" -n, --match-types <list>   filter by filesystem type (e.g. -n vfat,ext3)\n"), out);
 
 	fputs(USAGE_SEPARATOR, out);
-	fputs(USAGE_HELP, out);
-	fputs(USAGE_VERSION, out);
-	fprintf(out, USAGE_MAN_TAIL("blkid(8)"));
-	exit(error);
+	printf(USAGE_HELP_OPTIONS(28));
+	printf(USAGE_MAN_TAIL("blkid(8)"));
+	exit(EXIT_SUCCESS);
 }
 
 /*
@@ -691,6 +691,8 @@ int main(int argc, char **argv)
 	textdomain(PACKAGE);
 	atexit(close_stdout);
 
+	strutils_set_exitcode(BLKID_EXIT_OTHER);
+
 	while ((c = getopt_long (argc, argv,
 			    "c:dghilL:n:ko:O:ps:S:t:u:U:w:Vv", longopts, NULL)) != -1) {
 
@@ -762,7 +764,7 @@ int main(int argc, char **argv)
 		case 's':
 			if (numtag + 1 >= sizeof(ctl.show) / sizeof(*ctl.show)) {
 				warnx(_("Too many tags specified"));
-				errtryh(err);
+				errtryhelp(err);
 			}
 			ctl.show[numtag++] = optarg;
 			break;
@@ -773,13 +775,13 @@ int main(int argc, char **argv)
 			if (search_type) {
 				warnx(_("Can only search for "
 					"one NAME=value pair"));
-				errtryh(err);
+				errtryhelp(err);
 			}
 			if (blkid_parse_tag_string(optarg,
 						   &search_type,
 						   &search_value)) {
 				warnx(_("-t needs NAME=value pair"));
-				errtryh(err);
+				errtryhelp(err);
 			}
 			break;
 		case 'V':
@@ -791,10 +793,10 @@ int main(int argc, char **argv)
 			/* ignore - backward compatibility */
 			break;
 		case 'h':
-			usage(0);
+			usage();
 			break;
 		default:
-			errtryh(EXIT_FAILURE);
+			errtryhelp(EXIT_FAILURE);
 		}
 	}
 

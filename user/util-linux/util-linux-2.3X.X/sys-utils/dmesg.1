@@ -49,8 +49,9 @@ Display the local time and the delta in human-readable format.  Be aware that
 conversion to the local time could be inaccurate (see \fB\-T\fR for more
 details).
 .IP "\fB\-F\fR, \fB\-\-file \fIfile\fR"
-Read the messages from the given
+Read the syslog messages from the given
 .IR file .
+Note that \fB\-F\fR does not support messages in kmsg format. The old syslog format is supported only.
 .IP "\fB\-f\fR, \fB\-\-facility \fIlist\fR"
 Restrict output to the given (comma-separated)
 .I list
@@ -114,6 +115,8 @@ will
 print or clear the kernel ring buffer.
 .IP "\fB\-P\fR, \fB\-\-nopager\fR"
 Do not pipe output into a pager.  A pager is enabled by default for \fB\-\-human\fR output.
+.IP "\fB\-p\fR, \fB\-\-force\-prefix\fR"
+Add facility, level or timestamp information to each line of a multi-line message.
 .IP "\fB\-r\fR, \fB\-\-raw\fR"
 Print the raw message buffer, i.e. do not strip the log-level prefixes.
 

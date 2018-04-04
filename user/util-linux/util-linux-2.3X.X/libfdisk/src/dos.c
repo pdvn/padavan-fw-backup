@@ -401,7 +401,7 @@ static void reset_pte(struct pte *pe)
 	memset(pe, 0, sizeof(struct pte));
 }
 
-static int dos_delete_partition(struct fdisk_context *cxt, size_t partnum)
+static int delete_partition(struct fdisk_context *cxt, size_t partnum)
 {
 	struct fdisk_dos_label *l;
 	struct pte *pe;
@@ -497,6 +497,21 @@ static int dos_delete_partition(struct fdisk_context *cxt, size_t partnum)
 
 	fdisk_label_set_changed(cxt->label, 1);
 	return 0;
+}
+
+static int dos_delete_partition(struct fdisk_context *cxt, size_t partnum)
+{
+	struct pte *pe;
+
+	assert(cxt);
+	assert(cxt->label);
+	assert(fdisk_is_label(cxt, DOS));
+
+	pe = self_pte(cxt, partnum);
+	if (!pe || !is_used_partition(pe->pt_entry))
+		return -EINVAL;
+
+	return delete_partition(cxt, partnum);
 }
 
 static void read_extended(struct fdisk_context *cxt, size_t ext)
@@ -628,7 +643,7 @@ static void read_extended(struct fdisk_context *cxt, size_t ext)
 		if (p && !dos_partition_get_size(p) &&
 		    (cxt->label->nparts_max > 5 || (q && q->sys_ind))) {
 			fdisk_info(cxt, _("omitting empty partition (%zu)"), i+1);
-			dos_delete_partition(cxt, i);
+			delete_partition(cxt, i);
 			goto remove; 	/* numbering changed */
 		}
 	}
@@ -1582,7 +1597,7 @@ static int dos_add_partition(struct fdisk_context *cxt,
 			DBG(LABEL, ul_debug("DOS: pa template specifies partno>=4 for primary partition"));
 			return -EINVAL;
 		}
-		if (pa->type && IS_EXTENDED(pa->type->code)) {
+		if (ext_pe && pa->type && IS_EXTENDED(pa->type->code)) {
 			fdisk_warnx(cxt, _("Extended partition already exists."));
 			return -EINVAL;
 		}
@@ -1659,6 +1674,8 @@ static int dos_add_partition(struct fdisk_context *cxt,
 		DBG(LABEL, ul_debug("DOS: primary impossible, add logical"));
 		if (l->ext_offset) {
 			if (!pa || fdisk_partition_has_start(pa)) {
+				/* See above case A); here we have start, but
+				 * out of extended partition */
 				const char *msg;
 				if (!free_primary)
 					msg = _("All primary partitions are in use.");
@@ -1693,7 +1710,7 @@ static int dos_add_partition(struct fdisk_context *cxt,
 		int c;
 
 		/* the default layout for scripts is to create primary partitions */
-		if (cxt->script) {
+		if (cxt->script || !fdisk_has_dialogs(cxt)) {
 			rc = get_partition_unused_primary(cxt, pa, &res);
 			if (rc == 0)
 				rc = add_partition(cxt, res, pa);
@@ -2467,6 +2484,14 @@ struct fdisk_label *fdisk_new_dos_label(struct fdisk_context *cxt)
 	lb->nparttypes = ARRAY_SIZE(dos_parttypes) - 1;
 	lb->fields = dos_fields;
 	lb->nfields = ARRAY_SIZE(dos_fields);
+
+	lb->geom_min.sectors = 1;
+	lb->geom_min.heads = 1;
+	lb->geom_min.cylinders = 1;
+
+	lb->geom_max.sectors = 63;
+	lb->geom_max.heads = 255;
+	lb->geom_max.cylinders = 1048576;
 
 	return lb;
 }

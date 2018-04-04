@@ -576,6 +576,7 @@ static int exec_helper(struct libmnt_context *cxt)
 {
 	char *o = NULL;
 	int rc;
+	pid_t pid;
 
 	assert(cxt);
 	assert(cxt->fs);
@@ -590,17 +591,18 @@ static int exec_helper(struct libmnt_context *cxt)
 
 	DBG_FLUSH;
 
-	switch (fork()) {
+	pid = fork();
+	switch (pid) {
 	case 0:
 	{
 		const char *args[12], *type;
 		int i = 0;
 
 		if (setgid(getgid()) < 0)
-			exit(EXIT_FAILURE);
+			_exit(EXIT_FAILURE);
 
 		if (setuid(getuid()) < 0)
-			exit(EXIT_FAILURE);
+			_exit(EXIT_FAILURE);
 
 		type = mnt_fs_get_fstype(cxt->fs);
 
@@ -632,17 +634,23 @@ static int exec_helper(struct libmnt_context *cxt)
 							i, args[i]));
 		DBG_FLUSH;
 		execv(cxt->helper, (char * const *) args);
-		exit(EXIT_FAILURE);
+		_exit(EXIT_FAILURE);
 	}
 	default:
 	{
 		int st;
-		wait(&st);
-		cxt->helper_status = WIFEXITED(st) ? WEXITSTATUS(st) : -1;
 
-		DBG(CXT, ul_debugobj(cxt, "%s executed [status=%d]",
-					cxt->helper, cxt->helper_status));
-		cxt->helper_exec_status = rc = 0;
+		if (waitpid(pid, &st, 0) == (pid_t) -1) {
+			cxt->helper_status = -1;
+			rc = -errno;
+		} else {
+			cxt->helper_status = WIFEXITED(st) ? WEXITSTATUS(st) : -1;
+			cxt->helper_exec_status = rc = 0;
+		}
+		DBG(CXT, ul_debugobj(cxt, "%s executed [status=%d, rc=%d%s]",
+				cxt->helper,
+				cxt->helper_status, rc,
+				rc ? " waitpid failed" : ""));
 		break;
 	}
 
@@ -990,7 +998,13 @@ int mnt_context_do_mount(struct libmnt_context *cxt)
 #ifdef USE_LIBMOUNT_SUPPORT_MTAB
 	if (mnt_context_get_status(cxt)
 	    && !mnt_context_is_fake(cxt)
-	    && !cxt->helper) {
+	    && !cxt->helper
+	    && mnt_context_mtab_writable(cxt)) {
+
+		int is_rdonly = -1;
+
+		DBG(CXT, ul_debugobj(cxt, "checking for RDONLY mismatch"));
+
 		/*
 		 * Mounted by mount(2), do some post-mount checks
 		 *
@@ -999,11 +1013,13 @@ int mnt_context_do_mount(struct libmnt_context *cxt)
 		 * avoid 'ro' in mtab and 'rw' in /proc/mounts.
 		 */
 		if ((cxt->mountflags & MS_BIND)
-		    && (cxt->mountflags & MS_RDONLY)
-		    && !mnt_is_readonly(mnt_context_get_target(cxt)))
+		    && (cxt->mountflags & MS_RDONLY)) {
 
-			mnt_context_set_mflags(cxt,
-					cxt->mountflags & ~MS_RDONLY);
+			if (is_rdonly < 0)
+				is_rdonly = mnt_is_readonly(mnt_context_get_target(cxt));
+			if (!is_rdonly)
+				mnt_context_set_mflags(cxt, cxt->mountflags & ~MS_RDONLY);
+		}
 
 
 		/* Kernel can silently add MS_RDONLY flag when mounting file
@@ -1011,11 +1027,13 @@ int mnt_context_do_mount(struct libmnt_context *cxt)
 		 * 'ro' in /proc/mounts and 'rw' in mtab.
 		 */
 		if (!(cxt->mountflags & (MS_RDONLY | MS_MOVE))
-		    && !mnt_context_propagation_only(cxt)
-		    && mnt_is_readonly(mnt_context_get_target(cxt)))
+		    && !mnt_context_propagation_only(cxt)) {
 
-			mnt_context_set_mflags(cxt,
-					cxt->mountflags | MS_RDONLY);
+			if (is_rdonly < 0)
+				is_rdonly = mnt_is_readonly(mnt_context_get_target(cxt));
+			if (is_rdonly)
+				mnt_context_set_mflags(cxt, cxt->mountflags | MS_RDONLY);
+		}
 	}
 #endif
 
@@ -1042,7 +1060,7 @@ int mnt_context_finalize_mount(struct libmnt_context *cxt)
 
 	rc = mnt_context_prepare_update(cxt);
 	if (!rc)
-		rc = mnt_context_update_tabs(cxt);;
+		rc = mnt_context_update_tabs(cxt);
 	return rc;
 }
 
@@ -1157,6 +1175,7 @@ int mnt_context_next_mount(struct libmnt_context *cxt,
 {
 	struct libmnt_table *fstab, *mtab;
 	const char *o, *tgt;
+	char *pattern;
 	int rc, mounted = 0;
 
 	if (ignored)
@@ -1236,7 +1255,18 @@ int mnt_context_next_mount(struct libmnt_context *cxt,
 
 	rc = mnt_context_set_fs(cxt, *fs);
 	if (!rc) {
+		/*
+		 * "-t <pattern>" is used to filter out fstab entries, but for ordinary
+		 * mount operation -t means "-t <type>". We have to zeroize the pattern
+		 * to avoid misinterpretation.
+		 */
+		pattern = cxt->fstype_pattern;
+		cxt->fstype_pattern = NULL;
+
 		rc = mnt_context_mount(cxt);
+
+		cxt->fstype_pattern = pattern;
+
 		if (mntrc)
 			*mntrc = rc;
 	}
@@ -1244,7 +1274,7 @@ int mnt_context_next_mount(struct libmnt_context *cxt,
 	if (mnt_context_is_child(cxt)) {
 		DBG(CXT, ul_debugobj(cxt, "next-mount: child exit [rc=%d]", rc));
 		DBG_FLUSH;
-		exit(rc);
+		_exit(rc);
 	}
 	return 0;
 }
@@ -1379,6 +1409,10 @@ int mnt_context_get_mount_excode(
 			if (buf)
 				snprintf(buf, bufsz, _("overlapping loop device exists for %s"), src);
 			return MNT_EX_FAIL;
+		case -MNT_ERR_LOCK:
+			if (buf)
+				snprintf(buf, bufsz, _("locking failed"));
+			return MNT_EX_FILEIO;
 		default:
 			return mnt_context_get_generic_excode(rc, buf, bufsz, _("mount failed: %m"));
 		}
@@ -1388,7 +1422,12 @@ int mnt_context_get_mount_excode(
 		 * mount(2) syscall success, but something else failed
 		 * (probably error in mtab processing).
 		 */
-		if (rc < 0)
+		if (rc == -MNT_ERR_LOCK) {
+			if (buf)
+				snprintf(buf, bufsz, _("filesystem was mounted, but failed to update userspace mount table"));
+			return MNT_EX_FILEIO;
+
+		} else if (rc < 0)
 			return mnt_context_get_generic_excode(rc, buf, bufsz,
 				_("filesystem was mounted, but any subsequent operation failed: %m"));
 
@@ -1525,13 +1564,13 @@ int mnt_context_get_mount_excode(
 			return MNT_EX_SUCCESS;
 		if (!buf)
 			break;
-		if (stat(src, &st))
+		if (src && stat(src, &st))
 			snprintf(buf, bufsz, _("%s is not a block device, and stat(2) fails?"), src);
-		else if (S_ISBLK(st.st_mode))
+		else if (src && S_ISBLK(st.st_mode))
 			snprintf(buf, bufsz,
 				_("the kernel does not recognize %s as a block device; "
 				  "maybe \"modprobe driver\" is necessary"), src);
-		else if (S_ISREG(st.st_mode))
+		else if (src && S_ISREG(st.st_mode))
 			snprintf(buf, bufsz, _("%s is not a block device; try \"-o loop\""), src);
 		else
 			snprintf(buf, bufsz, _("%s is not a block device"), src);
@@ -1568,6 +1607,15 @@ int mnt_context_get_mount_excode(
 		if (buf)
 			snprintf(buf, bufsz, _("no medium found on %s"), src);
 		break;
+
+	case EBADMSG:
+		/* Bad CRC for classic filesystems (e.g. extN or XFS) */
+		if (buf && src && stat(src, &st) == 0
+		    && (S_ISBLK(st.st_mode) || S_ISREG(st.st_mode))) {
+			snprintf(buf, bufsz, _("cannot mount; probably corrupted filesystem on %s"), src);
+			break;
+		}
+		/* fallthrough */
 
 	default:
 		if (buf) {

@@ -5,6 +5,7 @@ libcommon_la_SOURCES = \
 	lib/blkdev.c \
 	lib/canonicalize.c \
 	lib/crc32.c \
+	lib/crc32c.c \
 	lib/env.c \
 	lib/idcache.c \
 	lib/fileutils.c \
@@ -18,13 +19,16 @@ libcommon_la_SOURCES = \
 	lib/pager.c \
 	lib/parse-date.y \
 	lib/path.c \
+	lib/pwdutils.c \
 	lib/randutils.c \
 	lib/setproctitle.c \
 	lib/strutils.c \
 	lib/timeutils.c \
 	lib/ttyutils.c \
 	lib/exec_shell.c \
-	lib/strv.c
+	lib/strv.c \
+	lib/sha1.c \
+	lib/signames.c
 
 if LINUX
 libcommon_la_SOURCES += \
@@ -73,6 +77,7 @@ check_PROGRAMS += \
 	test_colors \
 	test_fileutils \
 	test_ismounted \
+	test_pwdutils \
 	test_mangle \
 	test_randutils \
 	test_strutils \
@@ -148,3 +153,6 @@ test_canonicalize_CFLAGS = $(AM_CFLAGS) -DTEST_PROGRAM_CANONICALIZE
 
 test_timeutils_SOURCES = lib/timeutils.c lib/strutils.c
 test_timeutils_CFLAGS = $(AM_CFLAGS) -DTEST_PROGRAM_TIMEUTILS
+
+test_pwdutils_SOURCES = lib/pwdutils.c
+test_pwdutils_CFLAGS = $(AM_CFLAGS) -DTEST_PROGRAM

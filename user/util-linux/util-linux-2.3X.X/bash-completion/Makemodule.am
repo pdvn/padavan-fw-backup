@@ -183,6 +183,9 @@ endif
 if BUILD_LIBUUID
 dist_bashcompletion_DATA += bash-completion/uuidgen
 endif
+if BUILD_UUIDPARSE
+dist_bashcompletion_DATA += bash-completion/uuidparse
+endif
 if BUILD_UUIDD
 dist_bashcompletion_DATA += bash-completion/uuidd
 endif
@@ -278,6 +281,9 @@ dist_bashcompletion_DATA += bash-completion/fstrim
 endif
 if BUILD_LDATTACH
 dist_bashcompletion_DATA += bash-completion/ldattach
+endif
+if BUILD_RFKILL
+dist_bashcompletion_DATA += bash-completion/rfkill
 endif
 if BUILD_RTCWAKE
 dist_bashcompletion_DATA += bash-completion/rtcwake

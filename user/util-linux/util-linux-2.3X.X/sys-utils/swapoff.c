@@ -14,8 +14,7 @@
 #include "swapprober.h"
 #include "swapon-common.h"
 
-#ifndef SWAPON_HAS_TWO_ARGS
-/* libc is insane, let's call the kernel */
+#if !defined(HAVE_SWAPOFF) && defined(SYS_swapoff)
 # include <sys/syscall.h>
 # define swapoff(path) syscall(SYS_swapoff, path)
 #endif
@@ -116,8 +115,9 @@ static int swapoff_by(const char *name, const char *value, int quiet)
 	return special ? do_swapoff(special, quiet, CANONIC) : cannot_find(value);
 }
 
-static void __attribute__ ((__noreturn__)) usage(FILE * out)
+static void __attribute__((__noreturn__)) usage(void)
 {
+	FILE *out = stdout;
 	fputs(USAGE_HEADER, out);
 	fprintf(out, _(" %s [options] [<spec>]\n"), program_invocation_short_name);
 
@@ -129,8 +129,7 @@ static void __attribute__ ((__noreturn__)) usage(FILE * out)
 		" -v, --verbose          verbose mode\n"), out);
 
 	fputs(USAGE_SEPARATOR, out);
-	fputs(USAGE_HELP, out);
-	fputs(USAGE_VERSION, out);
+	printf(USAGE_HELP_OPTIONS(24));
 
 	fputs(_("\nThe <spec> parameter:\n" \
 		" -L <label>             LABEL of device to be used\n" \
@@ -140,8 +139,8 @@ static void __attribute__ ((__noreturn__)) usage(FILE * out)
 		" <device>               name of device to be used\n" \
 		" <file>                 name of file to be used\n"), out);
 
-	fprintf(out, USAGE_MAN_TAIL("swapoff(8)"));
-	exit(out == stderr ? EXIT_FAILURE : EXIT_SUCCESS);
+	printf(USAGE_MAN_TAIL("swapoff(8)"));
+	exit(EXIT_SUCCESS);
 }
 
 static int swapoff_all(void)
@@ -207,7 +206,7 @@ int main(int argc, char *argv[])
 			++all;
 			break;
 		case 'h':		/* help */
-			usage(stdout);
+			usage();
 			break;
 		case 'v':		/* be chatty */
 			++verbose;
@@ -227,8 +226,10 @@ int main(int argc, char *argv[])
 	}
 	argv += optind;
 
-	if (!all && !numof_labels() && !numof_uuids() && *argv == NULL)
-		usage(stderr);
+	if (!all && !numof_labels() && !numof_uuids() && *argv == NULL) {
+		warnx(_("bad usage"));
+		errtryhelp(EXIT_FAILURE);
+	}
 
 	mnt_init_debug(0);
 	mntcache = mnt_new_cache();

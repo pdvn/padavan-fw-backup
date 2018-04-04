@@ -185,8 +185,6 @@ struct libmnt_fs *mnt_copy_fs(struct libmnt_fs *dest,
 			return NULL;
 	}
 
-	/*DBG(FS, ul_debugobj(dest, "copy from %p", src));*/
-
 	dest->id         = src->id;
 	dest->parent     = src->parent;
 	dest->devno      = src->devno;
@@ -299,8 +297,6 @@ void *mnt_fs_get_userdata(struct libmnt_fs *fs)
 {
 	if (!fs)
 		return NULL;
-
-	/*DBG(FS, ul_debugobj(fs, "get userdata [%p]", fs->userdata));*/
 	return fs->userdata;
 }
 
@@ -317,8 +313,6 @@ int mnt_fs_set_userdata(struct libmnt_fs *fs, void *data)
 {
 	if (!fs)
 		return -EINVAL;
-
-	/*DBG(FS, ul_debugobj(fs, "set userdata [%p]", fs->userdata));*/
 	fs->userdata = data;
 	return 0;
 }
@@ -422,8 +416,8 @@ int mnt_fs_set_source(struct libmnt_fs *fs, const char *source)
  * @fs: fs
  * @path: source path
  *
- * Compares @fs source path with @path. The redundant slashs are ignored.
- * This function compares strings and does not cannonicalize the paths.
+ * Compares @fs source path with @path. The redundant slashes are ignored.
+ * This function compares strings and does not canonicalize the paths.
  * See also more heavy and generic mnt_fs_match_source().
  *
  * Returns: 1 if @fs source path equal to @path, otherwise 0.
@@ -451,8 +445,8 @@ int mnt_fs_streq_srcpath(struct libmnt_fs *fs, const char *path)
  * @fs: fs
  * @path: mount point
  *
- * Compares @fs target path with @path. The redundant slashs are ignored.
- * This function compares strings and does not cannonicalize the paths.
+ * Compares @fs target path with @path. The redundant slashes are ignored.
+ * This function compares strings and does not canonicalize the paths.
  * See also more generic mnt_fs_match_target().
  *
  * Returns: 1 if @fs target path equal to @path, otherwise 0.
@@ -1477,7 +1471,7 @@ int mnt_fs_print_debug(struct libmnt_fs *fs, FILE *file)
 {
 	if (!fs || !file)
 		return -EINVAL;
-	fprintf(file, "------ fs: %p\n", fs);
+	fprintf(file, "------ fs:\n");
 	fprintf(file, "source: %s\n", mnt_fs_get_source(fs));
 	fprintf(file, "target: %s\n", mnt_fs_get_target(fs));
 	fprintf(file, "fstype: %s\n", mnt_fs_get_fstype(fs));

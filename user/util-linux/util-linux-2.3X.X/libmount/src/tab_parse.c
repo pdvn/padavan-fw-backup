@@ -187,7 +187,7 @@ static int mnt_parse_mountinfo_line(struct libmnt_fs *fs, char *s)
 		fs->flags |= MNT_FS_KERNEL;
 		fs->devno = makedev(maj, min);
 
-		/* remove "(deleted)" suffix */
+		/* remove "\040(deleted)" suffix */
 		sz = strlen(fs->target);
 		if (sz > PATH_DELETED_SUFFIX_SZ) {
 			char *ptr = fs->target + (sz - PATH_DELETED_SUFFIX_SZ);
@@ -216,12 +216,14 @@ static int mnt_parse_mountinfo_line(struct libmnt_fs *fs, char *s)
 		if (!fs->optstr)
 			rc = -ENOMEM;
 	} else {
-		free(fstype);
-		free(src);
 		DBG(TAB, ul_debug(
 			"mountinfo parse error [sscanf rc=%d]: '%s'", rc, s));
 		rc = -EINVAL;
 	}
+
+	free(fstype);
+	free(src);
+
 	return rc;
 }
 
@@ -316,9 +318,7 @@ static int mnt_parse_swaps_line(struct libmnt_fs *fs, char *s)
 		fs->size = fsz;
 		fs->usedsize = usz;
 
-		unmangle_string(src);
-
-		/* remove "(deleted)" suffix */
+		/* remove "\040(deleted)" suffix */
 		sz = strlen(src);
 		if (sz > PATH_DELETED_SUFFIX_SZ) {
 			char *p = src + (sz - PATH_DELETED_SUFFIX_SZ);
@@ -326,14 +326,17 @@ static int mnt_parse_swaps_line(struct libmnt_fs *fs, char *s)
 				*p = '\0';
 		}
 
+		unmangle_string(src);
+
 		rc = mnt_fs_set_source(fs, src);
 		if (!rc)
 			mnt_fs_set_fstype(fs, "swap");
-		free(src);
 	} else {
 		DBG(TAB, ul_debug("tab parse error: [sscanf rc=%d]: '%s'", rc, s));
 		rc = -EINVAL;
 	}
+
+	free(src);
 
 	return rc;
 }
@@ -838,7 +841,7 @@ int mnt_table_parse_dir(struct libmnt_table *tb, const char *dirname)
 	return __mnt_table_parse_dir(tb, dirname);
 }
 
-struct libmnt_table *__mnt_new_table_from_file(const char *filename, int fmt)
+struct libmnt_table *__mnt_new_table_from_file(const char *filename, int fmt, int empty_for_enoent)
 {
 	struct libmnt_table *tb;
 	struct stat st;
@@ -846,7 +849,8 @@ struct libmnt_table *__mnt_new_table_from_file(const char *filename, int fmt)
 	if (!filename)
 		return NULL;
 	if (stat(filename, &st))
-		return NULL;
+		return empty_for_enoent ? mnt_new_table() : NULL;
+
 	tb = mnt_new_table();
 	if (tb) {
 		DBG(TAB, ul_debugobj(tb, "new tab for file: %s", filename));
@@ -875,7 +879,7 @@ struct libmnt_table *mnt_new_table_from_file(const char *filename)
 	if (!filename)
 		return NULL;
 
-	return __mnt_new_table_from_file(filename, MNT_FMT_GUESS);
+	return __mnt_new_table_from_file(filename, MNT_FMT_GUESS, 0);
 }
 
 /**

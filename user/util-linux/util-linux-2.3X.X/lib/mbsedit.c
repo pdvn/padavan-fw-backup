@@ -151,17 +151,20 @@ static size_t mbs_insert(char *str, wint_t c, size_t *ncells)
 {
 	/* all in bytes! */
 	size_t n = 1, bytes;
-	char *in = (char *) &c;
+	char *in;
 
 #ifdef HAVE_WIDECHAR
 	wchar_t wc = (wchar_t) c;
 	char in_buf[MB_CUR_MAX];
 
 	n = wctomb(in_buf, wc);
+	if (n == (size_t) -1)
+		return n;
 	*ncells = wcwidth(wc);
 	in = in_buf;
 #else
 	*ncells = 1;
+	in = (char *) &c;
 #endif
 	bytes       = strlen(str);
 

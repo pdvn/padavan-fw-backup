@@ -36,6 +36,7 @@ enum {
 	A_FIND_FREE,		/* find first unused */
 	A_SET_CAPACITY,		/* set device capacity */
 	A_SET_DIRECT_IO,	/* set accessing backing file by direct io */
+	A_SET_BLOCKSIZE,	/* set logical block size of the loop device */
 };
 
 enum {
@@ -50,6 +51,7 @@ enum {
 	COL_RO,
 	COL_SIZELIMIT,
 	COL_DIO,
+	COL_LOGSEC,
 };
 
 /* basic output flags */
@@ -76,6 +78,7 @@ static struct colinfo infos[] = {
 	[COL_SIZELIMIT]   = { "SIZELIMIT",    5, SCOLS_FL_RIGHT, N_("size limit of the file in bytes")},
 	[COL_MAJMIN]      = { "MAJ:MIN",      3, 0, N_("loop device major:minor number")},
 	[COL_DIO]         = { "DIO",          1, SCOLS_FL_RIGHT, N_("access backing file with direct-io")},
+	[COL_LOGSEC]      = { "LOG-SEC",      4, SCOLS_FL_RIGHT, N_("logical sector size in bytes")},
 };
 
 static int columns[ARRAY_SIZE(infos) * 2] = {-1};
@@ -113,7 +116,7 @@ static int printf_loopdev(struct loopdev_cxt *lc)
 	uint64_t x;
 	dev_t dev = 0;
 	ino_t ino = 0;
-	char *fname = NULL;
+	char *fname;
 	uint32_t type;
 
 	fname = loopcxt_get_backing_file(lc);
@@ -225,7 +228,7 @@ static int set_scols_data(struct loopdev_cxt *lc, struct libscols_line *ln)
 		const char *p = NULL;			/* external data */
 		char *np = NULL;			/* allocated here */
 		uint64_t x = 0;
-		int rc;
+		int rc = 0;
 
 		switch(get_column_id(i)) {
 		case COL_NAME:
@@ -279,6 +282,10 @@ static int set_scols_data(struct loopdev_cxt *lc, struct libscols_line *ln)
 			break;
 		case COL_PARTSCAN:
 			p = loopcxt_is_partscan(lc) ? "1" : "0";
+			break;
+		case COL_LOGSEC:
+			if (loopcxt_get_blocksize(lc, &x) == 0)
+				xasprintf(&np, "%jd", x);
 			break;
 		default:
 			return -EINVAL;
@@ -375,8 +382,9 @@ done:
 	return rc;
 }
 
-static void usage(FILE *out)
+static void __attribute__((__noreturn__)) usage(void)
 {
+	FILE *out = stdout;
 	size_t i;
 
 	fputs(USAGE_HEADER, out);
@@ -403,6 +411,7 @@ static void usage(FILE *out)
 	fputs(USAGE_SEPARATOR, out);
 	fputs(_(" -o, --offset <num>            start at offset <num> into file\n"), out);
 	fputs(_("     --sizelimit <num>         device is limited to <num> bytes of the file\n"), out);
+	fputs(_(" -b  --sector-size <num>       set the logical sector size to <num>\n"), out);
 	fputs(_(" -P, --partscan                create a partitioned loop device\n"), out);
 	fputs(_(" -r, --read-only               set up a read-only loop device\n"), out);
 	fputs(_("     --direct-io[=<on|off>]    open backing file with O_DIRECT\n"), out);
@@ -418,16 +427,15 @@ static void usage(FILE *out)
 	fputs(_("     --raw                     use raw --list output format\n"), out);
 
 	fputs(USAGE_SEPARATOR, out);
-	fputs(USAGE_HELP, out);
-	fputs(USAGE_VERSION, out);
+	printf(USAGE_HELP_OPTIONS(31));
 
-	fputs(_("\nAvailable --output columns:\n"), out);
+	fputs(USAGE_COLUMNS, out);
 	for (i = 0; i < ARRAY_SIZE(infos); i++)
 		fprintf(out, " %12s  %s\n", infos[i].name, _(infos[i].help));
 
-	fprintf(out, USAGE_MAN_TAIL("losetup(8)"));
+	printf(USAGE_MAN_TAIL("losetup(8)"));
 
-	exit(out == stderr ? EXIT_FAILURE : EXIT_SUCCESS);
+	exit(EXIT_SUCCESS);
 }
 
 static void warn_size(const char *filename, uint64_t size)
@@ -487,7 +495,7 @@ static int create_loop(struct loopdev_cxt *lc,
 				errx(EXIT_FAILURE, _("%s: overlapping encrypted loop device exists"), file);
 			}
 
-			lc->info.lo_flags &= !LO_FLAGS_AUTOCLEAR;
+			lc->info.lo_flags &= ~LO_FLAGS_AUTOCLEAR;
 			if (loopcxt_set_status(lc)) {
 				loopcxt_deinit(lc);
 				errx(EXIT_FAILURE, _("%s: failed to re-use loop device"), file);
@@ -566,11 +574,11 @@ int main(int argc, char **argv)
 	struct loopdev_cxt lc;
 	int act = 0, flags = 0, no_overlap = 0, c;
 	char *file = NULL;
-	uint64_t offset = 0, sizelimit = 0;
+	uint64_t offset = 0, sizelimit = 0, blocksize = 0;
 	int res = 0, showdev = 0, lo_flags = 0;
 	char *outarg = NULL;
 	int list = 0;
-	unsigned long use_dio = 0, set_dio = 0;
+	unsigned long use_dio = 0, set_dio = 0, set_blocksize = 0;
 
 	enum {
 		OPT_SIZELIMIT = CHAR_MAX + 1,
@@ -589,6 +597,7 @@ int main(int argc, char **argv)
 		{ "associated",   required_argument, NULL, 'j'           },
 		{ "json",         no_argument,       NULL, 'J'           },
 		{ "list",         no_argument,       NULL, 'l'           },
+		{ "sector-size",  required_argument, NULL, 'b'      },
 		{ "noheadings",   no_argument,       NULL, 'n'           },
 		{ "offset",       required_argument, NULL, 'o'           },
 		{ "output",       required_argument, NULL, 'O'           },
@@ -620,7 +629,7 @@ int main(int argc, char **argv)
 	if (loopcxt_init(&lc, 0))
 		err(EXIT_FAILURE, _("failed to initialize loopcxt"));
 
-	while ((c = getopt_long(argc, argv, "ac:d:Dfhj:JlLno:O:PrvV",
+	while ((c = getopt_long(argc, argv, "ab:c:d:Dfhj:JlLno:O:PrvV",
 				longopts, NULL)) != -1) {
 
 		err_exclusive_options(c, longopts, excl, excl_st);
@@ -628,6 +637,10 @@ int main(int argc, char **argv)
 		switch (c) {
 		case 'a':
 			act = A_SHOW;
+			break;
+		case 'b':
+			set_blocksize = 1;
+			blocksize = strtosize_or_err(optarg, _("failed to parse logical block size"));
 			break;
 		case 'c':
 			act = A_SET_CAPACITY;
@@ -653,7 +666,7 @@ int main(int argc, char **argv)
 			act = A_FIND_FREE;
 			break;
 		case 'h':
-			usage(stdout);
+			usage();
 			break;
 		case 'J':
 			json = 1;
@@ -727,6 +740,7 @@ int main(int argc, char **argv)
 		columns[ncolumns++] = COL_RO;
 		columns[ncolumns++] = COL_BACK_FILE;
 		columns[ncolumns++] = COL_DIO;
+		columns[ncolumns++] = COL_LOGSEC;
 	}
 
 	if (act == A_FIND_FREE && optind < argc) {
@@ -747,12 +761,14 @@ int main(int argc, char **argv)
 		/*
 		 * losetup [--list] <device>
 		 * OR
-		 * losetup --direct-io[=off] <device>
+		 * losetup {--direct-io[=off]|--logical-blocksize=size}... <device>
 		 */
-		if (!set_dio)
+		if (!(set_dio || set_blocksize))
 			act = A_SHOW_ONE;
-		else
+		if (set_dio)
 			act = A_SET_DIRECT_IO;
+		if (set_blocksize)
+			act = A_SET_BLOCKSIZE;
 		if (!is_loopdev(argv[optind]) ||
 		    loopcxt_set_device(&lc, argv[optind]))
 			err(EXIT_FAILURE, _("%s: failed to use device"),
@@ -799,8 +815,8 @@ int main(int argc, char **argv)
 			if (showdev)
 				printf("%s\n", loopcxt_get_device(&lc));
 			warn_size(file, sizelimit);
-			if (set_dio)
-				goto lo_set_dio;
+			if (set_dio || set_blocksize)
+				goto lo_set_post;
 		}
 		break;
 	case A_DELETE:
@@ -853,14 +869,24 @@ int main(int argc, char **argv)
 			        loopcxt_get_device(&lc));
 		break;
 	case A_SET_DIRECT_IO:
- lo_set_dio:
-		res = loopcxt_set_dio(&lc, use_dio);
-		if (res)
-			warn(_("%s: set direct io failed"),
-			        loopcxt_get_device(&lc));
+	case A_SET_BLOCKSIZE:
+ lo_set_post:
+		if (set_dio) {
+			res = loopcxt_set_dio(&lc, use_dio);
+			if (res)
+				warn(_("%s: set direct io failed"),
+				        loopcxt_get_device(&lc));
+		}
+		if (set_blocksize) {
+			res = loopcxt_set_blocksize(&lc, blocksize);
+			if (res)
+				warn(_("%s: set logical block size failed"),
+				        loopcxt_get_device(&lc));
+		}
 		break;
 	default:
-		usage(stderr);
+		warnx(_("bad usage"));
+		errtryhelp(EXIT_FAILURE);
 		break;
 	}
 

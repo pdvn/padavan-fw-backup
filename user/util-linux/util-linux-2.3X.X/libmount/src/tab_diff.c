@@ -237,9 +237,9 @@ int mnt_diff_tables(struct libmnt_tabdiff *df, struct libmnt_table *old_tab,
 	if (!no && !nn)			/* both tables are empty */
 		return 0;
 
-	DBG(DIFF, ul_debugobj(df, "analyze new=%p (%d entries), "
-				          "old=%p (%d entries)",
-				new_tab, nn, old_tab, no));
+	DBG(DIFF, ul_debugobj(df, "analyze new (%d entries), "
+				          "old (%d entries)",
+				nn, no));
 
 	mnt_reset_iter(&itr, MNT_ITER_FORWARD);
 
@@ -305,8 +305,8 @@ done:
 
 static int test_diff(struct libmnt_test *ts, int argc, char *argv[])
 {
-	struct libmnt_table *tb_old = NULL, *tb_new = NULL;
-	struct libmnt_tabdiff *diff = NULL;
+	struct libmnt_table *tb_old, *tb_new;
+	struct libmnt_tabdiff *diff;
 	struct libmnt_iter *itr;
 	struct libmnt_fs *old, *new;
 	int rc = -1, change;

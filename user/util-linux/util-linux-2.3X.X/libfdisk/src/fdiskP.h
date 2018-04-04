@@ -16,6 +16,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <uuid.h>
 
 #include "c.h"
 #include "libfdisk.h"
@@ -45,6 +46,9 @@ UL_DEBUG_DECLARE_MASK(libfdisk);
 #define DBG(m, x)	__UL_DBG(libfdisk, LIBFDISK_DEBUG_, m, x)
 #define ON_DBG(m, x)	__UL_DBG_CALL(libfdisk, LIBFDISK_DEBUG_, m, x)
 #define DBG_FLUSH	__UL_DBG_FLUSH(libfdisk, LIBFDISK_DEBUG_)
+
+#define UL_DEBUG_CURRENT_MASK	UL_DEBUG_MASK(libfdisk)
+#include "debugobj.h"
 
 /*
  * NLS -- the library has to be independent on main program, so define
@@ -278,6 +282,9 @@ struct fdisk_label {
 
 	int			flags;		/* FDISK_LABEL_FL_* flags */
 
+	struct fdisk_geometry	geom_min;	/* minimal geometry */
+	struct fdisk_geometry	geom_max;	/* maximal geometry */
+
 	unsigned int		changed:1,	/* label has been modified */
 				disabled:1;	/* this driver is disabled at all */
 
@@ -378,6 +385,7 @@ struct fdisk_context {
 		     display_details : 1,	/* expert display mode */
 		     protect_bootbits : 1,	/* don't zeroize first sector */
 		     pt_collision : 1,		/* another PT detected by libblkid */
+		     no_disalogs : 1,		/* disable dialog-driven partititoning */
 		     listonly : 1;		/* list partition, nothing else */
 
 	char *collision;			/* name of already existing FS/PT */
@@ -398,6 +406,7 @@ struct fdisk_context {
 	struct fdisk_geometry user_geom;
 	unsigned long user_pyh_sector;
 	unsigned long user_log_sector;
+	unsigned long user_grain;
 
 	struct fdisk_label *label;	/* current label, pointer to labels[] */
 
@@ -411,6 +420,19 @@ struct fdisk_context {
 	struct fdisk_context	*parent;	/* for nested PT */
 	struct fdisk_script	*script;	/* what we want to follow */
 };
+
+/* table */
+enum {
+	FDISK_DIFF_UNCHANGED = 0,
+	FDISK_DIFF_REMOVED,
+	FDISK_DIFF_ADDED,
+	FDISK_DIFF_MOVED,
+	FDISK_DIFF_RESIZED
+};
+extern int fdisk_diff_tables(struct fdisk_table *a, struct fdisk_table *b,
+				struct fdisk_iter *itr,
+				struct fdisk_partition **res, int *change);
+extern void fdisk_debug_print_table(struct fdisk_table *tb);
 
 
 /* context.c */

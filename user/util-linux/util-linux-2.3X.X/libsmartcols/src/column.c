@@ -96,7 +96,7 @@ struct libscols_column *scols_copy_column(const struct libscols_column *cl)
 	if (!ret)
 		return NULL;
 
-	DBG(COL, ul_debugobj(cl, "copy to %p", ret));
+	DBG(COL, ul_debugobj(cl, "copy"));
 
 	if (scols_column_set_color(ret, cl->color))
 		goto err;
@@ -293,7 +293,7 @@ size_t scols_wrapnl_chunksize(const struct libscols_column *cl __attribute__((un
 	size_t sum = 0;
 
 	while (data && *data) {
-		const char *p = data;
+		const char *p;
 		size_t sz;
 
 		p = strchr(data, '\n');
@@ -304,7 +304,7 @@ size_t scols_wrapnl_chunksize(const struct libscols_column *cl __attribute__((un
 			sz = mbs_safe_width(data);
 
 		sum = max(sum, sz);
-		data = p;;
+		data = p;
 	}
 
 	return sum;

@@ -165,8 +165,9 @@ static struct colinfo *get_column_info(unsigned num)
 	return &infos[ get_column_id(num) ];
 }
 
-static void __attribute__ ((__noreturn__)) usage(FILE *out)
+static void __attribute__((__noreturn__)) usage(void)
 {
+	FILE *out = stdout;
 	size_t i;
 
 	fputs(USAGE_HEADER, out);
@@ -189,20 +190,18 @@ static void __attribute__ ((__noreturn__)) usage(FILE *out)
 		" -x, --flags-only       print only flags table (same as -I -T)\n"), out);
 
 	fputs(USAGE_SEPARATOR, out);
-	fputs(USAGE_HELP, out);
-	fputs(USAGE_VERSION, out);
+	printf(USAGE_HELP_OPTIONS(24));
 	fputs(USAGE_SEPARATOR, out);
 
 	fprintf(out, _("The default device is %s.\n"), _PATH_WATCHDOG_DEV);
-	fputs(USAGE_SEPARATOR, out);
 
-	fputs(_("Available columns:\n"), out);
+	fputs(USAGE_COLUMNS, out);
 	for (i = 0; i < ARRAY_SIZE(infos); i++)
 		fprintf(out, " %13s  %s\n", infos[i].name, _(infos[i].help));
 
-	fprintf(out, USAGE_MAN_TAIL("wdctl(8)"));
+	printf(USAGE_MAN_TAIL("wdctl(8)"));
 
-	exit(out == stderr ? EXIT_FAILURE : EXIT_SUCCESS);
+	exit(EXIT_SUCCESS);
 }
 
 static void add_flag_line(struct libscols_table *table, struct wdinfo *wd, const struct wdflag *fl)
@@ -532,7 +531,7 @@ int main(int argc, char *argv[])
 			printf(UTIL_LINUX_VERSION);
 			return EXIT_SUCCESS;
 		case 'h':
-			usage(stdout);
+			usage();
 		case 'F':
 			noflags = 1;
 			break;

@@ -267,11 +267,11 @@ static void tcfinal(struct console *con)
 		break;
 	case 1:				/* odd parity */
 		tio->c_cflag |= PARODD;
-		/* fall through */
+		/* fallthrough */
 	case 2:				/* even parity */
 		tio->c_cflag |= PARENB;
 		tio->c_iflag |= (INPCK | ISTRIP);
-		/* fall through */
+		/* fallthrough */
 	case (1 | 2):			/* no parity bit */
 		tio->c_cflag &= ~CSIZE;
 		tio->c_cflag |= CS7;
@@ -795,8 +795,9 @@ static void sushell(struct passwd *pwd)
 	warn(_("failed to execute %s"), "/bin/sh");
 }
 
-static void usage(FILE *out)
+static void usage(void)
 {
+	FILE *out = stdout;
 	fputs(USAGE_HEADER, out);
 	fprintf(out, _(
 		" %s [options] [tty device]\n"), program_invocation_short_name);
@@ -811,9 +812,8 @@ static void usage(FILE *out)
 		out);
 
 	fputs(USAGE_SEPARATOR, out);
-	fputs(USAGE_HELP, out);
-	fputs(USAGE_VERSION, out);
-	fprintf(out, USAGE_MAN_TAIL("sulogin(8)"));
+	printf(USAGE_HELP_OPTIONS(26));
+	printf(USAGE_MAN_TAIL("sulogin(8)"));
 }
 
 int main(int argc, char **argv)
@@ -872,11 +872,10 @@ int main(int argc, char **argv)
 			printf(UTIL_LINUX_VERSION);
 			return EXIT_SUCCESS;
 		case 'h':
-			usage(stdout);
+			usage();
 			return EXIT_SUCCESS;
 		default:
-			usage(stderr);
-			/* Do not exit! */
+			/* Do not exit! getopt prints a warning. */
 			break;
 		}
 	}
@@ -971,7 +970,6 @@ int main(int argc, char **argv)
 		switch ((con->pid = fork())) {
 		case 0:
 			mask_signal(SIGCHLD, SIG_DFL, NULL);
-			/* fall through */
 		nofork:
 			setup(con);
 			while (1) {
@@ -1024,7 +1022,7 @@ int main(int argc, char **argv)
 			exit(0);
 		case -1:
 			warn(_("fork failed"));
-			/* fall through */
+			/* fallthrough */
 		default:
 			break;
 		}

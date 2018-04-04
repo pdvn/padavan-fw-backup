@@ -67,17 +67,13 @@ struct btrfs_dir_item {
 static inline uint##bits##_t btrfs_##name(const type *s)		\
 {									\
 	return le##bits##_to_cpu(s->member);				\
-}									\
-static inline void btrfs_set_##name(type *s, uint##bits##_t val)	\
-{									\
-	s->member = cpu_to_le##bits(val);				\
 }
 
 /* struct btrfs_disk_key */
 BTRFS_SETGET_STACK_FUNCS(disk_key_objectid, struct btrfs_disk_key,
-			 objectid, 64);
+			 objectid, 64)
 
-BTRFS_SETGET_STACK_FUNCS(stack_dir_name_len, struct btrfs_dir_item, name_len, 16);
+BTRFS_SETGET_STACK_FUNCS(stack_dir_name_len, struct btrfs_dir_item, name_len, 16)
 
 /*
   Red Black Trees
@@ -105,7 +101,7 @@ uint64_t btrfs_get_default_subvol_id(const char *path)
 {
 	int iocret;
 	int fd;
-	DIR *dirstream = NULL;
+	DIR *dirstream;
 	struct btrfs_ioctl_search_args args;
 	struct btrfs_ioctl_search_key *sk = &args.key;
 	struct btrfs_ioctl_search_header *sh;

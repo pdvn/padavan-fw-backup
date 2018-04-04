@@ -57,11 +57,14 @@ UL_DEBUG_DEFINE_MASKNAMES(loopdev) = UL_DEBUG_EMPTY_MASKNAMES;
 #define DBG(m, x)       __UL_DBG(loopdev, LOOPDEV_DEBUG_, m, x)
 #define ON_DBG(m, x)    __UL_DBG_CALL(loopdev, LOOPDEV_DEBUG_, m, x)
 
+#define UL_DEBUG_CURRENT_MASK	UL_DEBUG_MASK(loopdev)
+#include "debugobj.h"
+
 static void loopdev_init_debug(void)
 {
 	if (loopdev_debug_mask)
 		return;
-	__UL_INIT_DEBUG(loopdev, LOOPDEV_DEBUG_, 0, LOOPDEV_DEBUG);
+	__UL_INIT_DEBUG_FROM_ENV(loopdev, LOOPDEV_DEBUG_, 0, LOOPDEV_DEBUG);
 }
 
 /*
@@ -144,7 +147,7 @@ int loopcxt_has_device(struct loopdev_cxt *lc)
  * Note about LOOPDEV_FL_{RDONLY,RDWR} flags. These flags are used for open(2)
  * syscall to open loop device. By default is the device open read-only.
  *
- * The expection is loopcxt_setup_device(), where the device is open read-write
+ * The exception is loopcxt_setup_device(), where the device is open read-write
  * if LO_FLAGS_READ_ONLY flags is not set (see loopcxt_set_flags()).
  *
  * Returns: <0 on error, 0 on success.
@@ -532,7 +535,7 @@ static int loopcxt_next_from_sysfs(struct loopdev_cxt *lc)
 	fd = dirfd(iter->sysblock);
 
 	while ((d = readdir(iter->sysblock))) {
-		char name[256];
+		char name[NAME_MAX + 18 + 1];
 		struct stat st;
 
 		DBG(ITER, ul_debugobj(iter, "check %s", d->d_name));
@@ -732,6 +735,38 @@ int loopcxt_get_offset(struct loopdev_cxt *lc, uint64_t *offset)
 	}
 
 	DBG(CXT, ul_debugobj(lc, "get_offset [rc=%d]", rc));
+	return rc;
+}
+
+/*
+ * @lc: context
+ * @blocksize: returns logical blocksize for the given device
+ *
+ * Returns: <0 on error, 0 on success
+ */
+int loopcxt_get_blocksize(struct loopdev_cxt *lc, uint64_t *blocksize)
+{
+	struct sysfs_cxt *sysfs = loopcxt_get_sysfs(lc);
+	int rc = -EINVAL;
+
+	if (sysfs)
+		rc = sysfs_read_u64(sysfs, "queue/logical_block_size", blocksize);
+
+	/* Fallback based on BLKSSZGET ioctl */
+	if (rc) {
+		int fd = loopcxt_get_fd(lc);
+		int sz = 0;
+
+		if (fd < 0)
+			return -EINVAL;
+		rc = blkdev_get_sector_size(fd, &sz);
+		if (rc)
+			return rc;
+
+		*blocksize = sz;
+	}
+
+	DBG(CXT, ul_debugobj(lc, "get_blocksize [rc=%d]", rc));
 	return rc;
 }
 
@@ -1395,6 +1430,28 @@ int loopcxt_set_dio(struct loopdev_cxt *lc, unsigned long use_dio)
 	}
 
 	DBG(CXT, ul_debugobj(lc, "direct io set"));
+	return 0;
+}
+
+/*
+ * Kernel uses "unsigned long" as ioctl arg, but we use u64 for all sizes to
+ * keep loopdev internal API simple.
+ */
+int loopcxt_set_blocksize(struct loopdev_cxt *lc, uint64_t blocksize)
+{
+	int fd = loopcxt_get_fd(lc);
+
+	if (fd < 0)
+		return -EINVAL;
+
+	/* Kernels prior to v4.14 don't support this ioctl */
+	if (ioctl(fd, LOOP_SET_BLOCK_SIZE, (unsigned long) blocksize) < 0) {
+		int rc = -errno;
+		DBG(CXT, ul_debugobj(lc, "LOOP_SET_BLOCK_SIZE failed: %m"));
+		return rc;
+	}
+
+	DBG(CXT, ul_debugobj(lc, "logical block size set"));
 	return 0;
 }
 

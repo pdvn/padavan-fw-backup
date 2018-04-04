@@ -23,6 +23,8 @@
 #include <string.h>
 #include <stdarg.h>
 #include <assert.h>
+#include <sys/types.h>
+#include <dirent.h>
 
 #include <libsmartcols.h>
 
@@ -107,7 +109,6 @@ static const char *mm_stat_names[] = {
 	[MM_NUM_MIGRATED]    = "num_migrated"
 };
 
-
 struct zram {
 	char	devname[32];
 	struct sysfs_cxt sysfs;
@@ -118,10 +119,7 @@ struct zram {
 		     has_control : 1;	/* has /sys/class/zram-control/ */
 };
 
-#define ZRAM_EMPTY	{ .devname = { '\0' }, .sysfs = UL_SYSFSCXT_EMPTY }
-
 static unsigned int raw, no_headings, inbytes;
-
 
 static int get_column_id(int num)
 {
@@ -424,16 +422,15 @@ static void fill_table_row(struct libscols_table *tb, struct zram *z)
 		case COL_ALGORITHM:
 		{
 			char *alg = sysfs_strdup(sysfs, "comp_algorithm");
-			if (!alg)
-				break;
-			if (strstr(alg, "[lzo]") == NULL) {
-				if (strstr(alg, "[lz4]") == NULL)
-					;
-				else
-					str = xstrdup("lz4");
-			} else
-				str = xstrdup("lzo");
-			free(alg);
+
+			if (alg != NULL) {
+				char* lbr = strrchr(alg, '[');
+				char* rbr = strrchr(alg, ']');
+
+				if (lbr != NULL && rbr != NULL && rbr - lbr > 1)
+					str = xstrndup(lbr + 1, rbr - lbr - 1);
+				free(alg);
+			}
 			break;
 		}
 		case COL_MOUNTPOINT:
@@ -480,6 +477,8 @@ static void status(struct zram *z)
 {
 	struct libscols_table *tb;
 	size_t i;
+	DIR *dir;
+	struct dirent *d;
 
 	scols_init_debug(0);
 
@@ -497,28 +496,36 @@ static void status(struct zram *z)
 			err(EXIT_FAILURE, _("failed to initialize output column"));
 	}
 
-	if (z)
-		fill_table_row(tb, z);		/* just one device specified */
-	else {
-		/* list all used devices */
-		z = new_zram(NULL);
-
-		for (i = 0; ; i++) {
-			zram_set_devname(z, NULL, i);
-			if (!zram_exist(z))
-				break;
-			if (zram_used(z))
-				fill_table_row(tb, z);
-		}
-		free_zram(z);
+	if (z) {
+		/* just one device specified */
+		fill_table_row(tb, z);
+		goto print_table;
 	}
 
+	/* list all used devices */
+	z = new_zram(NULL);
+	if (!(dir = opendir(_PATH_DEV)))
+		err(EXIT_FAILURE, _("cannot open %s"), _PATH_DEV);
+
+	while ((d = readdir(dir))) {
+		int n;
+		if (sscanf(d->d_name, "zram%d", &n) != 1)
+			continue;
+		zram_set_devname(z, NULL, n);
+		if (zram_exist(z) && zram_used(z))
+			fill_table_row(tb, z);
+	}
+	closedir(dir);
+	free_zram(z);
+
+print_table:
 	scols_print_table(tb);
 	scols_unref_table(tb);
 }
 
-static void __attribute__ ((__noreturn__)) usage(FILE * out)
+static void __attribute__((__noreturn__)) usage(void)
 {
+	FILE *out = stdout;
 	size_t i;
 
 	fputs(USAGE_HEADER, out);
@@ -531,7 +538,7 @@ static void __attribute__ ((__noreturn__)) usage(FILE * out)
 	fputs(_("Set up and control zram devices.\n"), out);
 
 	fputs(USAGE_OPTIONS, out);
-	fputs(_(" -a, --algorithm lzo|lz4   compression algorithm to use\n"), out);
+	fputs(_(" -a, --algorithm lzo|lz4|lz4hc|deflate|842   compression algorithm to use\n"), out);
 	fputs(_(" -b, --bytes               print sizes in bytes rather than in human readable format\n"), out);
 	fputs(_(" -f, --find                find a free device\n"), out);
 	fputs(_(" -n, --noheadings          don't print headings\n"), out);
@@ -542,15 +549,14 @@ static void __attribute__ ((__noreturn__)) usage(FILE * out)
 	fputs(_(" -t, --streams <number>    number of compression streams\n"), out);
 
 	fputs(USAGE_SEPARATOR, out);
-	fputs(USAGE_HELP, out);
-	fputs(USAGE_VERSION, out);
+	printf(USAGE_HELP_OPTIONS(27));
 
-	fputs(_("\nAvailable columns (for --output):\n"), out);
+	fputs(USAGE_COLUMNS, out);
 	for (i = 0; i < ARRAY_SIZE(infos); i++)
 		fprintf(out, " %11s  %s\n", infos[i].name, _(infos[i].help));
 
-	fprintf(out, USAGE_MAN_TAIL("zramctl(8)"));
-	exit(out == stderr ? 1 : EXIT_SUCCESS);
+	printf(USAGE_MAN_TAIL("zramctl(8)"));
+	exit(EXIT_SUCCESS);
 }
 
 /* actions */
@@ -604,9 +610,6 @@ int main(int argc, char **argv)
 
 		switch (c) {
 		case 'a':
-			if (strcmp(optarg,"lzo") && strcmp(optarg,"lz4"))
-				errx(EXIT_FAILURE, _("unsupported algorithm: %s"),
-					     optarg);
 			algorithm = optarg;
 			break;
 		case 'b':
@@ -642,7 +645,7 @@ int main(int argc, char **argv)
 			printf(UTIL_LINUX_VERSION);
 			return EXIT_SUCCESS;
 		case 'h':
-			usage(stdout);
+			usage();
 		default:
 			errtryhelp(EXIT_FAILURE);
 		}

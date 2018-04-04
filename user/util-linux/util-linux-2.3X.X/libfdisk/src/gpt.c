@@ -270,6 +270,13 @@ static struct fdisk_parttype gpt_parttypes[] =
 	DEF_GUID("89C57F98-2FE5-4DC0-89C1-F3AD0CEFF2BE", N_("Ceph disk in creation")),
 	DEF_GUID("89C57F98-2FE5-4DC0-89C1-5EC00CEFF2BE", N_("Ceph crypt disk in creation")),
 
+	/* VMware */
+	DEF_GUID("AA31E02A-400F-11DB-9590-000C2911D1B8", N_("VMware VMFS")),
+	DEF_GUID("9D275380-40AD-11DB-BF97-000C2911D1B8", N_("VMware Diagnostic")),
+	DEF_GUID("381CFCCC-7288-11E0-92EE-000C2911D0B2", N_("VMware Virtual SAN")),
+	DEF_GUID("77719A0C-A4A0-11E3-A47E-000C29745A24", N_("VMware Virsto")),
+	DEF_GUID("9198EFFC-31C0-11DB-8F78-000C2911D1B8", N_("VMware Reserved")),
+
 	/* OpenBSD */
 	DEF_GUID("824CC7A0-36A8-11E3-890A-952519AD3F61", N_("OpenBSD data")),
 
@@ -368,9 +375,10 @@ static struct fdisk_parttype *gpt_partition_parttype(
 		const struct gpt_entry *e)
 {
 	struct fdisk_parttype *t;
-	char str[37];
+	char str[UUID_STR_LEN];
+	struct gpt_guid guid = e->type;
 
-	guid_to_string(&e->type, str);
+	guid_to_string(&guid, str);
 	t = fdisk_label_get_parttype_from_string(cxt->label, str);
 	return t ? : fdisk_new_unknown_parttype(0, str);
 }
@@ -378,22 +386,48 @@ static struct fdisk_parttype *gpt_partition_parttype(
 static void gpt_entry_set_type(struct gpt_entry *e, struct gpt_guid *uuid)
 {
 	e->type = *uuid;
-	DBG(LABEL, gpt_debug_uuid("new type", &(e->type)));
+	DBG(LABEL, gpt_debug_uuid("new type", uuid));
 }
 
-static void gpt_entry_set_name(struct gpt_entry *e, char *str)
+static int gpt_entry_set_name(struct gpt_entry *e, char *str)
 {
-	char name[GPT_PART_NAME_LEN] = { 0 };
-	size_t i, sz = strlen(str);
+	uint16_t name[GPT_PART_NAME_LEN] = { 0 };
+	size_t i, mblen = 0;
+	uint8_t *in = (uint8_t *) str;
 
-	if (sz) {
-		if (sz > GPT_PART_NAME_LEN)
-			sz = GPT_PART_NAME_LEN;
-		memcpy(name, str, sz);
+	for (i = 0; *in && i < GPT_PART_NAME_LEN; in++) {
+		if (!mblen) {
+			if (!(*in & 0x80)) {
+				name[i++] = *in;
+			} else if ((*in & 0xE0) == 0xC0) {
+				mblen = 1;
+				name[i] = (uint16_t)(*in & 0x1F) << (mblen *6);
+			} else if ((*in & 0xF0) == 0xE0) {
+				mblen = 2;
+				name[i] = (uint16_t)(*in & 0x0F) << (mblen *6);
+			} else {
+				/* broken UTF-8 or code point greater than U+FFFF */
+				return -EILSEQ;
+			}
+		} else {
+			/* incomplete UTF-8 sequence */
+			if ((*in & 0xC0) != 0x80)
+				return -EILSEQ;
+
+			name[i] |= (uint16_t)(*in & 0x3F) << (--mblen *6);
+			if (!mblen) {
+				/* check for code points reserved for surrogate pairs*/
+				if ((name[i] & 0xF800) == 0xD800)
+					return -EILSEQ;
+				i++;
+			}
+		}
 	}
 
 	for (i = 0; i < GPT_PART_NAME_LEN; i++)
-		e->name[i] = cpu_to_le16((uint16_t) name[i]);
+		e->name[i] = cpu_to_le16(name[i]);
+
+	return (int)((char *) in - str);
 }
 
 static int gpt_entry_set_uuid(struct gpt_entry *e, char *str)
@@ -481,9 +515,10 @@ static inline int gpt_sizeof_ents(struct gpt_header *hdr, size_t *sz)
 
 static char *gpt_get_header_id(struct gpt_header *header)
 {
-	char str[37];
+	char str[UUID_STR_LEN];
+	struct gpt_guid guid = header->disk_guid;
 
-	guid_to_string(&header->disk_guid, str);
+	guid_to_string(&guid, str);
 
 	return strdup(str);
 }
@@ -521,6 +556,40 @@ static int gpt_mknew_pmbr(struct fdisk_context *cxt)
 		cpu_to_le32((uint32_t) min( cxt->total_sectors - 1ULL, 0xFFFFFFFFULL) );
 
 	return 0;
+}
+
+/* Move backup header to the end of the device */
+static void gpt_fix_alternative_lba(struct fdisk_context *cxt, struct fdisk_gpt_label *gpt)
+{
+	struct gpt_header *p, *b;
+	uint64_t esz, esects, last;
+
+	if (!cxt)
+		return;
+
+	p = gpt->pheader;	/* primary */
+	b = gpt->bheader;	/* backup */
+
+	/* count size of partitions array */
+	esz = (uint64_t) le32_to_cpu(p->npartition_entries) * sizeof(struct gpt_entry);
+	esects = (esz + cxt->sector_size - 1) / cxt->sector_size;
+
+	/* reference from primary to backup */
+	p->alternative_lba = cpu_to_le64(cxt->total_sectors - 1ULL);
+
+	/* reference from backup to primary */
+	b->alternative_lba = p->my_lba;
+	b->my_lba = p->alternative_lba;
+
+	/* fix backup partitions array address */
+	b->partition_entry_lba = cpu_to_le64(cxt->total_sectors - 1ULL - esects);
+
+	/* update last usable LBA */
+	last = cxt->total_sectors - 2ULL - esects;
+	p->last_usable_lba  = cpu_to_le64(last);
+	b->last_usable_lba  = cpu_to_le64(last);
+
+	DBG(LABEL, ul_debug("Alternative-LBA updated to: %"PRIu64, le64_to_cpu(p->alternative_lba)));
 }
 
 /* some universal differences between the headers */
@@ -745,13 +814,18 @@ static int gpt_mknew_header(struct fdisk_context *cxt,
 
 	if (cxt->script) {
 		const char *id = fdisk_script_get_header(cxt->script, "label-id");
-		if (id && string_to_guid(id, &header->disk_guid) == 0)
+		struct gpt_guid guid = header->disk_guid;
+		if (id && string_to_guid(id, &guid) == 0)
 			has_id = 1;
+		header->disk_guid = guid;
 	}
 
 	if (!has_id) {
+		struct gpt_guid guid;
+
 		uuid_generate_random((unsigned char *) &header->disk_guid);
-		swap_efi_guid(&header->disk_guid);
+		guid = header->disk_guid;
+		swap_efi_guid(&guid);
 	}
 	return 0;
 }
@@ -817,9 +891,15 @@ static int valid_pmbr(struct fdisk_context *cxt)
 	if (ret == GPT_MBR_PROTECTIVE) {
 		uint64_t sz_lba = (uint64_t) le32_to_cpu(pmbr->partition_record[part].size_in_lba);
 		if (sz_lba != cxt->total_sectors - 1ULL && sz_lba != 0xFFFFFFFFULL) {
+
 			fdisk_warnx(cxt, _("GPT PMBR size mismatch (%"PRIu64" != %"PRIu64") "
-					   "will be corrected by w(rite)."),
+					   "will be corrected by write."),
 					sz_lba, cxt->total_sectors - 1ULL);
+
+			/* Note that gpt_write_pmbr() overwrites PMBR, but we want to keep it valid already 
+			 * in memory too to disable warnings when valid_pmbr() called next time */
+			pmbr->partition_record[part].size_in_lba  =
+				cpu_to_le32((uint32_t) min( cxt->total_sectors - 1ULL, 0xFFFFFFFFULL) );
 			fdisk_label_set_changed(cxt->label, 1);
 		}
 	}
@@ -1518,6 +1598,7 @@ static int gpt_probe_label(struct fdisk_context *cxt)
 		if (!gpt->bheader)
 			goto failed;
 		gpt_recompute_crc(gpt->bheader, gpt->ents);
+		fdisk_label_set_changed(cxt->label, 1);
 
 	/* primary corrupted, backup OK -- recovery */
 	} else if (!gpt->pheader && gpt->bheader) {
@@ -1527,6 +1608,20 @@ static int gpt_probe_label(struct fdisk_context *cxt)
 		if (!gpt->pheader)
 			goto failed;
 		gpt_recompute_crc(gpt->pheader, gpt->ents);
+		fdisk_label_set_changed(cxt->label, 1);
+	}
+
+	/* The headers make be correct, but Backup do not have to be on the end
+	 * of the device (due to device resize, etc.). Let's fix this issue. */
+	if (le64_to_cpu(gpt->pheader->alternative_lba) > cxt->total_sectors ||
+	    le64_to_cpu(gpt->pheader->alternative_lba) < cxt->total_sectors - 1ULL) {
+		fdisk_warnx(cxt, _("The backup GPT table is not on the end of the device. "
+				   "This problem will be corrected by write."));
+
+		gpt_fix_alternative_lba(cxt, gpt);
+		gpt_recompute_crc(gpt->bheader, gpt->ents);
+		gpt_recompute_crc(gpt->pheader, gpt->ents);
+		fdisk_label_set_changed(cxt->label, 1);
 	}
 
 	cxt->label->nparts_max = gpt_get_nentries(gpt);
@@ -1546,9 +1641,10 @@ static char *encode_to_utf8(unsigned char *src, size_t count)
 {
 	uint16_t c;
 	char *dest;
-	size_t i, j, len = count;
+	size_t i, j;
+	size_t len = count * 3 / 2;
 
-	dest = calloc(1, count);
+	dest = calloc(1, len + 1);
 	if (!dest)
 		return NULL;
 
@@ -1556,26 +1652,24 @@ static char *encode_to_utf8(unsigned char *src, size_t count)
 		/* always little endian */
 		c = (src[i+1] << 8) | src[i];
 		if (c == 0) {
-			dest[j] = '\0';
 			break;
 		} else if (c < 0x80) {
-			if (j+1 >= len)
+			if (j+1 > len)
 				break;
 			dest[j++] = (uint8_t) c;
 		} else if (c < 0x800) {
-			if (j+2 >= len)
+			if (j+2 > len)
 				break;
 			dest[j++] = (uint8_t) (0xc0 | (c >> 6));
 			dest[j++] = (uint8_t) (0x80 | (c & 0x3f));
 		} else {
-			if (j+3 >= len)
+			if (j+3 > len)
 				break;
 			dest[j++] = (uint8_t) (0xe0 | (c >> 12));
 			dest[j++] = (uint8_t) (0x80 | ((c >> 6) & 0x3f));
 			dest[j++] = (uint8_t) (0x80 | (c & 0x3f));
 		}
 	}
-	dest[j] = '\0';
 
 	return dest;
 }
@@ -1728,8 +1822,9 @@ static int gpt_get_partition(struct fdisk_context *cxt, size_t n,
 {
 	struct fdisk_gpt_label *gpt;
 	struct gpt_entry *e;
-	char u_str[37];
+	char u_str[UUID_STR_LEN];
 	int rc = 0;
+	struct gpt_guid guid;
 
 	assert(cxt);
 	assert(cxt->label);
@@ -1751,7 +1846,8 @@ static int gpt_get_partition(struct fdisk_context *cxt, size_t n,
 	pa->size = gpt_partition_size(e);
 	pa->type = gpt_partition_parttype(cxt, e);
 
-	if (guid_to_string(&e->partition_guid, u_str)) {
+	guid = e->partition_guid;
+	if (guid_to_string(&guid, u_str)) {
 		pa->uuid = strdup(u_str);
 		if (!pa->uuid) {
 			rc = -errno;
@@ -1796,23 +1892,29 @@ static int gpt_set_partition(struct fdisk_context *cxt, size_t n,
 	e = gpt_get_entry(gpt, n);
 
 	if (pa->uuid) {
-		char new_u[37], old_u[37];
+		char new_u[UUID_STR_LEN], old_u[UUID_STR_LEN];
+		struct gpt_guid guid;
 
-		guid_to_string(&e->partition_guid, old_u);
+		guid = e->partition_guid;
+		guid_to_string(&guid, old_u);
 		rc = gpt_entry_set_uuid(e, pa->uuid);
 		if (rc)
 			return rc;
-		guid_to_string(&e->partition_guid, new_u);
+		guid = e->partition_guid;
+		guid_to_string(&guid, new_u);
 		fdisk_info(cxt, _("Partition UUID changed from %s to %s."),
 			old_u, new_u);
 	}
 
 	if (pa->name) {
+		int len;
 		char *old = encode_to_utf8((unsigned char *)e->name, sizeof(e->name));
-		gpt_entry_set_name(e, pa->name);
-
-		fdisk_info(cxt, _("Partition name changed from '%s' to '%.*s'."),
-			old, (int) GPT_PART_NAME_LEN, pa->name);
+		len = gpt_entry_set_name(e, pa->name);
+		if (len < 0)
+			fdisk_warn(cxt, _("Failed to translate partition name, name not changed."));
+		else
+			fdisk_info(cxt, _("Partition name changed from '%s' to '%.*s'."),
+				old, len, pa->name);
 		free(old);
 	}
 
@@ -1916,7 +2018,7 @@ fail:
 static int gpt_write_pmbr(struct fdisk_context *cxt)
 {
 	off_t offset;
-	struct gpt_legacy_mbr *pmbr = NULL;
+	struct gpt_legacy_mbr *pmbr;
 
 	assert(cxt);
 	assert(cxt->firstsector);
@@ -1979,7 +2081,6 @@ static int gpt_write_disklabel(struct fdisk_context *cxt)
 
 	/* check that the backup header is properly placed */
 	if (le64_to_cpu(gpt->pheader->alternative_lba) < cxt->total_sectors - 1ULL)
-		/* TODO: correct this (with user authorization) and write */
 		goto err0;
 
 	if (check_overlap_partitions(gpt))
@@ -2413,8 +2514,11 @@ static int gpt_add_partition(
 		 * generated for that partition, and every partition is guaranteed
 		 * to have a unique GUID.
 		 */
+		struct gpt_guid guid;
+
 		uuid_generate_random((unsigned char *) &e->partition_guid);
-		swap_efi_guid(&e->partition_guid);
+		guid = e->partition_guid;
+		swap_efi_guid(&guid);
 	}
 
 	if (pa && pa->name && *pa->name)
@@ -2458,8 +2562,9 @@ static int gpt_create_disklabel(struct fdisk_context *cxt)
 {
 	int rc = 0;
 	size_t esz = 0;
-	char str[37];
+	char str[UUID_STR_LEN];
 	struct fdisk_gpt_label *gpt;
+	struct gpt_guid guid;
 
 	assert(cxt);
 	assert(cxt->label);
@@ -2517,7 +2622,8 @@ static int gpt_create_disklabel(struct fdisk_context *cxt)
 	cxt->label->nparts_max = gpt_get_nentries(gpt);
 	cxt->label->nparts_cur = 0;
 
-	guid_to_string(&gpt->pheader->disk_guid, str);
+	guid = gpt->pheader->disk_guid;
+	guid_to_string(&guid, str);
 	fdisk_label_set_changed(cxt->label, 1);
 	fdisk_info(cxt, _("Created a new GPT disklabel (GUID: %s)."), str);
 done:

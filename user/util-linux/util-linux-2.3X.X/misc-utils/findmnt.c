@@ -873,7 +873,7 @@ static void cache_set_targets(struct libmnt_cache *tmp)
 static int tab_is_tree(struct libmnt_table *tb)
 {
 	struct libmnt_fs *fs = NULL;
-	struct libmnt_iter *itr = NULL;
+	struct libmnt_iter *itr;
 	int rc = 0;
 
 	itr = mnt_new_iter(MNT_ITER_BACKWARD);
@@ -892,7 +892,7 @@ static int tab_is_tree(struct libmnt_table *tb)
 static int tab_is_kernel(struct libmnt_table *tb)
 {
 	struct libmnt_fs *fs = NULL;
-	struct libmnt_iter *itr = NULL;
+	struct libmnt_iter *itr;
 
 	itr = mnt_new_iter(MNT_ITER_BACKWARD);
 	if (!itr)
@@ -1008,7 +1008,7 @@ again:
 static int add_matching_lines(struct libmnt_table *tb,
 			      struct libscols_table *table, int direction)
 {
-	struct libmnt_iter *itr = NULL;
+	struct libmnt_iter *itr;
 	struct libmnt_fs *fs;
 	int nlines = 0, rc = -1;
 
@@ -1068,7 +1068,7 @@ static int poll_table(struct libmnt_table *tb, const char *tabfile,
 	FILE *f = NULL;
 	int rc = -1;
 	struct libmnt_iter *itr = NULL;
-	struct libmnt_table *tb_new = NULL;
+	struct libmnt_table *tb_new;
 	struct libmnt_tabdiff *diff = NULL;
 	struct pollfd fds[1];
 
@@ -1182,8 +1182,9 @@ static int uniq_fs_target_cmp(
 	return !mnt_fs_match_target(a, mnt_fs_get_target(b), cache);
 }
 
-static void __attribute__((__noreturn__)) usage(FILE *out)
+static void __attribute__((__noreturn__)) usage(void)
 {
+	FILE *out = stdout;
 	size_t i;
 
 	fputs(USAGE_HEADER, out);
@@ -1242,20 +1243,17 @@ static void __attribute__((__noreturn__)) usage(FILE *out)
 	fputc('\n', out);
 	fputs(_(" -x, --verify           verify mount table content (default is fstab)\n"), out);
 	fputs(_("     --verbose          print more details\n"), out);
-	fputc('\n', out);
 
 	fputs(USAGE_SEPARATOR, out);
-	fputs(USAGE_HELP, out);
-	fputs(USAGE_VERSION, out);
+	printf(USAGE_HELP_OPTIONS(24));
 
-	fprintf(out, _("\nAvailable columns:\n"));
-
+	fputs(USAGE_COLUMNS, out);
 	for (i = 0; i < ARRAY_SIZE(infos); i++)
 		fprintf(out, " %11s  %s\n", infos[i].name, _(infos[i].help));
 
-	fprintf(out, USAGE_MAN_TAIL("findmnt(8)"));
+	printf(USAGE_MAN_TAIL("findmnt(8)"));
 
-	exit(out == stderr ? EXIT_FAILURE : EXIT_SUCCESS);
+	exit(EXIT_SUCCESS);
 }
 
 int main(int argc, char *argv[])
@@ -1378,7 +1376,7 @@ int main(int argc, char *argv[])
 			flags |= FL_EVALUATE;
 			break;
 		case 'h':
-			usage(stdout);
+			usage();
 			break;
 		case 'i':
 			flags |= FL_INVERT;

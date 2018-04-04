@@ -12,13 +12,16 @@ dist_noinst_HEADERS += \
 	include/color-names.h \
 	include/cpuset.h \
 	include/crc32.h \
+	include/crc32c.h \
 	include/debug.h \
+	include/debugobj.h \
 	include/env.h \
 	include/exec_shell.h \
 	include/exitcodes.h \
 	include/fileutils.h \
 	include/idcache.h \
 	include/ismounted.h \
+	include/pwdutils.h \
 	include/linux_version.h \
 	include/list.h \
 	include/loopdev.h \
@@ -33,7 +36,7 @@ dist_noinst_HEADERS += \
 	include/nls.h \
 	include/optutils.h \
 	include/pager.h \
-	include/pamfail.h \
+	include/partx.h \
 	include/path.h \
 	include/pathnames.h \
 	include/plymouth-ctrl.h \
@@ -45,6 +48,8 @@ dist_noinst_HEADERS += \
 	include/pt-sun.h \
 	include/randutils.h \
 	include/rpmatch.h \
+	include/sha1.h \
+	include/signames.h \
 	include/setproctitle.h \
 	include/statfs_magic.h \
 	include/strutils.h \

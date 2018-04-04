@@ -58,15 +58,9 @@
 
 #include <libsmartcols.h>
 
-#include "cpuset.h"
-#include "nls.h"
-#include "xalloc.h"
-#include "c.h"
-#include "strutils.h"
-#include "bitops.h"
-#include "path.h"
 #include "closestream.h"
 #include "optutils.h"
+
 #include "lscpu.h"
 
 #define CACHE_MAX 100
@@ -97,13 +91,6 @@
 #define XEN_FEATURES_PVH_MASK	( (1U << XENFEAT_supervisor_mode_kernel) \
 								| (1U << XENFEAT_hvm_callback_vector) )
 
-/* virtualization types */
-enum {
-	VIRT_NONE	= 0,
-	VIRT_PARA,
-	VIRT_FULL,
-	VIRT_CONT
-};
 static const char *virt_types[] = {
 	[VIRT_NONE]	= N_("none"),
 	[VIRT_PARA]	= N_("para"),
@@ -148,44 +135,11 @@ static const int hv_graphics_pci[] = {
 	[HYPER_VBOX]	= 0xbeef,
 };
 
-/* CPU modes */
-enum {
-	MODE_32BIT	= (1 << 1),
-	MODE_64BIT	= (1 << 2)
-};
-
-/* cache(s) description */
-struct cpu_cache {
-	char		*name;
-	char		*size;
-
-	int		nsharedmaps;
-	cpu_set_t	**sharedmaps;
-};
 
 /* dispatching modes */
-enum {
-	DISP_HORIZONTAL = 0,
-	DISP_VERTICAL	= 1
-};
-
 static const char *disp_modes[] = {
 	[DISP_HORIZONTAL]	= N_("horizontal"),
 	[DISP_VERTICAL]		= N_("vertical")
-};
-
-/* cpu polarization */
-enum {
-	POLAR_UNKNOWN	= 0,
-	POLAR_VLOW,
-	POLAR_VMEDIUM,
-	POLAR_VHIGH,
-	POLAR_HORIZONTAL
-};
-
-struct polarization_modes {
-	char *parsable;
-	char *readable;
 };
 
 static struct polarization_modes polar_modes[] = {
@@ -194,113 +148,6 @@ static struct polarization_modes polar_modes[] = {
 	[POLAR_VMEDIUM]	   = {"VM", "vert-medium"},
 	[POLAR_VHIGH]	   = {"VH", "vert-high"},
 	[POLAR_HORIZONTAL] = {"H",  "horizontal"},
-};
-
-/* global description */
-struct lscpu_desc {
-	char	*arch;
-	char	*vendor;
-	char	*machinetype;	/* s390 */
-	char	*family;
-	char	*model;
-	char	*modelname;
-	char	*revision;  /* alternative for model (ppc) */
-	char	*cpu;       /* alternative for modelname (ppc, sparc) */
-	char	*virtflag;	/* virtualization flag (vmx, svm) */
-	char	*hypervisor;	/* hypervisor software */
-	int	hyper;		/* hypervisor vendor ID */
-	int	virtype;	/* VIRT_PARA|FULL|NONE ? */
-	char	*mhz;
-	char	*dynamic_mhz;	/* dynamic mega hertz (s390) */
-	char	*static_mhz;	/* static mega hertz (s390) */
-	char	**maxmhz;	/* maximum mega hertz */
-	char	**minmhz;	/* minimum mega hertz */
-	char	*stepping;
-	char    *bogomips;
-	char	*flags;
-	char	*mtid;		/* maximum thread id (s390) */
-	int	dispatching;	/* none, horizontal or vertical */
-	int	mode;		/* rm, lm or/and tm */
-
-	int		ncpuspos;	/* maximal possible CPUs */
-	int		ncpus;		/* number of present CPUs */
-	cpu_set_t	*present;	/* mask with present CPUs */
-	cpu_set_t	*online;	/* mask with online CPUs */
-
-	int		nthreads;	/* number of online threads */
-
-	int		ncaches;
-	struct cpu_cache *caches;
-
-	int		necaches;	/* extra caches (s390) */
-	struct cpu_cache *ecaches;
-
-	/*
-	 * All maps are sequentially indexed (0..ncpuspos), the array index
-	 * does not have match with cpuX number as presented by kernel. You
-	 * have to use real_cpu_num() to get the real cpuX number.
-	 *
-	 * For example, the possible system CPUs are: 1,3,5, it means that
-	 * ncpuspos=3, so all arrays are in range 0..3.
-	 */
-	int		*idx2cpunum;	/* mapping index to CPU num */
-
-	int		nnodes;		/* number of NUMA modes */
-	int		*idx2nodenum;	/* Support for discontinuous nodes */
-	cpu_set_t	**nodemaps;	/* array with NUMA nodes */
-
-	/* drawers -- based on drawer_siblings (internal kernel map of cpuX's
-	 * hardware threads within the same drawer */
-	int		ndrawers;	/* number of all online drawers */
-	cpu_set_t	**drawermaps;	/* unique drawer_siblings */
-	int		*drawerids;	/* physical drawer ids */
-
-	/* books -- based on book_siblings (internal kernel map of cpuX's
-	 * hardware threads within the same book */
-	int		nbooks;		/* number of all online books */
-	cpu_set_t	**bookmaps;	/* unique book_siblings */
-	int		*bookids;	/* physical book ids */
-
-	/* sockets -- based on core_siblings (internal kernel map of cpuX's
-	 * hardware threads within the same physical_package_id (socket)) */
-	int		nsockets;	/* number of all online sockets */
-	cpu_set_t	**socketmaps;	/* unique core_siblings */
-	int		*socketids;	/* physical socket ids */
-
-	/* cores -- based on thread_siblings (internal kernel map of cpuX's
-	 * hardware threads within the same core as cpuX) */
-	int		ncores;		/* number of all online cores */
-	cpu_set_t	**coremaps;	/* unique thread_siblings */
-	int		*coreids;	/* physical core ids */
-
-	int		*polarization;	/* cpu polarization */
-	int		*addresses;	/* physical cpu addresses */
-	int		*configured;	/* cpu configured */
-	int		physsockets;	/* Physical sockets (modules) */
-	int		physchips;	/* Physical chips */
-	int		physcoresperchip;	/* Physical cores per chip */
-};
-
-enum {
-	OUTPUT_SUMMARY	= 0,	/* default */
-	OUTPUT_PARSABLE,	/* -p */
-	OUTPUT_READABLE,	/* -e */
-};
-
-enum {
-	SYSTEM_LIVE = 0,	/* analyzing a live system */
-	SYSTEM_SNAPSHOT,	/* analyzing a snapshot of a different system */
-};
-
-struct lscpu_modifier {
-	int		mode;		/* OUTPUT_* */
-	int		system;		/* SYSTEM_* */
-	unsigned int	hex:1,		/* print CPU masks rather than CPU lists */
-			compat:1,	/* use backwardly compatible format */
-			online:1,	/* print online CPUs */
-			offline:1,	/* print offline CPUs */
-			json:1,		/* JSON output format */
-			physical:1;	/* use physical numbers */
 };
 
 static int maxcpus;		/* size in bits of kernel cpu mask */
@@ -538,6 +385,7 @@ static void read_physical_info_powerpc(
 }
 #endif
 
+
 static void
 read_basicinfo(struct lscpu_desc *desc, struct lscpu_modifier *mod)
 {
@@ -555,11 +403,14 @@ read_basicinfo(struct lscpu_desc *desc, struct lscpu_modifier *mod)
 	while (fgets(buf, sizeof(buf), fp) != NULL) {
 		if (lookup(buf, "vendor", &desc->vendor)) ;
 		else if (lookup(buf, "vendor_id", &desc->vendor)) ;
+		else if (lookup(buf, "CPU implementer", &desc->vendor)) ; /* ARM and aarch64 */
 		else if (lookup(buf, "family", &desc->family)) ;
 		else if (lookup(buf, "cpu family", &desc->family)) ;
 		else if (lookup(buf, "model", &desc->model)) ;
+		else if (lookup(buf, "CPU part", &desc->model)) ; /* ARM and aarch64 */
 		else if (lookup(buf, "model name", &desc->modelname)) ;
 		else if (lookup(buf, "stepping", &desc->stepping)) ;
+		else if (lookup(buf, "CPU variant", &desc->stepping)) ; /* aarch64 */
 		else if (lookup(buf, "cpu MHz", &desc->mhz)) ;
 		else if (lookup(buf, "cpu MHz dynamic", &desc->dynamic_mhz)) ; /* s390 */
 		else if (lookup(buf, "cpu MHz static", &desc->static_mhz)) ;   /* s390 */
@@ -954,9 +805,6 @@ read_hypervisor(struct lscpu_desc *desc, struct lscpu_modifier *mod)
 								== XEN_FEATURES_PVH_MASK)
 					desc->virtype = VIRT_PARA;
 				fclose(fd);
-			} else {
-				err(EXIT_FAILURE, _("failed to read from: %s"),
-						_PATH_SYS_HYP_FEATURES);
 			}
 		}
 	} else if (read_hypervisor_powerpc(desc) > 0) {}
@@ -1260,10 +1108,10 @@ static char *
 cpu_max_mhz(struct lscpu_desc *desc, char *buf, size_t bufsz)
 {
 	int i;
-	float cpu_freq = atof(desc->maxmhz[0]);
+	float cpu_freq = 0.0;
 
 	if (desc->present) {
-		for (i = 1; i < desc->ncpuspos; i++) {
+		for (i = 0; i < desc->ncpuspos; i++) {
 			if (CPU_ISSET(real_cpu_num(desc, i), desc->present)
 			    && desc->maxmhz[i]) {
 				float freq = atof(desc->maxmhz[i]);
@@ -1281,16 +1129,16 @@ cpu_max_mhz(struct lscpu_desc *desc, char *buf, size_t bufsz)
 static char *
 cpu_min_mhz(struct lscpu_desc *desc, char *buf, size_t bufsz)
 {
-        int i;
-        float cpu_freq = atof(desc->minmhz[0]);
+	int i;
+	float cpu_freq = -1.0;
 
 	if (desc->present) {
-		for (i = 1; i < desc->ncpuspos; i++) {
+		for (i = 0; i < desc->ncpuspos; i++) {
 			if (CPU_ISSET(real_cpu_num(desc, i), desc->present)
 			    && desc->minmhz[i]) {
 				float freq = atof(desc->minmhz[i]);
 
-				if (freq < cpu_freq)
+				if (cpu_freq < 0.0 || freq < cpu_freq)
 					cpu_freq = freq;
 			}
 		}
@@ -1430,37 +1278,36 @@ read_nodes(struct lscpu_desc *desc)
 	int i = 0;
 	DIR *dir;
 	struct dirent *d;
-	char *path;
+	const char *path;
+
+	desc->nnodes = 0;
 
 	/* number of NUMA node */
-	path = path_strdup(_PATH_SYS_NODE);
-	dir = opendir(path);
-	free(path);
-
-	while (dir && (d = readdir(dir))) {
+	if (!(path = path_get(_PATH_SYS_NODE)))
+		return;
+	if (!(dir = opendir(path)))
+		return;
+	while ((d = readdir(dir))) {
 		if (is_node_dirent(d))
 			desc->nnodes++;
 	}
 
 	if (!desc->nnodes) {
-		if (dir)
-			closedir(dir);
+		closedir(dir);
 		return;
 	}
 
 	desc->nodemaps = xcalloc(desc->nnodes, sizeof(cpu_set_t *));
 	desc->idx2nodenum = xmalloc(desc->nnodes * sizeof(int));
 
-	if (dir) {
-		rewinddir(dir);
-		while ((d = readdir(dir)) && i < desc->nnodes) {
-			if (is_node_dirent(d))
-				desc->idx2nodenum[i++] = strtol_or_err(((d->d_name) + 4),
-							_("Failed to extract the node number"));
-		}
-		closedir(dir);
-		qsort(desc->idx2nodenum, desc->nnodes, sizeof(int), nodecmp);
+	rewinddir(dir);
+	while ((d = readdir(dir)) && i < desc->nnodes) {
+		if (is_node_dirent(d))
+			desc->idx2nodenum[i++] = strtol_or_err(((d->d_name) + 4),
+						_("Failed to extract the node number"));
 	}
+	closedir(dir);
+	qsort(desc->idx2nodenum, desc->nnodes, sizeof(int), nodecmp);
 
 	/* information about how nodes share different CPUs */
 	for (i = 0; i < desc->nnodes; i++)
@@ -2044,8 +1891,9 @@ print_summary(struct lscpu_desc *desc, struct lscpu_modifier *mod)
 	scols_unref_table(tb);
 }
 
-static void __attribute__((__noreturn__)) usage(FILE *out)
+static void __attribute__((__noreturn__)) usage(void)
 {
+	FILE *out = stdout;
 	size_t i;
 
 	fputs(USAGE_HEADER, out);
@@ -2065,17 +1913,15 @@ static void __attribute__((__noreturn__)) usage(FILE *out)
 	fputs(_(" -x, --hex               print hexadecimal masks rather than lists of CPUs\n"), out);
 	fputs(_(" -y, --physical          print physical instead of logical IDs\n"), out);
 	fputs(USAGE_SEPARATOR, out);
-	fputs(USAGE_HELP, out);
-	fputs(USAGE_VERSION, out);
+	printf(USAGE_HELP_OPTIONS(25));
 
-	fprintf(out, _("\nAvailable columns:\n"));
-
+	fputs(USAGE_COLUMNS, out);
 	for (i = 0; i < ARRAY_SIZE(coldescs); i++)
 		fprintf(out, " %13s  %s\n", coldescs[i].name, _(coldescs[i].help));
 
-	fprintf(out, USAGE_MAN_TAIL("lscpu(1)"));
+	printf(USAGE_MAN_TAIL("lscpu(1)"));
 
-	exit(out == stderr ? EXIT_FAILURE : EXIT_SUCCESS);
+	exit(EXIT_SUCCESS);
 }
 
 int main(int argc, char *argv[])
@@ -2131,7 +1977,7 @@ int main(int argc, char *argv[])
 			cpu_modifier_specified = 1;
 			break;
 		case 'h':
-			usage(stdout);
+			usage();
 		case 'J':
 			mod->json = 1;
 			break;
@@ -2149,7 +1995,8 @@ int main(int argc, char *argv[])
 			mod->mode = c == 'p' ? OUTPUT_PARSABLE : OUTPUT_READABLE;
 			break;
 		case 's':
-			path_set_prefix(optarg);
+			if(path_set_prefix(optarg))
+				err(EXIT_FAILURE, _("invalid argument to %s"), "--sysroot");
 			mod->system = SYSTEM_SNAPSHOT;
 			break;
 		case 'x':
@@ -2174,8 +2021,10 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	if (argc != optind)
-		usage(stderr);
+	if (argc != optind) {
+		warnx(_("bad usage"));
+		errtryhelp(EXIT_FAILURE);
+	}
 
 	/* set default cpu display mode if none was specified */
 	if (!mod->online && !mod->offline) {
@@ -2209,6 +2058,7 @@ int main(int argc, char *argv[])
 
 	read_nodes(desc);
 	read_hypervisor(desc, mod);
+	arm_cpu_decode(desc);
 
 	switch(mod->mode) {
 	case OUTPUT_SUMMARY:

@@ -135,9 +135,9 @@ static int	halfpos;
 static int	upln;
 static int	iflag;
 
-static void __attribute__((__noreturn__))
-usage(FILE *out)
+static void __attribute__((__noreturn__)) usage(void)
 {
+	FILE *out = stdout;
 	fputs(USAGE_HEADER, out);
 	fprintf(out, _(" %s [options] [<file> ...]\n"), program_invocation_short_name);
 
@@ -148,12 +148,11 @@ usage(FILE *out)
 	fputs(_(" -t, -T, --terminal TERMINAL  override the TERM environment variable\n"), out);
 	fputs(_(" -i, --indicated              underlining is indicated via a separate line\n"), out);
 	fputs(USAGE_SEPARATOR, out);
-	fputs(USAGE_HELP, out);
-	fputs(USAGE_VERSION, out);
+	printf(USAGE_HELP_OPTIONS(30));
 
-	fprintf(out, USAGE_MAN_TAIL("ul(1)"));
+	printf(USAGE_MAN_TAIL("ul(1)"));
 
-	exit(out == stderr ? EXIT_FAILURE : EXIT_SUCCESS);
+	exit(EXIT_SUCCESS);
 }
 
 int main(int argc, char **argv)
@@ -196,7 +195,7 @@ int main(int argc, char **argv)
 			printf(UTIL_LINUX_VERSION);
 			return EXIT_SUCCESS;
 		case 'h':
-			usage(stdout);
+			usage();
 		default:
 			errtryhelp(EXIT_FAILURE);
 		}
@@ -208,7 +207,7 @@ int main(int argc, char **argv)
 
 	default:
 		warnx(_("trouble reading terminfo"));
-		/* fall through to ... */
+		/* fallthrough */
 
 	case 0:
 		if (tflag)
@@ -317,7 +316,7 @@ static void filter(FILE *f)
 			}
 			obuf[col].c_char = '_';
 			obuf[col].c_width = 1;
-			/* fall through */
+			/* fallthrough */
 		case ' ':
 			setcol(col + 1);
 			continue;

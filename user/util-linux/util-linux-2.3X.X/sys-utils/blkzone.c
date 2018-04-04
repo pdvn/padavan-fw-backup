@@ -290,8 +290,9 @@ static int blkzone_reset(struct blkzone_control *ctl)
 	return 0;
 }
 
-static void __attribute__((__noreturn__)) usage(FILE *out)
+static void __attribute__((__noreturn__)) usage(void)
 {
+	FILE *out = stdout;
 	size_t i;
 
 	fputs(USAGE_HEADER, out);
@@ -300,7 +301,7 @@ static void __attribute__((__noreturn__)) usage(FILE *out)
 	fputs(USAGE_SEPARATOR, out);
 	fputs(_("Run zone command on the given block device.\n"), out);
 
-	fputs(_("\nCommands:\n"), out);
+	fputs(USAGE_COMMANDS, out);
 	for (i = 0; i < ARRAY_SIZE(commands); i++)
 		fprintf(out, " %-11s  %s\n", commands[i].name, _(commands[i].help));
 
@@ -310,11 +311,10 @@ static void __attribute__((__noreturn__)) usage(FILE *out)
 	fputs(_(" -c, --count <number>   maximum number of zones\n"), out);
 	fputs(_(" -v, --verbose          display more details\n"), out);
 	fputs(USAGE_SEPARATOR, out);
-	fputs(USAGE_HELP, out);
-	fputs(USAGE_VERSION, out);
+	printf(USAGE_HELP_OPTIONS(24));
 
-	fprintf(out, USAGE_MAN_TAIL("blkzone(8)"));
-	exit(out == stderr ? EXIT_FAILURE : EXIT_SUCCESS);
+	printf(USAGE_MAN_TAIL("blkzone(8)"));
+	exit(EXIT_SUCCESS);
 }
 
 int main(int argc, char **argv)
@@ -362,7 +362,7 @@ int main(int argc, char **argv)
 
 		switch (c) {
 		case 'h':
-			usage(stdout);
+			usage();
 			break;
 		case 'c':
 			ctl.count = strtou32_or_err(optarg,

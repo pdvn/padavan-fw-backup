@@ -78,8 +78,9 @@
 static char *makemsg(char *fname, char **mvec, int mvecsz,
 		    size_t *mbufsize, int print_banner);
 
-static void __attribute__((__noreturn__)) usage(FILE *out)
+static void __attribute__((__noreturn__)) usage(void)
 {
+	FILE *out = stdout;
 	fputs(USAGE_HEADER, out);
 	fprintf(out,
 	      _(" %s [options] [<file> | <message>]\n"), program_invocation_short_name);
@@ -92,17 +93,22 @@ static void __attribute__((__noreturn__)) usage(FILE *out)
 	fputs(_(" -n, --nobanner          do not print banner, works only for root\n"), out);
 	fputs(_(" -t, --timeout <timeout> write timeout in seconds\n"), out);
 	fputs(USAGE_SEPARATOR, out);
-	fputs(USAGE_HELP, out);
-	fputs(USAGE_VERSION, out);
-	fprintf(out, USAGE_MAN_TAIL("wall(1)"));
+	printf(USAGE_HELP_OPTIONS(25));
+	printf(USAGE_MAN_TAIL("wall(1)"));
 
-	exit(out == stderr ? EXIT_FAILURE : EXIT_SUCCESS);
+	exit(EXIT_SUCCESS);
 }
 
 struct group_workspace {
 	gid_t	requested_group;
 	int	ngroups;
+
+/* getgrouplist() on OSX takes int* not gid_t* */
+#ifdef __APPLE__
+	int	*groups;
+#else
 	gid_t	*groups;
+#endif
 };
 
 static gid_t get_group_gid(const char *optarg)
@@ -126,7 +132,7 @@ static struct group_workspace *init_group_workspace(const char *optarg)
 
 	buf->requested_group = get_group_gid(optarg);
 	buf->ngroups = sysconf(_SC_NGROUPS_MAX) + 1;  /* room for the primary gid */
-	buf->groups = xcalloc(sizeof(gid_t), buf->ngroups);
+	buf->groups = xcalloc(sizeof(*buf->groups), buf->ngroups);
 
 	return buf;
 }
@@ -162,7 +168,7 @@ static int is_gr_member(const char *login, const struct group_workspace *buf)
 	}
 
 	for (; ngroups >= 0; --ngroups) {
-		if (buf->requested_group == buf->groups[ngroups])
+		if (buf->requested_group == (gid_t) buf->groups[ngroups])
 			return 1;
 	}
 
@@ -218,7 +224,7 @@ int main(int argc, char **argv)
 			printf(UTIL_LINUX_VERSION);
 			exit(EXIT_SUCCESS);
 		case 'h':
-			usage(stdout);
+			usage();
 		default:
 			errtryhelp(EXIT_FAILURE);
 		}
@@ -303,7 +309,7 @@ static void buf_printf(struct buffer *bs, const char *fmt, ...)
 		buf_enlarge(bs, (size_t)rc + 1);
 		limit = bs->sz - bs->used;
 		va_start(ap, fmt);
-		rc = vsnprintf(bs->data  + bs->used, limit, fmt, ap);;
+		rc = vsnprintf(bs->data  + bs->used, limit, fmt, ap);
 		va_end(ap);
 	}
 

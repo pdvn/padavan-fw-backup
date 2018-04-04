@@ -65,9 +65,9 @@ static struct namespace_file {
 	{ .nstype = 0, .name = NULL, .fd = -1 }
 };
 
-static void usage(int status)
+static void __attribute__((__noreturn__)) usage(void)
 {
-	FILE *out = status == EXIT_SUCCESS ? stdout : stderr;
+	FILE *out = stdout;
 
 	fputs(USAGE_HEADER, out);
 	fprintf(out, _(" %s [options] [<program> [<argument>...]]\n"),
@@ -97,11 +97,10 @@ static void usage(int status)
 #endif
 
 	fputs(USAGE_SEPARATOR, out);
-	fputs(USAGE_HELP, out);
-	fputs(USAGE_VERSION, out);
-	fprintf(out, USAGE_MAN_TAIL("nsenter(1)"));
+	printf(USAGE_HELP_OPTIONS(24));
+	printf(USAGE_MAN_TAIL("nsenter(1)"));
 
-	exit(status);
+	exit(EXIT_SUCCESS);
 }
 
 static pid_t namespace_target_pid = 0;
@@ -158,7 +157,7 @@ static int get_ns_ino(const char *path, ino_t *ino)
 static int is_same_namespace(pid_t a, pid_t b, const char *type)
 {
 	char path[PATH_MAX];
-	ino_t a_ino, b_ino;
+	ino_t a_ino = 0, b_ino = 0;
 
 	snprintf(path, sizeof(path), "/proc/%u/%s", a, type);
 	if (get_ns_ino(path, &a_ino) != 0)
@@ -253,7 +252,7 @@ int main(int argc, char *argv[])
 			    longopts, NULL)) != -1) {
 		switch (c) {
 		case 'h':
-			usage(EXIT_SUCCESS);
+			usage();
 		case 'V':
 			printf(UTIL_LINUX_VERSION);
 			return EXIT_SUCCESS;
@@ -479,7 +478,7 @@ int main(int argc, char *argv[])
 
 	if (optind < argc) {
 		execvp(argv[optind], argv + optind);
-		err(EXIT_FAILURE, _("failed to execute %s"), argv[optind]);
+		errexec(argv[optind]);
 	}
 	exec_shell();
 }

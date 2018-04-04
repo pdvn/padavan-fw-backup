@@ -45,7 +45,7 @@ utility formats its input into multiple columns.  The util support three modes:
 .BR "columns are filled before rows"
 This is the default mode (required by backward compatibility).
 .TP
-.BR "rows are filed before columns"
+.BR "rows are filled before columns"
 This mode is enabled by option \fB-x, \-\-fillrows\fP
 .TP
 .BR "table"
@@ -54,7 +54,7 @@ mode is enabled by option \fB-t, \-\-table\fP and columns formatting is
 possible to modify by \fB\-\-table-*\fP options.  Use this mode if not sure.
 .PP
 Input is taken from \fIfile\fR, or otherwise from standard input.  Empty lines
-are ignored.
+are ignored and all invalid multibyte sequences are encoded by \\x<hex> convention.
 .PP
 .SH OPTIONS
 The argument \fIcolumns\fP for \fB\-\-table-*\fP options is comma separated
@@ -68,6 +68,8 @@ Use JSON output format to print the table, the option
 Output is formatted to a width specified as number of characters. The original
 name of this option is --columns; this name is deprecated since v2.30. Note that input
 longer than \fIwidth\fP is not truncated by default.
+.IP "\fB\-d, \-\-table\-noheadings\fP"
+Do not print header. This option allows to use logical column names on command line, but keep the header hidden when print the table.
 .IP "\fB\-o, \-\-output\-separator\fP \fIstring\fP"
 Specify the columns delimiter for table output (default is two spaces).
 .IP "\fB\-s, \-\-separator\fP \fIseparators\fP"
@@ -79,7 +81,7 @@ supplied using the \fB\-\-output\-separator\fP option.
 Table output is useful for pretty-printing.
 .IP "\fB\-N, \-\-table-columns\fP \fInames\fP"
 Specify the columns names by comma separated list of names. The names are used
-for the table header or to addres column in option arguments.
+for the table header or to address column in option arguments.
 .IP "\fB\-R, \-\-table-right\fP \fIcolumns\fP"
 Right align text in the specified columns.
 .IP "\fB\-T, \-\-table-truncate\fP \fIcolumns\fP"
@@ -91,11 +93,15 @@ average) cells when calculate column width.  The option has impact to the width
 calculation and table formatting, but the printed text is not affected.
 
 The option is used for the last visible column by default.
+
+.IP "\fB\-e, \-\-table\-header\-repeat\fP"
+Print header line for each page.
 .IP "\fB\-W, \-\-table-wrap\fP \fIcolumns\fP"
 Specify columns where is possible to use multi-line cell for long text when
 necessary.
 .IP "\fB\-H, \-\-table-hide\fP \fIcolumns\fP"
-Don't print specified columns.
+Don't print specified columns. The special placeholder '-' maybe be used to
+hide all unnamed columns (see --table-columns).
 .IP "\fB\-O, \-\-table-order\fP \fIcolumns\fP"
 Specify columns order on output.
 .IP "\fB\-n, \-\-table-name\fP \fIname\fP"
@@ -122,6 +128,13 @@ Print fstab with header line and align number to the right:
 .EX
 \fBsed 's/#.*//' /etc/fstab | column --table --table-columns SOURCE,TARGET,TYPE,OPTIONS,PASS,FREQ --table-right PASS,FREQ\fR
 .EE
+.PP
+Print fstab and hide unnamed columns:
+.EX
+\fBsed 's/#.*//' /etc/fstab | column --table --table-columns SOURCE,TARGET,TYPE --table-hide -\fR
+.EE
+.PP
+
 .PP
 Print a tree:
 .EX

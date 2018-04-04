@@ -320,10 +320,10 @@ print_namei(struct namei *nm, char *path)
 	return 0;
 }
 
-static void usage(int rc)
+static void __attribute__((__noreturn__)) usage(void)
 {
 	const char *p = program_invocation_short_name;
-	FILE *out = rc == EXIT_FAILURE ? stderr : stdout;
+	FILE *out = stdout;
 
 	if (!*p)
 		p = "namei";
@@ -336,17 +336,17 @@ static void usage(int rc)
 	fputs(_("Follow a pathname until a terminal point is found.\n"), out);
 
 	fputs(USAGE_OPTIONS, out);
-	fputs(_(" -h, --help          displays this help text\n"
-		" -V, --version       output version information and exit\n"
+	fputs(_(
 		" -x, --mountpoints   show mount point directories with a 'D'\n"
 		" -m, --modes         show the mode bits of each file\n"
 		" -o, --owners        show owner and group name of each file\n"
 		" -l, --long          use a long listing format (-m -o -v) \n"
 		" -n, --nosymlinks    don't follow symlinks\n"
 		" -v, --vertical      vertical align of modes and owners\n"), out);
+	printf(USAGE_HELP_OPTIONS(21));
 
-	fprintf(out, USAGE_MAN_TAIL("namei(1)"));
-	exit(rc);
+	printf(USAGE_MAN_TAIL("namei(1)"));
+	exit(EXIT_SUCCESS);
 }
 
 static const struct option longopts[] =
@@ -376,7 +376,7 @@ main(int argc, char **argv)
 	while ((c = getopt_long(argc, argv, "hVlmnovx", longopts, NULL)) != -1) {
 		switch(c) {
 		case 'h':
-			usage(EXIT_SUCCESS);
+			usage();
 			break;
 		case 'V':
 			printf(UTIL_LINUX_VERSION);
@@ -406,7 +406,7 @@ main(int argc, char **argv)
 
 	if (optind == argc) {
 		warnx(_("pathname argument is missing"));
-		usage(EXIT_FAILURE);
+		errtryhelp(EXIT_FAILURE);
 	}
 
 	ucache = new_idcache();

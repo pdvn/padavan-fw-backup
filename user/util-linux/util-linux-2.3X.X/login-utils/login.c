@@ -77,6 +77,7 @@
 #include "all-io.h"
 #include "fileutils.h"
 #include "ttyutils.h"
+#include "pwdutils.h"
 
 #include "logindefs.h"
 
@@ -107,6 +108,7 @@ struct login_context {
 	char		*username;	/* from command line or PAM */
 
 	struct passwd	*pwd;		/* user info */
+	char		*pwdbuf;	/* pwd strings */
 
 	pam_handle_t	*pamh;		/* PAM handler */
 	struct pam_conv	conv;		/* PAM conversation */
@@ -137,6 +139,7 @@ struct login_context {
 static unsigned int timeout = LOGIN_TIMEOUT;
 static int child_pid = 0;
 static volatile int got_sig = 0;
+static char timeout_msg[128];
 
 #ifdef LOGIN_CHOWN_VCS
 /* true if the filedescriptor fd is a console tty, very Linux specific */
@@ -172,15 +175,14 @@ timedout2(int sig __attribute__ ((__unused__)))
 	tcgetattr(0, &ti);
 	ti.c_lflag |= ECHO;
 	tcsetattr(0, TCSANOW, &ti);
-	exit(EXIT_SUCCESS);	/* %% */
+	_exit(EXIT_SUCCESS);	/* %% */
 }
 
 static void timedout(int sig __attribute__ ((__unused__)))
 {
 	signal(SIGALRM, timedout2);
 	alarm(10);
-	/* TRANSLATORS: The standard value for %u is 60. */
-	warnx(_("timed out after %u seconds"), timeout);
+	ignore_result( write(STDERR_FILENO, timeout_msg, strlen(timeout_msg)) );
 	signal(SIGALRM, SIG_IGN);
 	alarm(0);
 	timedout2(0);
@@ -652,26 +654,6 @@ static void log_syslog(struct login_context *cxt)
 	}
 }
 
-static struct passwd *get_passwd_entry(const char *username,
-					 char **pwdbuf,
-					 struct passwd *pwd)
-{
-	struct passwd *res = NULL;
-	int x;
-
-	if (!pwdbuf || !username)
-		return NULL;
-
-	*pwdbuf = xrealloc(*pwdbuf, UL_GETPW_BUFSIZ);
-
-	x = getpwnam_r(username, pwd, *pwdbuf, UL_GETPW_BUFSIZ, &res);
-	if (!res) {
-		errno = x;
-		return NULL;
-	}
-	return res;
-}
-
 /* encapsulate stupid "void **" pam_get_item() API */
 static int loginpam_get_username(pam_handle_t *pamh, char **name)
 {
@@ -695,7 +677,8 @@ static void loginpam_err(pam_handle_t *pamh, int retcode)
 }
 
 /*
- * Composes "<host> login: " string; or returns "login: " if -H is given.
+ * Composes "<host> login: " string; or returns "login: " if -H is given or
+ * LOGIN_PLAIN_PROMPT=yes configured.
  */
 static const char *loginpam_get_prompt(struct login_context *cxt)
 {
@@ -703,11 +686,16 @@ static const char *loginpam_get_prompt(struct login_context *cxt)
 	char *prompt, *dflt_prompt = _("login: ");
 	size_t sz;
 
-	if (cxt->nohost || !(host = get_thishost(cxt, NULL)))
+	if (cxt->nohost)
+		return dflt_prompt;	/* -H on command line */
+
+	if (getlogindefs_bool("LOGIN_PLAIN_PROMPT", 0) == 1)
+		return dflt_prompt;
+
+	if (!(host = get_thishost(cxt, NULL)))
 		return dflt_prompt;
 
 	sz = strlen(host) + 1 + strlen(dflt_prompt) + 1;
-
 	prompt = xmalloc(sz);
 	snprintf(prompt, sz, "%s %s", host, dflt_prompt);
 
@@ -963,6 +951,8 @@ static void fork_session(struct login_context *cxt)
 		close(0);
 		close(1);
 		close(2);
+		free_getlogindefs_data();
+
 		sa.sa_handler = SIG_IGN;
 		sigaction(SIGQUIT, &sa, NULL);
 		sigaction(SIGINT, &sa, NULL);
@@ -1102,6 +1092,24 @@ static void init_remote_info(struct login_context *cxt, char *remotehost)
 	}
 }
 
+static void __attribute__((__noreturn__)) usage(void)
+{
+	fputs(USAGE_HEADER, stdout);
+	printf(_(" %s [-p] [-h <host>] [-H] [[-f] <username>]\n"), program_invocation_short_name);
+	fputs(USAGE_SEPARATOR, stdout);
+	fputs(_("Begin a session on the system.\n"), stdout);
+
+	fputs(USAGE_OPTIONS, stdout);
+	puts(_(" -p             do not destroy the environment"));
+	puts(_(" -f             skip a second login authentication"));
+	puts(_(" -h <host>      hostname to be used for utmp logging"));
+	puts(_(" -H             suppress hostname in the login prompt"));
+	printf("     --help     %s\n", USAGE_OPTSTR_HELP);
+	printf(" -V, --version  %s\n", USAGE_OPTSTR_VERSION);
+	printf(USAGE_MAN_TAIL("login(1)"));
+	exit(EXIT_SUCCESS);
+}
+
 int main(int argc, char **argv)
 {
 	int c;
@@ -1111,9 +1119,7 @@ int main(int argc, char **argv)
 	int childArgc = 0;
 	int retcode;
 	struct sigaction act;
-
-	char *pwdbuf = NULL;
-	struct passwd *pwd = NULL, _pwd;
+	struct passwd *pwd;
 
 	struct login_context cxt = {
 		.tty_mode = TTY_MODE,		  /* tty chmod() */
@@ -1126,7 +1132,24 @@ int main(int argc, char **argv)
 
 	};
 
+	/* the only two longopts to satisfy UL standards */
+	enum { HELP_OPTION = CHAR_MAX + 1 };
+	static const struct option longopts[] = {
+		{"help", no_argument, NULL, HELP_OPTION},
+		{"version", no_argument, NULL, 'V'},
+		{NULL, 0, NULL, 0}
+	};
+
 	timeout = (unsigned int)getlogindefs_num("LOGIN_TIMEOUT", LOGIN_TIMEOUT);
+
+	setlocale(LC_ALL, "");
+	bindtextdomain(PACKAGE, LOCALEDIR);
+	textdomain(PACKAGE);
+
+	/* TRANSLATORS: The standard value for %u is 60. */
+	snprintf(timeout_msg, sizeof(timeout_msg),
+	    _("%s: timed out after %u seconds"),
+	    program_invocation_short_name, timeout);
 
 	signal(SIGALRM, timedout);
 	(void) sigaction(SIGALRM, NULL, &act);
@@ -1135,10 +1158,6 @@ int main(int argc, char **argv)
 	alarm(timeout);
 	signal(SIGQUIT, SIG_IGN);
 	signal(SIGINT, SIG_IGN);
-
-	setlocale(LC_ALL, "");
-	bindtextdomain(PACKAGE, LOCALEDIR);
-	textdomain(PACKAGE);
 
 	setpriority(PRIO_PROCESS, 0, 0);
 	initproctitle(argc, argv);
@@ -1149,7 +1168,7 @@ int main(int argc, char **argv)
 	 * -h is used by other servers to pass the name of the remote
 	 *    host to login so that it may be placed in utmp and wtmp
 	 */
-	while ((c = getopt(argc, argv, "fHh:pV")) != -1)
+	while ((c = getopt_long(argc, argv, "fHh:pV", longopts, NULL)) != -1)
 		switch (c) {
 		case 'f':
 			cxt.noauth = 1;
@@ -1175,12 +1194,10 @@ int main(int argc, char **argv)
 		case 'V':
 			printf(UTIL_LINUX_VERSION);
 			return EXIT_SUCCESS;
-		case '?':
+		case HELP_OPTION:
+			usage();
 		default:
-			fprintf(stderr, _("Usage: login [-p] [-h <host>] [-H] [[-f] <username>]\n"));
-			fputs(USAGE_SEPARATOR, stderr);
-			fputs(_("Begin a session on the system.\n"), stderr);
-			exit(EXIT_FAILURE);
+			errtryhelp(EXIT_FAILURE);
 		}
 	argc -= optind;
 	argv += optind;
@@ -1219,7 +1236,8 @@ int main(int argc, char **argv)
 	 */
 	loginpam_acct(&cxt);
 
-	if (!(cxt.pwd = get_passwd_entry(cxt.username, &pwdbuf, &_pwd))) {
+	cxt.pwd = xgetpwnam(cxt.username, &cxt.pwdbuf);
+	if (!cxt.pwd) {
 		warnx(_("\nSession setup problem, abort."));
 		syslog(LOG_ERR, _("Invalid user name \"%s\" in %s:%d. Abort."),
 		       cxt.username, __FUNCTION__, __LINE__);

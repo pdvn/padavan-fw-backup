@@ -9,11 +9,8 @@
 #include <stdio.h>
 #include <errno.h>
 
-/* default strtoxx_or_err() exit code */
-#ifndef STRTOXX_EXIT_CODE
-# define STRTOXX_EXIT_CODE EXIT_FAILURE
-#endif
-
+/* initialize a custom exit code for all *_or_err functions */
+extern void strutils_set_exitcode(int exit_code);
 
 extern int parse_size(const char *str, uintmax_t *res, int *power);
 extern int strtosize(const char *str, uintmax_t *res);
@@ -216,7 +213,7 @@ static inline size_t ltrim_whitespace(unsigned char *str)
 
 	len = strlen((char *) p);
 
-	if (len && p > str)
+	if (p > str)
 		memmove(str, p, len + 1);
 
 	return len;

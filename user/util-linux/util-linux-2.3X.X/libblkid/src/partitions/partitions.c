@@ -126,7 +126,7 @@ static const struct blkid_idinfo *idinfos[] =
 	&gpt_pt_idinfo,
 	&pmbr_pt_idinfo,	/* always after GPT */
 	&mac_pt_idinfo,
-	&bsd_pt_idinfo,
+	&bsd_pt_idinfo
 };
 
 /*
@@ -159,7 +159,7 @@ struct blkid_struct_parttable {
 	uint64_t	offset;		/* begin of the partition table (in bytes) */
 	int		nparts;		/* number of partitions */
 	blkid_partition	parent;		/* parent of nested partition table */
-	char		id[37];		/* PT identifier (e.g. UUID for GPT) */
+	char		id[UUID_STR_LEN]; /* PT identifier (e.g. UUID for GPT) */
 
 	struct list_head t_tabs;	/* all tables */
 };
@@ -170,12 +170,12 @@ struct blkid_struct_partition {
 	uint64_t	size;		/* size of the partitions (512-bytes sectors) */
 
 	int		type;		/* partition type */
-	char		typestr[37];	/* partition type string (GPT and Mac) */
+	char		typestr[UUID_STR_LEN]; /* partition type string (GPT and Mac) */
 
 	unsigned long long flags;	/* partition flags / attributes */
 
 	int		partno;		/* partition number */
-	char		uuid[37];	/* UUID (when supported by PT), e.g GPT */
+	char		uuid[UUID_STR_LEN]; /* UUID (when supported by PT), e.g GPT */
 	unsigned char	name[128];	/* Partition in UTF8 name (when supported by PT), e.g. Mac */
 
 	blkid_parttable	tab;		/* partition table */
@@ -372,8 +372,7 @@ static blkid_partlist partitions_init_data(struct blkid_chain *chn)
 
 	reset_partlist(ls);
 
-	DBG(LOWPROBE, ul_debug("parts: initialized partitions list (%p, size=%d)",
-		ls, ls->nparts_max));
+	DBG(LOWPROBE, ul_debug("parts: initialized partitions list (size=%d)", ls->nparts_max));
 	return ls;
 }
 
@@ -408,7 +407,7 @@ blkid_parttable blkid_partlist_new_parttable(blkid_partlist ls,
 	list_add_tail(&tab->t_tabs, &ls->l_tabs);
 
 	DBG(LOWPROBE, ul_debug("parts: create a new partition table "
-		       "(%p, type=%s, offset=%"PRId64")", tab, type, offset));
+		       "(type=%s, offset=%"PRId64")", type, offset));
 	return tab;
 }
 
@@ -449,9 +448,9 @@ blkid_partition blkid_partlist_add_partition(blkid_partlist ls,
 	par->start = start;
 	par->size = size;
 
-	DBG(LOWPROBE, ul_debug("parts: add partition (%p start=%"
-		PRIu64 ", size=%" PRIu64 ", table=%p)",
-		par, par->start, par->size, tab));
+	DBG(LOWPROBE, ul_debug("parts: add partition (start=%"
+		PRIu64 ", size=%" PRIu64 ")",
+		par->start, par->size));
 	return par;
 }
 
@@ -658,8 +657,8 @@ int blkid_partitions_do_subprobe(blkid_probe pr, blkid_partition parent,
 	uint64_t sz, off;
 
 	DBG(LOWPROBE, ul_debug(
-		"parts: ----> %s subprobe requested (parent=%p)",
-		id->name, parent));
+		"parts: ----> %s subprobe requested)",
+		id->name));
 
 	if (!pr || !parent || !parent->size)
 		return -EINVAL;
@@ -705,8 +704,8 @@ int blkid_partitions_do_subprobe(blkid_probe pr, blkid_partition parent,
 	blkid_free_probe(prc);	/* free cloned prober */
 
 	DBG(LOWPROBE, ul_debug(
-		"parts: <---- %s subprobe done (parent=%p, rc=%d)",
-		id->name, parent, rc));
+		"parts: <---- %s subprobe done (rc=%d)",
+		id->name, rc));
 
 	return rc;
 }
@@ -1115,7 +1114,7 @@ int blkid_partitions_set_ptuuid(blkid_probe pr, unsigned char *uuid)
 	if (!v)
 		return -ENOMEM;
 
-	v->len = 37;
+	v->len = UUID_STR_LEN;
 	v->data = calloc(1, v->len);
 	if (v->data) {
 		blkid_unparse_uuid(uuid, (char *) v->data, v->len);

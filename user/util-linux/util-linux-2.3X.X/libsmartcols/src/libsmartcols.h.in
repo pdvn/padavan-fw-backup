@@ -219,22 +219,26 @@ extern int scols_table_is_raw(const struct libscols_table *tb);
 extern int scols_table_is_ascii(const struct libscols_table *tb);
 extern int scols_table_is_json(const struct libscols_table *tb);
 extern int scols_table_is_noheadings(const struct libscols_table *tb);
+extern int scols_table_is_header_repeat(const struct libscols_table *tb);
 extern int scols_table_is_empty(const struct libscols_table *tb);
 extern int scols_table_is_export(const struct libscols_table *tb);
 extern int scols_table_is_maxout(const struct libscols_table *tb);
 extern int scols_table_is_nowrap(const struct libscols_table *tb);
 extern int scols_table_is_nolinesep(const struct libscols_table *tb);
 extern int scols_table_is_tree(const struct libscols_table *tb);
+extern int scols_table_is_noencoding(const struct libscols_table *tb);
 
 extern int scols_table_enable_colors(struct libscols_table *tb, int enable);
 extern int scols_table_enable_raw(struct libscols_table *tb, int enable);
 extern int scols_table_enable_ascii(struct libscols_table *tb, int enable);
 extern int scols_table_enable_json(struct libscols_table *tb, int enable);
 extern int scols_table_enable_noheadings(struct libscols_table *tb, int enable);
+extern int scols_table_enable_header_repeat(struct libscols_table *tb, int enable);
 extern int scols_table_enable_export(struct libscols_table *tb, int enable);
 extern int scols_table_enable_maxout(struct libscols_table *tb, int enable);
 extern int scols_table_enable_nowrap(struct libscols_table *tb, int enable);
 extern int scols_table_enable_nolinesep(struct libscols_table *tb, int enable);
+extern int scols_table_enable_noencoding(struct libscols_table *tb, int enable);
 
 extern int scols_table_set_column_separator(struct libscols_table *tb, const char *sep);
 extern int scols_table_set_line_separator(struct libscols_table *tb, const char *sep);
@@ -282,6 +286,8 @@ extern int scols_table_set_termforce(struct libscols_table *tb, int force);
 extern int scols_table_get_termforce(const struct libscols_table *tb);
 extern int scols_table_set_termwidth(struct libscols_table *tb, size_t width);
 extern size_t scols_table_get_termwidth(const struct libscols_table *tb);
+extern int scols_table_set_termheight(struct libscols_table *tb, size_t height);
+extern size_t scols_table_get_termheight(const struct libscols_table *tb);
 
 
 /* table_print.c */

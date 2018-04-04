@@ -132,7 +132,7 @@ static void set_uuid_and_label(const struct mkswap_control *ctl)
 			printf(_("no label, "));
 #ifdef HAVE_LIBUUID
 		if (ctl->uuid) {
-			char uuid_string[37];
+			char uuid_string[UUID_STR_LEN];
 			uuid_unparse(ctl->uuid, uuid_string);
 			printf("UUID=%s\n", uuid_string);
 		} else
@@ -141,8 +141,9 @@ static void set_uuid_and_label(const struct mkswap_control *ctl)
 	}
 }
 
-static void __attribute__ ((__noreturn__)) usage(FILE *out)
+static void __attribute__((__noreturn__)) usage(void)
 {
+	FILE *out = stdout;
 	fprintf(out,
 		_("\nUsage:\n"
 		  " %s [options] device [size]\n"),
@@ -159,10 +160,11 @@ static void __attribute__ ((__noreturn__)) usage(FILE *out)
 		" -L, --label LABEL         specify label\n"
 		" -v, --swapversion NUM     specify swap-space version number\n"
 		" -U, --uuid UUID           specify the uuid to use\n"
-		" -V, --version             output version information and exit\n"
-		" -h, --help                display this help and exit\n\n"));
+		));
+	printf(USAGE_HELP_OPTIONS(27));
 
-	exit(out == stderr ? EXIT_FAILURE : EXIT_SUCCESS);
+	printf(USAGE_MAN_TAIL("mkswap(8)"));
+	exit(EXIT_SUCCESS);
 }
 
 static void page_bad(struct mkswap_control *ctl, unsigned int page)
@@ -400,7 +402,7 @@ int main(int argc, char **argv)
 			printf(UTIL_LINUX_VERSION);
 			exit(EXIT_SUCCESS);
 		case 'h':
-			usage(stdout);
+			usage();
 		default:
 			errtryhelp(EXIT_FAILURE);
 		}
@@ -412,7 +414,7 @@ int main(int argc, char **argv)
 		block_count = argv[optind++];
 	if (optind != argc) {
 		warnx(_("only one device argument is currently supported"));
-		usage(stderr);
+		errtryhelp(EXIT_FAILURE);
 	}
 
 #ifdef HAVE_LIBUUID
@@ -428,7 +430,7 @@ int main(int argc, char **argv)
 
 	if (!ctl.devname) {
 		warnx(_("error: Nowhere to set up swap on?"));
-		usage(stderr);
+		errtryhelp(EXIT_FAILURE);
 	}
 	if (block_count) {
 		/* this silly user specified the number of blocks explicitly */

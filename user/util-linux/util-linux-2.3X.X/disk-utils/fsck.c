@@ -54,8 +54,6 @@
 #include "c.h"
 #include "fileutils.h"
 #include "monotonic.h"
-
-#define STRTOXX_EXIT_CODE	FSCK_EX_ERROR
 #include "strutils.h"
 
 #define XALLOC_EXIT_CODE	FSCK_EX_ERROR
@@ -542,24 +540,34 @@ static struct libmnt_fs *lookup(char *path)
 }
 
 /* Find fsck program for a given fs type. */
-static char *find_fsck(const char *type)
+static int find_fsck(const char *type, char **progpath)
 {
 	char *s;
 	const char *tpl;
-	static char prog[256];
+	char *prog = NULL;
 	char *p = xstrdup(fsck_path);
+	int rc;
 
 	/* Are we looking for a program or just a type? */
 	tpl = (strncmp(type, "fsck.", 5) ? "%s/fsck.%s" : "%s/%s");
 
 	for(s = strtok(p, ":"); s; s = strtok(NULL, ":")) {
-		sprintf(prog, tpl, s, type);
+		xasprintf(&prog, tpl, s, type);
 		if (access(prog, X_OK) == 0)
 			break;
+		free(prog);
+		prog = NULL;
 	}
-	free(p);
 
-	return(s ? prog : NULL);
+	free(p);
+	rc = prog ? 1 : 0;
+
+	if (progpath)
+		*progpath = prog;
+	else
+		free(prog);
+
+	return rc;
 }
 
 static int progress_active(void)
@@ -887,7 +895,7 @@ static int wait_many(int flags)
  */
 static int fsck_device(struct libmnt_fs *fs, int interactive)
 {
-	char progname[80], *progpath;
+	char *progname, *progpath;
 	const char *type;
 	int retval;
 
@@ -904,9 +912,10 @@ static int fsck_device(struct libmnt_fs *fs, int interactive)
 	else
 		type = DEFAULT_FSTYPE;
 
-	sprintf(progname, "fsck.%s", type);
-	progpath = find_fsck(progname);
-	if (progpath == NULL) {
+	xasprintf(&progname, "fsck.%s", type);
+
+	if (!find_fsck(progname, &progpath)) {
+		free(progname);
 		if (fs_check_required(type)) {
 			retval = ENOENT;
 			goto err;
@@ -916,6 +925,8 @@ static int fsck_device(struct libmnt_fs *fs, int interactive)
 
 	num_running++;
 	retval = execute(progname, progpath, type, fs, interactive);
+	free(progname);
+	free(progpath);
 	if (retval) {
 		num_running--;
 		goto err;
@@ -1150,7 +1161,7 @@ static int ignore(struct libmnt_fs *fs)
 
 
 	/* See if the <fsck.fs> program is available. */
-	if (find_fsck(type) == NULL) {
+	if (!find_fsck(type, NULL)) {
 		if (fs_check_required(type))
 			warnx(_("cannot check %s: fsck.%s not found"),
 				fs_get_device(fs), type);
@@ -1369,8 +1380,9 @@ static int check_all(void)
 	return status;
 }
 
-static void __attribute__((__noreturn__)) usage(FILE *out)
+static void __attribute__((__noreturn__)) usage(void)
 {
+	FILE *out = stdout;
 	fputs(USAGE_HEADER, out);
 	fprintf(out, _(" %s [options] -- [fs-options] [<filesystem> ...]\n"),
 			 program_invocation_short_name);
@@ -1393,13 +1405,14 @@ static void __attribute__((__noreturn__)) usage(FILE *out)
 	fputs(_(" -t <type>  specify filesystem types to be checked;\n"
 		"            <type> is allowed to be a comma-separated list\n"), out);
 	fputs(_(" -V         explain what is being done\n"), out);
-	fputs(_(" -?         display this help and exit\n"), out);
 
 	fputs(USAGE_SEPARATOR, out);
+	printf( " -?, --help     %s\n", USAGE_OPTSTR_HELP);
+	printf( "     --version  %s\n", USAGE_OPTSTR_VERSION);
+	fputs(USAGE_SEPARATOR, out);
 	fputs(_("See the specific fsck.* commands for available fs-options."), out);
-	fprintf(out, USAGE_MAN_TAIL("fsck(8)"));
-
-	exit(out == stderr ? FSCK_EX_USAGE : FSCK_EX_OK);
+	printf(USAGE_MAN_TAIL("fsck(8)"));
+	exit(FSCK_EX_OK);
 }
 
 static void signal_cancel(int sig __attribute__((__unused__)))
@@ -1433,6 +1446,15 @@ static void parse_argv(int argc, char *argv[])
 		arg = argv[i];
 		if (!arg)
 			continue;
+
+		/* the only two longopts to satisfy UL standards */
+		if (!opts_for_fsck && !strcmp(arg, "--help"))
+			usage();
+		if (!opts_for_fsck && !strcmp(arg, "--version")) {
+			printf(UTIL_LINUX_VERSION);
+			exit(FSCK_EX_OK);
+		}
+
 		if ((arg[0] == '/' && !opts_for_fsck) || strchr(arg, '=')) {
 			if (num_devices >= MAX_DEVICES)
 				errx(FSCK_EX_ERROR, _("too many devices"));
@@ -1536,13 +1558,15 @@ static void parse_argv(int argc, char *argv[])
 			case 't':
 				tmp = NULL;
 				if (fstype)
-					usage(stderr);
+					errx(FSCK_EX_USAGE,
+						_("option '%s' may be specified only once"), "-t");
 				if (arg[j+1])
 					tmp = arg+j+1;
 				else if ((i+1) < argc)
 					tmp = argv[++i];
 				else
-					usage(stderr);
+					errx(FSCK_EX_USAGE,
+						_("option '%s' requires an argument"), "-t");
 				fstype = xstrdup(tmp);
 				compile_fs_type(fstype, &fs_type_compiled);
 				goto next_arg;
@@ -1550,7 +1574,7 @@ static void parse_argv(int argc, char *argv[])
 				opts_for_fsck++;
 				break;
 			case '?':
-				usage(stdout);
+				usage();
 				break;
 			default:
 				options[++opt] = arg[j];
@@ -1599,6 +1623,7 @@ int main(int argc, char *argv[])
 	textdomain(PACKAGE);
 	atexit(close_stdout);
 
+	strutils_set_exitcode(FSCK_EX_USAGE);
 	mnt_init_debug(0);		/* init libmount debug mask */
 	mntcache = mnt_new_cache();	/* no fatal error if failed */
 

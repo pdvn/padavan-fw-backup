@@ -707,9 +707,9 @@ int fdisk_partition_is_wholedisk(struct fdisk_partition *pa)
  * If @pa specified and partno-follow-default (see fdisk_partition_partno_follow_default())
  * enabled then returns next expected partno or -ERANGE on error.
  *
- * If @pa is NULL, or @pa does not specify any sepamntic for the next partno
+ * If @pa is NULL, or @pa does not specify any semantic for the next partno
  * then use Ask API to ask user for the next partno. In this case returns 1 if
- * no free partition avaialble.
+ * no free partition available. If fdisk dialogs are disabled then returns -EINVAL.
  *
  * Returns: 0 on success, <0 on error, or 1 for non-free partno by Ask API.
  */
@@ -742,10 +742,12 @@ int fdisk_partition_next_partno(
 		    fdisk_is_partition_used(cxt, pa->partno))
 			return -ERANGE;
 		*n = pa->partno;
-	} else
+		return 0;
+
+	} else if (fdisk_has_dialogs(cxt))
 		return fdisk_ask_partnum(cxt, n, 1);
 
-	return 0;
+	return -EINVAL;
 }
 
 static int probe_partition_content(struct fdisk_context *cxt, struct fdisk_partition *pa)
@@ -1056,30 +1058,63 @@ static int resize_get_last_possible(
 	fdisk_reset_iter(&itr, FDISK_ITER_FORWARD);
 
 	*maxsz = 0;
+	DBG(TAB, ul_debugobj(tb, "checking last possible for start=%ju", (uintmax_t) start));
+
 
 	while (fdisk_table_next_partition(tb, &itr, &pa) == 0) {
+
+		DBG(TAB, ul_debugobj(tb, " checking entry %p [partno=%zu start=%ju, end=%ju, size=%ju%s%s%s]",
+			pa,
+			fdisk_partition_get_partno(pa),
+			(uintmax_t) fdisk_partition_get_start(pa),
+			(uintmax_t) fdisk_partition_get_end(pa),
+			(uintmax_t) fdisk_partition_get_size(pa),
+			fdisk_partition_is_freespace(pa) ? " freespace" : "",
+			fdisk_partition_is_nested(pa)    ? " nested"    : "",
+			fdisk_partition_is_container(pa) ? " container" : ""));
+
 		if (!fdisk_partition_has_start(pa) ||
 		    !fdisk_partition_has_size(pa) ||
-		    fdisk_partition_is_container(pa))
+		    (fdisk_partition_is_container(pa) && pa != cur)) {
+			DBG(TAB, ul_debugobj(tb, "  ignored (no start/size or container)"));
 			continue;
+		}
 
-		DBG(PART, ul_debugobj(pa, "checking start=%ju, size=%ju",
-		                      (uintmax_t)pa->start, (uintmax_t)pa->size));
+		if (fdisk_partition_is_nested(pa)
+		    && fdisk_partition_is_container(cur)
+		    && pa->parent_partno == cur->partno) {
+			DBG(TAB, ul_debugobj(tb, "  ignore (nested child of the current partition)"));
+			continue;
+		}
+
+		/* The current is nested, free space has to be nested within the same parent */
+		if (fdisk_partition_is_nested(cur)
+		    && pa->parent_partno != cur->parent_partno) {
+			DBG(TAB, ul_debugobj(tb, "  ignore (nested required)"));
+			continue;
+		}
 
 		if (!last) {
 			if (start >= pa->start &&  start < pa->start + pa->size) {
-				if (fdisk_partition_is_freespace(pa) || pa == cur)
+				if (fdisk_partition_is_freespace(pa) || pa == cur) {
+					DBG(TAB, ul_debugobj(tb, "  accepted as last"));
 					last = pa;
-				else
+				} else {
+					DBG(TAB, ul_debugobj(tb, "  failed to set last"));
 					break;
+				}
+
 
 				*maxsz = pa->size - (start - pa->start);
+				DBG(TAB, ul_debugobj(tb, "  new max=%ju", (uintmax_t) *maxsz));
 			}
 		} else if (!fdisk_partition_is_freespace(pa) && pa != cur) {
+			DBG(TAB, ul_debugobj(tb, "  no free space behind current"));
 			break;
 		} else {
 			last = pa;
 			*maxsz += pa->size;
+			DBG(TAB, ul_debugobj(tb, "  new max=%ju (last updated)", (uintmax_t) *maxsz));
 		}
 	}
 
@@ -1114,6 +1149,11 @@ static int recount_resize(
 		rc = fdisk_get_freespaces(cxt, &tb);
 	if (rc)
 		return rc;
+
+	fdisk_table_sort_partitions(tb, fdisk_partition_cmp_start);
+
+	DBG(PART, ul_debugobj(tpl, "resize partition partno=%zu in table:", partno));
+	ON_DBG(PART, fdisk_debug_print_table(tb));
 
 	cur = fdisk_table_get_partition_by_partno(tb, partno);
 	if (!cur) {
@@ -1370,12 +1410,15 @@ int fdisk_add_partition(struct fdisk_context *cxt,
 
 	if (pa) {
 		pa->fs_probed = 0;
-		DBG(CXT, ul_debugobj(cxt, "adding new partition %p (start=%ju, end=%ju, size=%ju, "
-			    "defaults(start=%s, end=%s, partno=%s)",
-			    pa,
-			    (uintmax_t) fdisk_partition_get_start(pa),
-			    (uintmax_t) fdisk_partition_get_end(pa),
-			    (uintmax_t) fdisk_partition_get_size(pa),
+		DBG(CXT, ul_debugobj(cxt, "adding new partition %p", pa));
+		if (fdisk_partition_has_start(pa))
+			DBG(CXT, ul_debugobj(cxt, "     start: %ju", (uintmax_t) fdisk_partition_get_start(pa)));
+		if (fdisk_partition_has_end(pa))
+			DBG(CXT, ul_debugobj(cxt, "       end: %ju", (uintmax_t) fdisk_partition_get_end(pa)));
+		if (fdisk_partition_has_size(pa))
+			DBG(CXT, ul_debugobj(cxt, "      size: %ju", (uintmax_t) fdisk_partition_get_size(pa)));
+
+		DBG(CXT, ul_debugobj(cxt,         "  defaults: start=%s, end=%s, partno=%s",
 			    pa->start_follow_default ? "yes" : "no",
 			    pa->end_follow_default ? "yes" : "no",
 			    pa->partno_follow_default ? "yes" : "no"));
@@ -1443,6 +1486,9 @@ int fdisk_delete_all_partitions(struct fdisk_context *cxt)
  * fdisk_is_partition_used:
  * @cxt: context
  * @n: partition number (0 is the first partition)
+ *
+ * Check if the partition number @n is used by partition table. This function
+ * does not check if the device is used (e.g. mounted) by system!
  *
  * This is faster than fdisk_get_partition() + fdisk_partition_is_used().
  *

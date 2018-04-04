@@ -13,7 +13,9 @@ command reads the
 .B sysfs
 filesystem and
 .B udev db
-to gather information.
+to gather information. If the udev db is not available or lsblk is compiled without udev support than it
+tries to read LABELs, UUIDs and filesystem types from the block device. In this case root permissions
+are necessary.
 .PP
 The command prints all block devices (except RAM disks) in a tree-like format
 by default.  Use
@@ -129,7 +131,9 @@ This option is equivalent to
 Display version information and exit.
 .TP
 .BR \-x , " \-\-sort " \fIcolumn\fP
-Sort output lines by \fIcolumn\fP. This option enables \fB\-\-list\fR output.
+Sort output lines by \fIcolumn\fP. This option enables \fB\-\-list\fR output format by default.
+It is possible to use the option \fI\-\-tree\fP to force tree-like output and
+than the tree branches are sorted by the \fIcolumn\fP.
 .SH NOTES
 For partitions, some information (e.g. queue attributes) is inherited from the
 parent device.
@@ -149,7 +153,7 @@ success
 .IP 1
 failure
 .IP 32
-not found all specified devices
+none of specified devices found
 .IP 64
 some specified devices found, some not found
 
@@ -159,6 +163,8 @@ Milan Broz <mbroz@redhat.com>
 Karel Zak <kzak@redhat.com>
 .fi
 .SH ENVIRONMENT
+.IP LSBLK_DEBUG=all
+enables lsblk debug output.
 .IP LIBBLKID_DEBUG=all
 enables libblkid debug output.
 .IP LIBMOUNT_DEBUG=all

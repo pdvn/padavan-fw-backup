@@ -36,9 +36,11 @@
 #include "c.h"
 #include "env.h"
 #include "strutils.h"
-#include "xalloc.h"
 #include "closestream.h"
 #include "canonicalize.h"
+
+#define XALLOC_EXIT_CODE MNT_EX_SYSERR
+#include "xalloc.h"
 
 #define OPTUTILS_EXIT_CODE MNT_EX_USAGE
 #include "optutils.h"
@@ -382,8 +384,9 @@ static int has_remount_flag(struct libmnt_context *cxt)
 	return mflags & MS_REMOUNT;
 }
 
-static void __attribute__((__noreturn__)) usage(FILE *out)
+static void __attribute__((__noreturn__)) usage(void)
 {
+	FILE *out = stdout;
 	fputs(USAGE_HEADER, out);
 	fprintf(out, _(
 		" %1$s [-lhV]\n"
@@ -423,8 +426,7 @@ static void __attribute__((__noreturn__)) usage(FILE *out)
 	" -w, --rw, --read-write  mount the filesystem read-write (default)\n"));
 
 	fputs(USAGE_SEPARATOR, out);
-	fputs(USAGE_HELP, out);
-	fputs(USAGE_VERSION, out);
+	printf(USAGE_HELP_OPTIONS(25));
 
 	fprintf(out, _(
 	"\nSource:\n"
@@ -456,9 +458,9 @@ static void __attribute__((__noreturn__)) usage(FILE *out)
 	" --make-rprivate         recursively mark a whole subtree as private\n"
 	" --make-runbindable      recursively mark a whole subtree as unbindable\n"));
 
-	fprintf(out, USAGE_MAN_TAIL("mount(8)"));
+	printf(USAGE_MAN_TAIL("mount(8)"));
 
-	exit(out == stderr ? MNT_EX_USAGE : MNT_EX_SUCCESS);
+	exit(MNT_EX_SUCCESS);
 }
 
 int main(int argc, char **argv)
@@ -534,6 +536,8 @@ int main(int argc, char **argv)
 	textdomain(PACKAGE);
 	atexit(close_stdout);
 
+	strutils_set_exitcode(MNT_EX_USAGE);
+
 	mnt_init_debug(0);
 	cxt = mnt_new_context();
 	if (!cxt)
@@ -567,7 +571,7 @@ int main(int argc, char **argv)
 			mnt_context_enable_fork(cxt, TRUE);
 			break;
 		case 'h':
-			usage(stdout);
+			usage();
 			break;
 		case 'i':
 			mnt_context_disable_helpers(cxt, TRUE);
@@ -690,8 +694,10 @@ int main(int argc, char **argv)
 	    !mnt_context_get_target(cxt) &&
 	    !argc &&
 	    !all) {
-		if (oper || mnt_context_get_options(cxt))
-			usage(stderr);
+		if (oper || mnt_context_get_options(cxt)) {
+			warnx(_("bad usage"));
+			errtryhelp(MNT_EX_USAGE);
+		}
 		print_all(cxt, types, show_labels);
 		goto done;
 	}
@@ -701,8 +707,10 @@ int main(int argc, char **argv)
 	if (mnt_context_is_restricted(cxt) && types)
 		exit_non_root("types");
 
-	if (oper && (types || all || mnt_context_get_source(cxt)))
-		usage(stderr);
+	if (oper && (types || all || mnt_context_get_source(cxt))) {
+		warnx(_("bad usage"));
+		errtryhelp(MNT_EX_USAGE);
+	}
 
 	if (types && (all || strchr(types, ',') ||
 			     strncmp(types, "no", 2) == 0))
@@ -768,8 +776,10 @@ int main(int argc, char **argv)
 		mnt_context_set_source(cxt, argv[0]);
 		mnt_context_set_target(cxt, argv[1]);
 
-	} else
-		usage(stderr);
+	} else {
+		warnx(_("bad usage"));
+		errtryhelp(MNT_EX_USAGE);
+	}
 
 	if (mnt_context_is_restricted(cxt))
 		sanitize_paths(cxt);

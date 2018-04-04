@@ -743,8 +743,9 @@ static blkid_partlist get_partlist(blkid_probe pr,
 	return ls;
 }
 
-static void __attribute__((__noreturn__)) usage(FILE *out)
+static void __attribute__((__noreturn__)) usage(void)
 {
+	FILE *out = stdout;
 	size_t i;
 
 	fputs(USAGE_HEADER, out);
@@ -772,17 +773,15 @@ static void __attribute__((__noreturn__)) usage(FILE *out)
 	fputs(_(" -v, --verbose        verbose mode\n"), out);
 
 	fputs(USAGE_SEPARATOR, out);
-	fputs(USAGE_HELP, out);
-	fputs(USAGE_VERSION, out);
+	printf(USAGE_HELP_OPTIONS(22));
 
-	fputs(_("\nAvailable columns (for --show, --raw or --pairs):\n"), out);
-
+	fputs(USAGE_COLUMNS, out);
 	for (i = 0; i < NCOLS; i++)
 		fprintf(out, " %10s  %s\n", infos[i].name, _(infos[i].help));
 
-	fprintf(out, USAGE_MAN_TAIL("partx(8)"));
+	printf(USAGE_MAN_TAIL("partx(8)"));
 
-	exit(out == stderr ? EXIT_FAILURE : EXIT_SUCCESS);
+	exit(EXIT_SUCCESS);
 }
 
 int main(int argc, char **argv)
@@ -892,7 +891,7 @@ int main(int argc, char **argv)
 			return EXIT_SUCCESS;
 		}
 		case 'h':
-			usage(stdout);
+			usage();
 		case 'V':
 			printf(UTIL_LINUX_VERSION);
 			return EXIT_SUCCESS;
@@ -964,9 +963,10 @@ int main(int argc, char **argv)
 			device = NULL;
 			part_devno = 0;
 		}
-	} else
-		usage(stderr);
-
+	} else {
+		warnx(_("bad usage"));
+		errtryhelp(EXIT_FAILURE);
+	}
 	if (device && (upper || lower))
 		errx(EXIT_FAILURE, _("--nr and <partition> are mutually exclusive"));
 

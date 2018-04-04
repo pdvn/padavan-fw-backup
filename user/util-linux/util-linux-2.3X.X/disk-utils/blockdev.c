@@ -178,27 +178,42 @@ static const struct bdc bdcms[] =
 	}
 };
 
-static void __attribute__ ((__noreturn__)) usage(FILE * out)
+static void __attribute__((__noreturn__)) usage(void)
 {
 	size_t i;
-	fprintf(out, _("\nUsage:\n"
-		       " %1$s -V\n"
-		       " %1$s --report [devices]\n"
-		       " %1$s [-v|-q] commands devices\n\n"
-		       "Available commands:\n"), program_invocation_short_name);
 
-	fprintf(out, _(" %-25s get size in 512-byte sectors\n"), "--getsz");
+	fputs(USAGE_HEADER, stdout);
+	printf(_(
+	         " %1$s [-v|-q] commands devices\n"
+	         " %1$s --report [devices]\n"
+	         " %1$s -h|-V\n"
+		), program_invocation_short_name);
+
+	fputs(USAGE_SEPARATOR, stdout);
+	puts(  _("Call block device ioctls from the command line."));
+
+	fputs(USAGE_OPTIONS, stdout);
+	puts(  _(" -q             quiet mode"));
+	puts(  _(" -v             verbose mode"));
+	puts(  _("     --report   print report for specified (or all) devices"));
+	fputs(USAGE_SEPARATOR, stdout);
+	printf(USAGE_HELP_OPTIONS(16));
+
+	fputs(USAGE_SEPARATOR, stdout);
+	puts(  _("Available commands:"));
+	printf(_(" %-25s get size in 512-byte sectors\n"), "--getsz");
 	for (i = 0; i < ARRAY_SIZE(bdcms); i++) {
 		if (bdcms[i].argname)
-			fprintf(out, " %s %-*s %s\n", bdcms[i].name,
+			printf(" %s %-*s %s\n", bdcms[i].name,
 				(int)(24 - strlen(bdcms[i].name)),
 				bdcms[i].argname, _(bdcms[i].help));
 		else
-			fprintf(out, " %-25s %s\n", bdcms[i].name,
+			printf(" %-25s %s\n", bdcms[i].name,
 				_(bdcms[i].help));
 	}
-	fputc('\n', out);
-	exit(out == stderr ? EXIT_FAILURE : EXIT_SUCCESS);
+
+	printf(USAGE_MAN_TAIL("blockdev(8)"));
+	exit(EXIT_SUCCESS);
 }
 
 static int find_cmd(char *s)
@@ -225,8 +240,10 @@ int main(int argc, char **argv)
 	textdomain(PACKAGE);
 	atexit(close_stdout);
 
-	if (argc < 2)
-		usage(stderr);
+	if (argc < 2) {
+		warnx(_("not enough arguments"));
+		errtryhelp(EXIT_FAILURE);
+	}
 
 	/* -V not together with commands */
 	if (!strcmp(argv[1], "-V") || !strcmp(argv[1], "--version")) {
@@ -234,7 +251,7 @@ int main(int argc, char **argv)
 		return EXIT_SUCCESS;
 	}
 	if (!strcmp(argv[1], "-h") || !strcmp(argv[1], "--help"))
-		usage(stdout);
+		usage();
 
 	/* --report not together with other commands */
 	if (!strcmp(argv[1], "--report")) {
@@ -267,8 +284,10 @@ int main(int argc, char **argv)
 			break;
 	}
 
-	if (d >= argc)
-		usage(stderr);
+	if (d >= argc) {
+		warnx(_("no device specified"));
+		errtryhelp(EXIT_FAILURE);
+	}
 
 	for (k = d; k < argc; k++) {
 		fd = open(argv[k], O_RDONLY, 0);
@@ -315,7 +334,7 @@ static void do_commands(int fd, char **argv, int d)
 		j = find_cmd(argv[i]);
 		if (j == -1) {
 			warnx(_("Unknown command: %s"), argv[i]);
-			usage(stderr);
+			errtryhelp(EXIT_FAILURE);
 		}
 
 		switch (bdcms[j].argtype) {
@@ -332,7 +351,7 @@ static void do_commands(int fd, char **argv, int d)
 				if (i == d - 1) {
 					warnx(_("%s requires an argument"),
 					      bdcms[j].name);
-					usage(stderr);
+					errtryhelp(EXIT_FAILURE);
 				}
 				iarg = atoi(argv[++i]);
 			} else

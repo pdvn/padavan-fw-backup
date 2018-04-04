@@ -13,8 +13,9 @@
 #include "strutils.h"
 #include "closestream.h"
 
-static void __attribute__ ((__noreturn__)) usage(FILE * out)
+static void __attribute__((__noreturn__)) usage(void)
 {
+	FILE *out = stdout;
 	fputs(USAGE_HEADER, out);
 	fprintf(out, _(" %s <disk device> <partition number> <length>\n"),
 		program_invocation_short_name);
@@ -23,10 +24,9 @@ static void __attribute__ ((__noreturn__)) usage(FILE * out)
 	fputs(_("Tell the kernel about the new size of a partition.\n"), out);
 
 	fputs(USAGE_OPTIONS, out);
-	fputs(USAGE_HELP, out);
-	fputs(USAGE_VERSION, out);
-	fprintf(out, USAGE_MAN_TAIL("resizepart(8)"));
-	exit(out == stderr ? EXIT_FAILURE : EXIT_SUCCESS);
+	printf(USAGE_HELP_OPTIONS(16));
+	printf(USAGE_MAN_TAIL("resizepart(8)"));
+	exit(EXIT_SUCCESS);
 }
 
 static int get_partition_start(int fd, int partno, uint64_t *start)
@@ -86,13 +86,15 @@ int main(int argc, char **argv)
 			printf(UTIL_LINUX_VERSION);
 			return EXIT_SUCCESS;
 		case 'h':
-			usage(stdout);
+			usage();
 		default:
 			errtryhelp(EXIT_FAILURE);
 		}
 
-	if (argc != 4)
-		usage(stderr);
+	if (argc != 4) {
+		warnx(_("not enough arguments"));
+		errtryhelp(EXIT_FAILURE);
+	}
 
 	wholedisk = argv[1];
 	partno = strtou32_or_err(argv[2], _("invalid partition number argument"));

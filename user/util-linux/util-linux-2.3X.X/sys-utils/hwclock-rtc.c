@@ -6,7 +6,6 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sysexits.h>
 #include <sys/ioctl.h>
 #include <sys/select.h>
 #include <sys/time.h>
@@ -125,7 +124,7 @@ static int open_rtc(const struct hwclock_control *ctl)
 		rtc_dev_fd = open(rtc_dev_name, O_RDONLY);
 	} else {
 		for (i = 0; i < ARRAY_SIZE(fls); i++) {
-			if (ctl->debug)
+			if (ctl->verbose)
 				printf(_("Trying to open: %s\n"), fls[i]);
 			rtc_dev_fd = open(fls[i], O_RDONLY);
 
@@ -149,7 +148,7 @@ static int open_rtc_or_exit(const struct hwclock_control *ctl)
 
 	if (rtc_fd < 0) {
 		warn(_("cannot open rtc device"));
-		hwclock_exit(ctl, EX_OSFILE);
+		hwclock_exit(ctl, EXIT_FAILURE);
 	}
 	return rtc_fd;
 }
@@ -194,8 +193,11 @@ static int do_rtc_read_ioctl(int rtc_fd, struct tm *tm)
 }
 
 /*
- * Wait for the top of a clock tick by reading /dev/rtc in a busy loop until
- * we see it.
+ * Wait for the top of a clock tick by reading /dev/rtc in a busy loop
+ * until we see it. This function is used for rtc drivers without ioctl
+ * interrupts. This is typical on an Alpha, where the Hardware Clock
+ * interrupts are used by the kernel for the system clock, so aren't at
+ * the user's disposal.
  */
 static int busywait_for_rtc_clock_tick(const struct hwclock_control *ctl,
 				       const int rtc_fd)
@@ -206,13 +208,15 @@ static int busywait_for_rtc_clock_tick(const struct hwclock_control *ctl,
 	int rc;
 	struct timeval begin, now;
 
-	if (ctl->debug)
+	if (ctl->verbose) {
+		printf("ioctl(%d, RTC_UIE_ON, 0): %s\n",
+		       rtc_fd, strerror(errno));
 		printf(_("Waiting in loop for time from %s to change\n"),
 		       rtc_dev_name);
+	}
 
-	rc = do_rtc_read_ioctl(rtc_fd, &start_time);
-	if (rc)
-		return RTC_BUSYWAIT_FAILED;
+	if (do_rtc_read_ioctl(rtc_fd, &start_time))
+		return 1;
 
 	/*
 	 * Wait for change.  Should be within a second, but in case
@@ -227,13 +231,13 @@ static int busywait_for_rtc_clock_tick(const struct hwclock_control *ctl,
 		gettimeofday(&now, NULL);
 		if (time_diff(now, begin) > 1.5) {
 			warnx(_("Timed out waiting for time change."));
-			return RTC_BUSYWAIT_TIMEOUT;
+			return 1;
 		}
 	} while (1);
 
 	if (rc)
-		return RTC_BUSYWAIT_FAILED;
-	return RTC_BUSYWAIT_OK;
+		return 1;
+	return 0;
 }
 
 /*
@@ -282,9 +286,8 @@ static int synchronize_to_clock_tick_rtc(const struct hwclock_control *ctl)
 			if (0 < rc)
 				ret = 0;
 			else if (rc == 0) {
-				if (ctl->debug)
-					printf(_("select() to %s to wait for clock tick timed out"),
-					       rtc_dev_name);
+				warnx(_("select() to %s to wait for clock tick timed out"),
+				      rtc_dev_name);
 			} else
 				warn(_("select() to %s to wait for clock tick failed"),
 				     rtc_dev_name);
@@ -294,19 +297,11 @@ static int synchronize_to_clock_tick_rtc(const struct hwclock_control *ctl)
 				warn(_("ioctl() to %s to turn off update interrupts failed"),
 				     rtc_dev_name);
 		} else if (errno == ENOTTY || errno == EINVAL) {
-			/*
-			 * This rtc device doesn't have interrupt functions.
-			 * This is typical on an Alpha, where the Hardware
-			 * Clock interrupts are used by the kernel for the
-			 * system clock, so aren't at the user's disposal.
-			 */
-			if (ctl->debug)
-				printf(_("%s does not have interrupt functions. "),
-				       rtc_dev_name);
+			/* rtc ioctl interrupts are unimplemented */
 			ret = busywait_for_rtc_clock_tick(ctl, rtc_fd);
 		} else
-			warn(_("ioctl() to %s to turn on update interrupts "
-			      "failed unexpectedly"), rtc_dev_name);
+			warn(_("ioctl(%d, RTC_UIE_ON, 0) to %s failed"),
+			     rtc_fd, rtc_dev_name);
 	}
 	return ret;
 }
@@ -360,10 +355,10 @@ static int set_hardware_clock_rtc(const struct hwclock_control *ctl,
 	if (rc == -1) {
 		warn(_("ioctl(%s) to %s to set the time failed"),
 			ioctlname, rtc_dev_name);
-		hwclock_exit(ctl, EX_IOERR);
+		hwclock_exit(ctl, EXIT_FAILURE);
 	}
 
-	if (ctl->debug)
+	if (ctl->verbose)
 		printf(_("ioctl(%s) was successful.\n"), ioctlname);
 
 	return 0;
@@ -402,25 +397,19 @@ int get_epoch_rtc(const struct hwclock_control *ctl, unsigned long *epoch_p)
 
 	rtc_fd = open_rtc(ctl);
 	if (rtc_fd < 0) {
-		if (errno == ENOENT)
-			warnx(_
-			      ("To manipulate the epoch value in the kernel, we must "
-			       "access the Linux 'rtc' device driver via the device special "
-			       "file.  This file does not exist on this system."));
-		else
-			warn(_("cannot open rtc device"));
+		warn(_("cannot open %s"), rtc_dev_name);
 		return 1;
 	}
 
 	if (ioctl(rtc_fd, RTC_EPOCH_READ, epoch_p) == -1) {
-		warn(_("ioctl(RTC_EPOCH_READ) to %s failed"), rtc_dev_name);
+		warn(_("ioctl(%d, RTC_EPOCH_READ, epoch_p) to %s failed"),
+		     rtc_fd, rtc_dev_name);
 		return 1;
 	}
 
-	if (ctl->debug)
-		printf(_("we have read epoch %lu from %s "
-			 "with RTC_EPOCH_READ ioctl.\n"), *epoch_p,
-		       rtc_dev_name);
+	if (ctl->verbose)
+		printf(_("ioctl(%d, RTC_EPOCH_READ, epoch_p) to %s succeeded.\n"),
+		       rtc_fd, rtc_dev_name);
 
 	return 0;
 }
@@ -431,45 +420,31 @@ int get_epoch_rtc(const struct hwclock_control *ctl, unsigned long *epoch_p)
 int set_epoch_rtc(const struct hwclock_control *ctl)
 {
 	int rtc_fd;
+	unsigned long epoch;
 
-	if (ctl->epoch_option < 1900) {
-		/* kernel would not accept this epoch value
-		 *
-		 * Bad habit, deciding not to do what the user asks just
-		 * because one believes that the kernel might not like it.
-		 */
-		warnx(_("The epoch value may not be less than 1900.  "
-			"You requested %ld"), ctl->epoch_option);
+	epoch = strtoul(ctl->epoch_option, NULL, 10);
+
+	/* There were no RTC clocks before 1900. */
+	if (epoch < 1900 || epoch == ULONG_MAX) {
+		warnx(_("invalid epoch '%s'."), ctl->epoch_option);
 		return 1;
 	}
 
 	rtc_fd = open_rtc(ctl);
 	if (rtc_fd < 0) {
-		if (errno == ENOENT)
-			warnx(_
-			      ("To manipulate the epoch value in the kernel, we must "
-			       "access the Linux 'rtc' device driver via the device special "
-			       "file.  This file does not exist on this system."));
-		else
-			warn(_("cannot open rtc device"));
+		warn(_("cannot open %s"), rtc_dev_name);
 		return 1;
 	}
 
-	if (ctl->debug)
-		printf(_("setting epoch to %lu "
-			 "with RTC_EPOCH_SET ioctl to %s.\n"), ctl->epoch_option,
-		       rtc_dev_name);
-
-	if (ioctl(rtc_fd, RTC_EPOCH_SET, ctl->epoch_option) == -1) {
-		if (errno == EINVAL)
-			warnx(_("The kernel device driver for %s "
-				"does not have the RTC_EPOCH_SET ioctl."),
-			      rtc_dev_name);
-		else
-			warn(_("ioctl(RTC_EPOCH_SET) to %s failed"),
-				  rtc_dev_name);
+	if (ioctl(rtc_fd, RTC_EPOCH_SET, epoch) == -1) {
+		warn(_("ioctl(%d, RTC_EPOCH_SET, %lu) to %s failed"),
+		     rtc_fd, epoch, rtc_dev_name);
 		return 1;
 	}
+
+	if (ctl->verbose)
+		printf(_("ioctl(%d, RTC_EPOCH_SET, %lu) to %s succeeded.\n"),
+		       rtc_fd, epoch, rtc_dev_name);
 
 	return 0;
 }

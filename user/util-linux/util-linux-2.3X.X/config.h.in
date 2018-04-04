@@ -74,6 +74,9 @@
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #undef HAVE_DLFCN_H
 
+/* Define to 1 if you have the `eaccess' function. */
+#undef HAVE_EACCESS
+
 /* Define to 1 if you have the <endian.h> header file. */
 #undef HAVE_ENDIAN_H
 
@@ -140,6 +143,9 @@
 /* Define if the GNU gettext() function is already present or preinstalled. */
 #undef HAVE_GETTEXT
 
+/* Define to 1 if you have the `getusershell' function. */
+#undef HAVE_GETUSERSHELL
+
 /* Define if you have the iconv() function and it works. */
 #undef HAVE_ICONV
 
@@ -164,8 +170,14 @@
 /* Define to 1 if you have the `jrand48' function. */
 #undef HAVE_JRAND48
 
+/* Define if langinfo.h defines ALTMON_x constants */
+#undef HAVE_LANGINFO_ALTMON
+
 /* Define to 1 if you have the <langinfo.h> header file. */
 #undef HAVE_LANGINFO_H
+
+/* Define if langinfo.h defines _NL_ABALTMON_x constants */
+#undef HAVE_LANGINFO_NL_ABALTMON
 
 /* Define to 1 if you have the <lastlog.h> header file. */
 #undef HAVE_LASTLOG_H
@@ -206,7 +218,7 @@
 /* Define if libsystemd is available */
 #undef HAVE_LIBSYSTEMD
 
-/* Define if libtinfo available. */
+/* Define if libtinfo or libtinfow available. */
 #undef HAVE_LIBTINFO
 
 /* Define to 1 if you have the `udev' library (-ludev). */
@@ -248,11 +260,17 @@
 /* Define to 1 if you have the <linux/fd.h> header file. */
 #undef HAVE_LINUX_FD_H
 
+/* Define to 1 if you have the <linux/fs.h> header file. */
+#undef HAVE_LINUX_FS_H
+
 /* Define to 1 if you have the <linux/gsmmux.h> header file. */
 #undef HAVE_LINUX_GSMMUX_H
 
 /* Define to 1 if you have the <linux/major.h> header file. */
 #undef HAVE_LINUX_MAJOR_H
+
+/* Define to 1 if you have the <linux/net_namespace.h> header file. */
+#undef HAVE_LINUX_NET_NAMESPACE_H
 
 /* Define to 1 if you have the <linux/raw.h> header file. */
 #undef HAVE_LINUX_RAW_H
@@ -479,6 +497,12 @@
 /* Define to 1 if `tm_zone' is a member of `struct tm'. */
 #undef HAVE_STRUCT_TM_TM_ZONE
 
+/* Define to 1 if you have the `swapoff' function. */
+#undef HAVE_SWAPOFF
+
+/* Define to 1 if you have the `swapon' function. */
+#undef HAVE_SWAPON
+
 /* Define to 1 if you have the `sysconf' function. */
 #undef HAVE_SYSCONF
 
@@ -616,6 +640,9 @@
 /* Define to 1 if you want to use uuid daemon. */
 #undef HAVE_UUIDD
 
+/* Define to 1 if you have the `vwarnx' function. */
+#undef HAVE_VWARNX
+
 /* Define to 1 if you have the `warn' function. */
 #undef HAVE_WARN
 
@@ -658,6 +685,9 @@
 /* Define to the sub-directory where libtool stores uninstalled libraries. */
 #undef LT_OBJDIR
 
+/* "Multi-arch triplet for whereis library search path" */
+#undef MULTIARCHTRIPLET
+
 /* Define to 1 if assertions should be disabled. */
 #undef NDEBUG
 
@@ -691,9 +721,6 @@
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
 
-/* Is swapon() declared with two parameters? */
-#undef SWAPON_HAS_TWO_ARGS
-
 /* Fallback syscall number for fallocate */
 #undef SYS_fallocate
 
@@ -717,6 +744,12 @@
 
 /* Fallback syscall number for setns */
 #undef SYS_setns
+
+/* Fallback syscall number for swapoff */
+#undef SYS_swapoff
+
+/* Fallback syscall number for swapon */
+#undef SYS_swapon
 
 /* Fallback syscall number for unshare */
 #undef SYS_unshare

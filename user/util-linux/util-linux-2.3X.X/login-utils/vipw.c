@@ -100,6 +100,9 @@ static void copyfile(int from, int to)
 
 	if (nr < 0)
 		pw_error(orig_file, 1, 1);
+#ifdef HAVE_EXPLICIT_BZERO
+	explicit_bzero(buf, sizeof(buf));
+#endif
 }
 
 static void pw_init(void)
@@ -206,8 +209,7 @@ static void pw_edit(void)
 
 	if (!pid) {
 		execlp(editor, p, tmp_file, NULL);
-		/* Shouldn't get here */
-		_exit(EXIT_FAILURE);
+		errexec(editor);
 	}
 	for (;;) {
 		pid = waitpid(pid, &pstat, WUNTRACED);
@@ -254,7 +256,7 @@ static void edit_file(int is_shadow)
 	if (lckpwdf() < 0)
 		err(EXIT_FAILURE, _("cannot get lock"));
 
-	passwd_file = open(orig_file, O_RDONLY, 0);
+	passwd_file = open(orig_file, O_RDONLY | O_CLOEXEC, 0);
 	if (passwd_file < 0)
 		err(EXIT_FAILURE, _("cannot open %s"), orig_file);
 	tmp_fd = pw_tmpfile(passwd_file);
@@ -272,7 +274,7 @@ static void edit_file(int is_shadow)
 	if (end.st_nlink == 0) {
 		if (close_stream(tmp_fd) != 0)
 			err(EXIT_FAILURE, _("write error"));
-		tmp_fd = fopen(tmp_file, "r");
+		tmp_fd = fopen(tmp_file, "r" UL_CLOEXECSTR);
 		if (!tmp_fd)
 			err(EXIT_FAILURE, _("cannot open %s"), tmp_file);
 		if (fstat(fileno(tmp_fd), &end))
@@ -296,8 +298,9 @@ static void edit_file(int is_shadow)
 	ulckpwdf();
 }
 
-static void __attribute__((__noreturn__)) usage(FILE *out)
+static void __attribute__((__noreturn__)) usage(void)
 {
+	FILE *out = stdout;
 	fputs(USAGE_HEADER, out);
 	fprintf(out, " %s\n", program_invocation_short_name);
 
@@ -305,10 +308,9 @@ static void __attribute__((__noreturn__)) usage(FILE *out)
 	fputs(_("Edit the password or group file.\n"), out);
 
 	fputs(USAGE_OPTIONS, out);
-	fputs(USAGE_HELP, out);
-	fputs(USAGE_VERSION, out);
-	fprintf(out, USAGE_MAN_TAIL("vipw(8)"));
-	exit(out == stderr ? EXIT_FAILURE : EXIT_SUCCESS);
+	printf(USAGE_HELP_OPTIONS(16));
+	printf(USAGE_MAN_TAIL("vipw(8)"));
+	exit(EXIT_SUCCESS);
 }
 
 int main(int argc, char *argv[])
@@ -339,7 +341,7 @@ int main(int argc, char *argv[])
 			printf(UTIL_LINUX_VERSION);
 			return EXIT_SUCCESS;
 		case 'h':
-			usage(stdout);
+			usage();
 		default:
 			errtryhelp(EXIT_FAILURE);
 		}

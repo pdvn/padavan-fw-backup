@@ -2,6 +2,11 @@
 # include <blkid.h>
 #endif
 
+#include "blkdev.h"
+#ifdef __linux__
+# include "partx.h"
+#endif
+#include "loopdev.h"
 #include "fdiskP.h"
 
 
@@ -296,6 +301,8 @@ int __fdisk_switch_label(struct fdisk_context *cxt, struct fdisk_label *lb)
 	}
 	cxt->label = lb;
 	DBG(CXT, ul_debugobj(cxt, "--> switching context to %s!", lb->name));
+
+	fdisk_apply_label_device_properties(cxt);
 	return 0;
 }
 
@@ -338,6 +345,40 @@ int fdisk_enable_bootbits_protection(struct fdisk_context *cxt, int enable)
 		return -EINVAL;
 	cxt->protect_bootbits = enable ? 1 : 0;
 	return 0;
+}
+/**
+ * fdisk_disable_dialogs
+ * @cxt: fdisk context
+ * @disable: 1 or 0
+ *
+ * The library uses dialog driven partitioning by default.
+ *
+ * Returns: 0 on success, < 0 on error.
+ *
+ * Since: 2.31
+ */
+int fdisk_disable_dialogs(struct fdisk_context *cxt, int disable)
+{
+	if (!cxt)
+		return -EINVAL;
+
+	cxt->no_disalogs = disable;
+	return 0;
+}
+
+/**
+ * fdisk_has_dialogs
+ * @cxt: fdisk context
+ *
+ * See fdisk_disable_dialogs()
+ *
+ * Returns: 1 if dialog driven partitioning enabled (default), or 0.
+ *
+ * Since: 2.31
+ */
+int fdisk_has_dialogs(struct fdisk_context *cxt)
+{
+	return cxt->no_disalogs == 0;
 }
 
 /**
@@ -394,7 +435,7 @@ const char *fdisk_get_collision(struct fdisk_context *cxt)
  * fdisk_is_ptcollision:
  * @cxt: fdisk context
  *
- * The collision detected by libblkid (usally another partition table). Note
+ * The collision detected by libblkid (usually another partition table). Note
  * that libfdisk does not support all partitions tables, so fdisk_has_label()
  * may return false, but fdisk_is_ptcollision() may return true.
  *
@@ -632,6 +673,8 @@ int fdisk_deassign_device(struct fdisk_context *cxt, int nosync)
 		return rc;
 	}
 
+	DBG(CXT, ul_debugobj(cxt, "de-assigning device %s", cxt->dev_path));
+
 	if (cxt->readonly)
 		close(cxt->dev_fd);
 	else {
@@ -653,6 +696,227 @@ int fdisk_deassign_device(struct fdisk_context *cxt, int nosync)
 	cxt->dev_fd = -1;
 
 	return 0;
+}
+
+/**
+ * fdisk_reassign_device:
+ * @cxt: context
+ *
+ * This function is "hard reset" of the context and it does not write anything
+ * to the device. All in-memory changes associated with the context will be
+ * lost. It's recommended to use this function after some fatal problem when the
+ * context (and label specific driver) is in an undefined state.
+ *
+ * Returns: 0 on success, < 0 on error.
+ */
+int fdisk_reassign_device(struct fdisk_context *cxt)
+{
+	char *devname;
+	int rdonly, rc;
+
+	assert(cxt);
+	assert(cxt->dev_fd >= 0);
+
+	DBG(CXT, ul_debugobj(cxt, "re-assigning device %s", cxt->dev_path));
+
+	devname = strdup(cxt->dev_path);
+	if (!devname)
+		return -ENOMEM;
+
+	rdonly = cxt->readonly;
+
+	fdisk_deassign_device(cxt, 1);
+	rc = fdisk_assign_device(cxt, devname, rdonly);
+	free(devname);
+
+	return rc;
+}
+
+/**
+ * fdisk_reread_partition_table:
+ * @cxt: context
+ *
+ * Force *kernel* to re-read partition table on block devices.
+ *
+ * Returns: 0 on success, < 0 in case of error.
+ */
+int fdisk_reread_partition_table(struct fdisk_context *cxt)
+{
+	int i = 0;
+
+	assert(cxt);
+	assert(cxt->dev_fd >= 0);
+
+	if (!S_ISBLK(cxt->dev_st.st_mode))
+		return 0;
+	else {
+		DBG(CXT, ul_debugobj(cxt, "calling re-read ioctl"));
+		sync();
+#ifdef BLKRRPART
+		fdisk_info(cxt, _("Calling ioctl() to re-read partition table."));
+		i = ioctl(cxt->dev_fd, BLKRRPART);
+#else
+		errno = ENOSYS;
+		i = 1;
+#endif
+	}
+
+	if (i) {
+		fdisk_warn(cxt, _("Re-reading the partition table failed."));
+		fdisk_info(cxt,	_(
+			"The kernel still uses the old table. The "
+			"new table will be used at the next reboot "
+			"or after you run partprobe(8) or kpartx(8)."));
+		return -errno;
+	}
+
+	return 0;
+}
+
+#ifdef __linux__
+static inline int add_to_partitions_array(
+			struct fdisk_partition ***ary,
+			struct fdisk_partition *pa,
+			size_t *n, size_t nmax)
+{
+	if (!*ary) {
+		*ary = calloc(nmax, sizeof(struct fdisk_partition *));
+		if (!*ary)
+			return -ENOMEM;
+	}
+	(*ary)[*n] = pa;
+	(*n)++;
+	return 0;
+}
+#endif
+
+/**
+ * fdisk_reread_changes:
+ * @cxt: context
+ * @org: original layout (on disk)
+ *
+ * Like fdisk_reread_partition_table() but don't forces kernel re-read all
+ * partition table. The BLKPG_* ioctls are used for individual partitions. The
+ * advantage is that unmodified partitions maybe mounted.
+ *
+ * The function behavies like fdisk_reread_partition_table() on systems where
+ * are no available BLKPG_* ioctls.
+ *
+ * Returns: <0 on error, or 0.
+ */
+#ifdef __linux__
+int fdisk_reread_changes(struct fdisk_context *cxt, struct fdisk_table *org)
+{
+	struct fdisk_table *tb = NULL;
+	struct fdisk_iter itr;
+	struct fdisk_partition *pa;
+	struct fdisk_partition **rem = NULL, **add = NULL, **upd = NULL;
+	int change, rc = 0, err = 0;
+	size_t nparts, i, nadds = 0, nupds = 0, nrems = 0;
+
+	DBG(CXT, ul_debugobj(cxt, "rereading changes"));
+
+	fdisk_reset_iter(&itr, FDISK_ITER_FORWARD);
+
+	/* the current layout */
+	fdisk_get_partitions(cxt, &tb);
+	/* maximal number of partitions */
+	nparts = max(fdisk_table_get_nents(tb), fdisk_table_get_nents(org));
+
+	while (fdisk_diff_tables(org, tb, &itr, &pa, &change) == 0) {
+		if (change == FDISK_DIFF_UNCHANGED)
+			continue;
+		switch (change) {
+		case FDISK_DIFF_REMOVED:
+			rc = add_to_partitions_array(&rem, pa, &nrems, nparts);
+			break;
+		case FDISK_DIFF_ADDED:
+			rc = add_to_partitions_array(&add, pa, &nadds, nparts);
+			break;
+		case FDISK_DIFF_RESIZED:
+			rc = add_to_partitions_array(&upd, pa, &nupds, nparts);
+			break;
+		case FDISK_DIFF_MOVED:
+			rc = add_to_partitions_array(&rem, pa, &nrems, nparts);
+			rc = add_to_partitions_array(&add, pa, &nadds, nparts);
+			break;
+		}
+		if (rc != 0)
+			goto done;
+	}
+
+	for (i = 0; i < nrems; i++) {
+		pa = rem[i];
+		DBG(PART, ul_debugobj(pa, "#%zu calling BLKPG_DEL_PARTITION", pa->partno));
+		if (partx_del_partition(cxt->dev_fd, pa->partno + 1) != 0) {
+			fdisk_warn(cxt, _("Failed to remove partition %zu from system"), pa->partno + 1);
+			err++;
+		}
+	}
+	for (i = 0; i < nupds; i++) {
+		pa = upd[i];
+		DBG(PART, ul_debugobj(pa, "#%zu calling BLKPG_RESIZE_PARTITION", pa->partno));
+		if (partx_resize_partition(cxt->dev_fd, pa->partno + 1, pa->start, pa->size) != 0) {
+			fdisk_warn(cxt, _("Failed to update system information about partition %zu"), pa->partno + 1);
+			err++;
+		}
+	}
+	for (i = 0; i < nadds; i++) {
+		pa = add[i];
+		DBG(PART, ul_debugobj(pa, "#%zu calling BLKPG_ADD_PARTITION", pa->partno));
+		if (partx_add_partition(cxt->dev_fd, pa->partno + 1, pa->start, pa->size) != 0) {
+			fdisk_warn(cxt, _("Failed to add partition %zu to system"), pa->partno + 1);
+			err++;
+		}
+	}
+	if (err)
+		fdisk_info(cxt,	_(
+			"The kernel still uses the old partitions. The new "
+			"table will be used at the next reboot. "));
+done:
+	free(rem);
+	free(add);
+	free(upd);
+	fdisk_unref_table(tb);
+	return rc;
+}
+#else
+int fdisk_reread_changes(struct fdisk_context *cxt,
+			 struct fdisk_table *org __attribute__((__unused__))) {
+	return fdisk_reread_partition_table(cxt);
+}
+#endif
+
+/**
+ * fdisk_device_is_used:
+ * @cxt: context
+ *
+ * On systems where is no BLKRRPART ioctl the function returns zero and
+ * sets errno to ENOSYS.
+ *
+ * Returns: 1 if the device assigned to the context is used by system, or 0.
+ */
+int fdisk_device_is_used(struct fdisk_context *cxt)
+{
+	int rc = 0;
+
+	assert(cxt);
+	assert(cxt->dev_fd >= 0);
+
+	errno = 0;
+
+#ifdef BLKRRPART
+	/* it seems kernel always return EINVAL for BLKRRPART on loopdevices */
+	if (S_ISBLK(cxt->dev_st.st_mode)
+	    && major(cxt->dev_st.st_rdev) != LOOPDEV_MAJOR) {
+		DBG(CXT, ul_debugobj(cxt, "calling re-read ioctl"));
+		rc = ioctl(cxt->dev_fd, BLKRRPART) != 0;
+	}
+#else
+	errno = ENOSYS;
+#endif
+	DBG(CXT, ul_debugobj(cxt, "device used: %s [errno=%d]", rc ? "TRUE" : "FALSE", errno));
+	return rc;
 }
 
 /**

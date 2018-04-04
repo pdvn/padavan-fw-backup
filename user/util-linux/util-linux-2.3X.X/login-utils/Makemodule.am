@@ -146,6 +146,9 @@ su_LDADD = $(LDADD) libcommon.la -lpam
 if HAVE_LINUXPAM
 su_LDADD += -lpam_misc
 endif
+if HAVE_UTIL
+su_LDADD += -lutil
+endif
 endif # BUILD_SU
 
 
@@ -161,6 +164,9 @@ runuser_SOURCES = \
 runuser_LDADD = $(LDADD) libcommon.la -lpam
 if HAVE_LINUXPAM
 runuser_LDADD += -lpam_misc
+endif
+if HAVE_UTIL
+runuser_LDADD += -lutil
 endif
 endif # BUILD_RUNUSER
 
@@ -229,6 +235,9 @@ test_logindefs_CPPFLAGS = -DTEST_PROGRAM $(AM_CPPFLAGS)
 
 install-exec-hook:
 if BUILD_SU
+if MAKEINSTALL_DO_CHOWN
+	chown root:root $(DESTDIR)$(bindir)/su
+endif
 if MAKEINSTALL_DO_SETUID
 	chmod 4755 $(DESTDIR)$(bindir)/su
 endif

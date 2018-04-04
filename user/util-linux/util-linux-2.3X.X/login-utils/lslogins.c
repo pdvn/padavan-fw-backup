@@ -333,11 +333,10 @@ static char *make_time(int mode, time_t time)
 				buf, sizeof(buf));
 		break;
 	case TIME_ISO:
-		rc = strtime_iso(&time, ISO_8601_DATE|ISO_8601_TIME|ISO_8601_TIMEZONE,
-				   buf, sizeof(buf));
+		rc = strtime_iso(&time, ISO_TIMESTAMP_T, buf, sizeof(buf));
 		break;
 	case TIME_ISO_SHORT:
-		rc = strtime_iso(&time, ISO_8601_DATE, buf, sizeof(buf));
+		rc = strtime_iso(&time, ISO_DATE, buf, sizeof(buf));
 		break;
 	default:
 		errx(EXIT_FAILURE, _("unsupported time type"));
@@ -606,11 +605,11 @@ static struct lslogins_user *get_user_info(struct lslogins_control *ctl, const c
 		return NULL;
 	}
 
-	user = xcalloc(1, sizeof(struct lslogins_user));
-
 	grp = getgrgid(pwd->pw_gid);
 	if (!grp)
 		return NULL;
+
+	user = xcalloc(1, sizeof(struct lslogins_user));
 
 	if (ctl->wtmp)
 		user_wtmp = get_last_wtmp(ctl, pwd->pw_name);
@@ -1218,8 +1217,9 @@ static int parse_time_mode(const char *s)
 	errx(EXIT_FAILURE, _("unknown time format: %s"), s);
 }
 
-static void __attribute__((__noreturn__)) usage(FILE *out)
+static void __attribute__((__noreturn__)) usage(void)
 {
+	FILE *out = stdout;
 	size_t i;
 
 	fputs(USAGE_HEADER, out);
@@ -1251,18 +1251,15 @@ static void __attribute__((__noreturn__)) usage(FILE *out)
 	fputs(_("     --wtmp-file <path>   set an alternate path for wtmp\n"), out);
 	fputs(_("     --btmp-file <path>   set an alternate path for btmp\n"), out);
 	fputs(USAGE_SEPARATOR, out);
-	fputs(USAGE_HELP, out);
-	fputs(USAGE_VERSION, out);
+	printf(USAGE_HELP_OPTIONS(26));
 
-	fprintf(out, _("\nAvailable columns:\n"));
-
+	fputs(USAGE_COLUMNS, out);
 	for (i = 0; i < ARRAY_SIZE(coldescs); i++)
-		fprintf(out, " %14s  %s\n", coldescs[i].name,
-				_(coldescs[i].help));
+		fprintf(out, " %14s  %s\n", coldescs[i].name, _(coldescs[i].help));
 
-	fprintf(out, USAGE_MAN_TAIL("lslogins(1)"));
+	printf(USAGE_MAN_TAIL("lslogins(1)"));
 
-	exit(out == stderr ? EXIT_FAILURE : EXIT_SUCCESS);
+	exit(EXIT_SUCCESS);
 }
 
 int main(int argc, char *argv[])
@@ -1366,7 +1363,7 @@ int main(int argc, char *argv[])
 			groups = optarg;
 			break;
 		case 'h':
-			usage(stdout);
+			usage();
 			break;
 		case 'L':
 			add_column(columns, ncolumns++, COL_LAST_TTY);
@@ -1380,15 +1377,12 @@ int main(int argc, char *argv[])
 			outmode = OUT_NEWLINE;
 			break;
 		case 'o':
-			if (optarg) {
-				if (*optarg == '=')
-					optarg++;
-				ncolumns = string_to_idarray(optarg,
-						columns, ARRAY_SIZE(columns),
-						column_name_to_id);
-				if (ncolumns < 0)
-					return EXIT_FAILURE;
-			}
+			if (*optarg == '=')
+				optarg++;
+			ncolumns = string_to_idarray(optarg, columns,
+					ARRAY_SIZE(columns), column_name_to_id);
+			if (ncolumns < 0)
+				return EXIT_FAILURE;
 			opt_o = 1;
 			break;
 		case 'r':

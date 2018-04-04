@@ -132,7 +132,7 @@ struct script_control {
 
 static void script_init_debug(void)
 {
-	__UL_INIT_DEBUG(script, SCRIPT_DEBUG_, 0, SCRIPT_DEBUG);
+	__UL_INIT_DEBUG_FROM_ENV(script, SCRIPT_DEBUG_, 0, SCRIPT_DEBUG);
 }
 
 /*
@@ -154,8 +154,9 @@ static inline time_t script_time(time_t *t)
 # define script_time(x) time(x)
 #endif
 
-static void __attribute__((__noreturn__)) usage(FILE *out)
+static void __attribute__((__noreturn__)) usage(void)
 {
+	FILE *out = stdout;
 	fputs(USAGE_HEADER, out);
 	fprintf(out, _(" %s [options] [file]\n"), program_invocation_short_name);
 
@@ -163,18 +164,18 @@ static void __attribute__((__noreturn__)) usage(FILE *out)
 	fputs(_("Make a typescript of a terminal session.\n"), out);
 
 	fputs(USAGE_OPTIONS, out);
-	fputs(_(" -a, --append            append the output\n"
-		" -c, --command <command> run command rather than interactive shell\n"
-		" -e, --return            return exit code of the child process\n"
-		" -f, --flush             run flush after each write\n"
-		"     --force             use output file even when it is a link\n"
-		" -q, --quiet             be quiet\n"
-		" -t, --timing[=<file>]   output timing data to stderr (or to FILE)\n"
-		" -V, --version           output version information and exit\n"
-		" -h, --help              display this help and exit\n\n"), out);
+	fputs(_(" -a, --append                  append the output\n"
+		" -c, --command <command>       run command rather than interactive shell\n"
+		" -e, --return                  return exit code of the child process\n"
+		" -f, --flush                   run flush after each write\n"
+		"     --force                   use output file even when it is a link\n"
+		" -q, --quiet                   be quiet\n"
+		" -t[<file>], --timing[=<file>] output timing data to stderr or to FILE\n"
+		), out);
+	printf(USAGE_HELP_OPTIONS(31));
 
-	fprintf(out, USAGE_MAN_TAIL("script(1)"));
-	exit(out == stderr ? EXIT_FAILURE : EXIT_SUCCESS);
+	printf(USAGE_MAN_TAIL("script(1)"));
+	exit(EXIT_SUCCESS);
 }
 
 static void die_if_link(const struct script_control *ctl)
@@ -190,12 +191,36 @@ static void die_if_link(const struct script_control *ctl)
 		       "Program not started."), ctl->fname);
 }
 
+static void restore_tty(struct script_control *ctl, int mode)
+{
+	struct termios rtt;
+
+	if (!ctl->isterm)
+		return;
+
+	rtt = ctl->attrs;
+	tcsetattr(STDIN_FILENO, mode, &rtt);
+}
+
+static void enable_rawmode_tty(struct script_control *ctl)
+{
+	struct termios rtt;
+
+	if (!ctl->isterm)
+		return;
+
+	rtt = ctl->attrs;
+	cfmakeraw(&rtt);
+	rtt.c_lflag &= ~ECHO;
+	tcsetattr(STDIN_FILENO, TCSANOW, &rtt);
+}
+
 static void __attribute__((__noreturn__)) done(struct script_control *ctl)
 {
 	DBG(MISC, ul_debug("done!"));
 
-	if (ctl->isterm)
-		tcsetattr(STDIN_FILENO, TCSADRAIN, &ctl->attrs);
+	restore_tty(ctl, TCSADRAIN);
+
 	if (!ctl->quiet && ctl->typescriptfp)
 		printf(_("Script done, file is %s\n"), ctl->fname);
 #ifdef HAVE_LIBUTEMPTER
@@ -378,8 +403,15 @@ static void handle_signal(struct script_control *ctl, int fd)
 	switch (info.ssi_signo) {
 	case SIGCHLD:
 		DBG(SIGNAL, ul_debug(" get signal SIGCHLD"));
-		wait_for_child(ctl, 0);
-		ctl->poll_timeout = 10;
+		if (info.ssi_code == CLD_EXITED) {
+			wait_for_child(ctl, 0);
+			ctl->poll_timeout = 10;
+		} else if (info.ssi_status == SIGSTOP && ctl->child) {
+			DBG(SIGNAL, ul_debug(" child stop by SIGSTOP -- stop parent too"));
+			kill(getpid(), SIGSTOP);
+			DBG(SIGNAL, ul_debug(" resume"));
+			kill(ctl->child, SIGCONT);
+		}
 		return;
 	case SIGWINCH:
 		DBG(SIGNAL, ul_debug(" get signal SIGWINCH"));
@@ -405,13 +437,13 @@ static void handle_signal(struct script_control *ctl, int fd)
 
 static void do_io(struct script_control *ctl)
 {
-	int ret, ignore_stdin = 0, eof = 0;
+	int ret, eof = 0;
 	time_t tvec = script_time((time_t *)NULL);
 	char buf[128];
 	enum {
 		POLLFD_SIGNAL = 0,
 		POLLFD_MASTER,
-		POLLFD_STDIN	/* optional; keep it last, see ignore_stdin */
+		POLLFD_STDIN
 
 	};
 	struct pollfd pfd[] = {
@@ -423,22 +455,24 @@ static void do_io(struct script_control *ctl)
 
 	if ((ctl->typescriptfp =
 	     fopen(ctl->fname, ctl->append ? "a" UL_CLOEXECSTR : "w" UL_CLOEXECSTR)) == NULL) {
+
+		restore_tty(ctl, TCSANOW);
 		warn(_("cannot open %s"), ctl->fname);
 		fail(ctl);
 	}
 	if (ctl->timing) {
-		if (!ctl->tname) {
-			if (!(ctl->timingfp = fopen("/dev/stderr", "w" UL_CLOEXECSTR)))
-				err(EXIT_FAILURE, _("cannot open %s"), "/dev/stderr");
-		} else if (!(ctl->timingfp = fopen(ctl->tname, "w" UL_CLOEXECSTR)))
-			err(EXIT_FAILURE, _("cannot open %s"), ctl->tname);
+		const char *tname = ctl->tname ? ctl->tname : "/dev/stderr";
+
+		if (!(ctl->timingfp = fopen(tname, "w" UL_CLOEXECSTR))) {
+			restore_tty(ctl, TCSANOW);
+			warn(_("cannot open %s"), tname);
+			fail(ctl);
+		}
 	}
 
 
 	if (ctl->typescriptfp) {
-		strtime_iso(&tvec, ISO_8601_DATE | ISO_8601_TIME |
-				ISO_8601_TIMEZONE | ISO_8601_SPACE,
-				buf, sizeof(buf));
+		strtime_iso(&tvec, ISO_TIMESTAMP, buf, sizeof(buf));
 		fprintf(ctl->typescriptfp, _("Script started on %s\n"), buf);
 	}
 	gettime_monotonic(&ctl->oldtime);
@@ -450,7 +484,7 @@ static void do_io(struct script_control *ctl)
 		DBG(POLL, ul_debug("calling poll()"));
 
 		/* wait for input or signal */
-		ret = poll(pfd, ARRAY_SIZE(pfd) - ignore_stdin, ctl->poll_timeout);
+		ret = poll(pfd, ARRAY_SIZE(pfd), ctl->poll_timeout);
 		errsv = errno;
 		DBG(POLL, ul_debug("poll() rc=%d", ret));
 
@@ -466,7 +500,7 @@ static void do_io(struct script_control *ctl)
 			break;
 		}
 
-		for (i = 0; i < ARRAY_SIZE(pfd) - ignore_stdin; i++) {
+		for (i = 0; i < ARRAY_SIZE(pfd); i++) {
 			if (pfd[i].revents == 0)
 				continue;
 
@@ -490,10 +524,7 @@ static void do_io(struct script_control *ctl)
 				if ((pfd[i].revents & POLLHUP) || eof) {
 					DBG(POLL, ul_debug(" ignore FD"));
 					pfd[i].fd = -1;
-					/* according to man poll() set FD to -1 can't be used to ignore
-					 * STDIN, so let's remove the FD from pool at all */
 					if (i == POLLFD_STDIN) {
-						ignore_stdin = 1;
 						write_eof_to_shell(ctl);
 						DBG(POLL, ul_debug("  ignore STDIN"));
 					}
@@ -513,9 +544,7 @@ static void do_io(struct script_control *ctl)
 
 	if (ctl->typescriptfp) {
 		tvec = script_time((time_t *)NULL);
-		strtime_iso(&tvec, ISO_8601_DATE | ISO_8601_TIME |
-				ISO_8601_TIMEZONE | ISO_8601_SPACE,
-				buf, sizeof(buf));
+		strtime_iso(&tvec, ISO_TIMESTAMP, buf, sizeof(buf));
 		fprintf(ctl->typescriptfp, _("\nScript done on %s\n"), buf);
 	}
 	done(ctl);
@@ -590,18 +619,6 @@ static void __attribute__((__noreturn__)) do_shell(struct script_control *ctl)
 	fail(ctl);
 }
 
-static void fixtty(struct script_control *ctl)
-{
-	struct termios rtt;
-
-	if (!ctl->isterm)
-		return;
-
-	rtt = ctl->attrs;
-	cfmakeraw(&rtt);
-	rtt.c_lflag &= ~ECHO;
-	tcsetattr(STDIN_FILENO, TCSANOW, &rtt);
-}
 
 static void getmaster(struct script_control *ctl)
 {
@@ -736,7 +753,7 @@ int main(int argc, char **argv)
 			exit(EXIT_SUCCESS);
 			break;
 		case 'h':
-			usage(stdout);
+			usage();
 			break;
 		default:
 			errtryhelp(EXIT_FAILURE);
@@ -758,7 +775,7 @@ int main(int argc, char **argv)
 	getmaster(&ctl);
 	if (!ctl.quiet)
 		printf(_("Script started, file is %s\n"), ctl.fname);
-	fixtty(&ctl);
+	enable_rawmode_tty(&ctl);
 
 #ifdef HAVE_LIBUTEMPTER
 	utempter_add_record(ctl.master, NULL);

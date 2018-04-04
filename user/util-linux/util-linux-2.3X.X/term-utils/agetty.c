@@ -35,6 +35,7 @@
 #include <netdb.h>
 #include <ifaddrs.h>
 #include <net/if.h>
+#include <sys/utsname.h>
 
 #include "strutils.h"
 #include "all-io.h"
@@ -116,9 +117,9 @@
 /*
  * Things you may want to modify.
  *
- * If ISSUE is not defined, agetty will never display the contents of the
- * /etc/issue file. You will not want to spit out large "issue" files at the
- * wrong baud rate. Relevant for System V only.
+ * If ISSUE_SUPPORT is not defined, agetty will never display the contents of
+ * the /etc/issue file. You will not want to spit out large "issue" files at
+ * the wrong baud rate. Relevant for System V only.
  *
  * You may disagree with the default line-editing etc. characters defined
  * below. Note, however, that DEL cannot be used for interrupt generation
@@ -127,8 +128,14 @@
 
 /* Displayed before the login prompt. */
 #ifdef	SYSV_STYLE
-#  define ISSUE _PATH_ISSUE
-#  include <sys/utsname.h>
+#  define ISSUE_SUPPORT
+#  if defined(HAVE_SCANDIRAT) && defined(HAVE_OPENAT)
+#    include <dirent.h>
+#    include "fileutils.h"
+#    define ISSUEDIR_SUPPORT
+#    define ISSUEDIR_EXT	".issue"
+#    define ISSUEDIR_EXTSIZ	(sizeof(ISSUEDIR_EXT) - 1)
+#  endif
 #endif
 
 /* Login prompt. */
@@ -169,7 +176,7 @@ struct options {
 	char *vcline;			/* line of virtual console */
 	char *term;			/* terminal type */
 	char *initstring;		/* modem init string */
-	char *issue;			/* alternative issue file */
+	char *issue;			/* alternative issue file or directory */
 	char *erasechars;		/* string with erase chars */
 	char *killchars;		/* string with kill chars */
 	char *osrelease;		/* /etc/os-release data */
@@ -188,12 +195,12 @@ enum {
 };
 
 #define	F_PARSE		(1<<0)	/* process modem status messages */
-#define	F_ISSUE		(1<<1)	/* display /etc/issue */
+#define	F_ISSUE		(1<<1)	/* display /etc/issue or /etc/issue.d */
 #define	F_RTSCTS	(1<<2)	/* enable RTS/CTS flow control */
 
 #define F_INITSTRING    (1<<4)	/* initstring is set */
 #define F_WAITCRLF	(1<<5)	/* wait for CR or LF */
-#define F_CUSTISSUE	(1<<6)	/* give alternative issue file */
+
 #define F_NOPROMPT	(1<<7)	/* do not ask for login name! */
 #define F_LCUC		(1<<8)	/* support for *LCUC stty modes */
 #define F_KEEPSPEED	(1<<9)	/* follow baud rate from kernel */
@@ -298,6 +305,7 @@ static void open_tty(char *tty, struct termios *tp, struct options *op);
 static void termio_init(struct options *op, struct termios *tp);
 static void reset_vc (const struct options *op, struct termios *tp);
 static void auto_baud(struct termios *tp);
+static void list_speeds(void);
 static void output_special_char (unsigned char c, struct options *op,
 		struct termios *tp, FILE *fp);
 static void do_prompt(struct options *op, struct termios *tp);
@@ -308,7 +316,8 @@ static void termio_final(struct options *op,
 			 struct termios *tp, struct chardata *cp);
 static int caps_lock(char *s);
 static speed_t bcode(char *s);
-static void usage(FILE * out) __attribute__((__noreturn__));
+static void usage(void) __attribute__((__noreturn__));
+static void exit_slowly(int code) __attribute__((__noreturn__));
 static void log_err(const char *, ...) __attribute__((__noreturn__))
 			       __attribute__((__format__(printf, 1, 2)));
 static void log_warn (const char *, ...)
@@ -317,6 +326,7 @@ static ssize_t append(char *dest, size_t len, const char  *sep, const char *src)
 static void check_username (const char* nm);
 static void login_options_to_argv(char *argv[], int *argc, char *str, char *username);
 static void reload_agettys(void);
+static void print_issue_file(struct options *op, struct termios *tp);
 
 /* Fake hostname for ut_host specified on command line. */
 static char *fakehost;
@@ -340,8 +350,7 @@ int main(int argc, char **argv)
 	struct options options = {
 		.flags  =  F_ISSUE,		/* show /etc/issue (SYSV_STYLE) */
 		.login  =  _PATH_LOGIN,		/* default login program */
-		.tty    = "tty1",		/* default tty line */
-		.issue  =  ISSUE		/* default issue file */
+		.tty    = "tty1"		/* default tty line */
 	};
 	char *login_argv[LOGIN_ARGV_MAX + 1];
 	int login_argc = 0;
@@ -452,7 +461,9 @@ int main(int argc, char **argv)
 		username = options.autolog;
 	}
 
-	if ((options.flags & F_NOPROMPT) == 0) {
+	if (options.flags & F_NOPROMPT) {	/* --skip-login */
+		print_issue_file(&options, &termios);
+	} else {				/* regular (auto)login */
 		if (options.autolog) {
 			/* Autologin prompt */
 			do_prompt(&options, &termios);
@@ -613,6 +624,53 @@ static void login_options_to_argv(char *argv[], int *argc,
 	*argc = i;
 }
 
+static void output_version(void)
+{
+	static const char *features[] = {
+#ifdef DEBUGGING
+		"debug",
+#endif
+#ifdef CRTSCTS
+		"flow control",
+#endif
+#ifdef KDGKBLED
+		"hints",
+#endif
+#ifdef ISSUE_SUPPORT
+		"issue",
+#endif
+#ifdef ISSUEDIR_SUPPORT
+		"issue.d",
+#endif
+#ifdef KDGKBMODE
+		"keyboard mode",
+#endif
+#ifdef USE_PLYMOUTH_SUPPORT
+		"plymouth",
+#endif
+#ifdef AGETTY_RELOAD
+		"reload",
+#endif
+#ifdef USE_SYSLOG
+		"syslog",
+#endif
+#ifdef HAVE_WIDECHAR
+		"widechar",
+#endif
+		NULL
+	};
+	unsigned int i;
+
+	printf( _("%s from %s"), program_invocation_short_name, PACKAGE_STRING);
+	fputs(" (", stdout);
+	for (i = 0; features[i]; i++) {
+		if (0 < i)
+			fputs(", ", stdout);
+		printf("%s", features[i]);
+	}
+	fputs(")\n", stdout);
+}
+
 #define is_speed(str) (strlen((str)) == strspn((str), "0123456789,"))
 
 /* Parse command-line arguments. */
@@ -629,6 +687,7 @@ static void parse_args(int argc, char **argv, struct options *op)
 		ERASE_CHARS_OPTION,
 		KILL_CHARS_OPTION,
 		RELOAD_OPTION,
+		LIST_SPEEDS_OPTION,
 	};
 	const struct option longopts[] = {
 		{  "8bits",	     no_argument,	 NULL,  '8'  },
@@ -646,6 +705,7 @@ static void parse_args(int argc, char **argv, struct options *op)
 		{  "login-program",  required_argument,  NULL,  'l'  },
 		{  "local-line",     optional_argument,	 NULL,  'L'  },
 		{  "extract-baud",   no_argument,	 NULL,  'm'  },
+		{  "list-speeds",    no_argument,	 NULL,	LIST_SPEEDS_OPTION },
 		{  "skip-login",     no_argument,	 NULL,  'n'  },
 		{  "nonewline",	     no_argument,	 NULL,  'N'  },
 		{  "login-options",  required_argument,  NULL,  'o'  },
@@ -691,7 +751,6 @@ static void parse_args(int argc, char **argv, struct options *op)
 			op->flags |= F_REMOTE;
 			break;
 		case 'f':
-			op->flags |= F_CUSTISSUE;
 			op->issue = optarg;
 			break;
 		case 'h':
@@ -781,13 +840,16 @@ static void parse_args(int argc, char **argv, struct options *op)
 		case RELOAD_OPTION:
 			reload_agettys();
 			exit(EXIT_SUCCESS);
+		case LIST_SPEEDS_OPTION:
+			list_speeds();
+			exit(EXIT_SUCCESS);
 		case VERSION_OPTION:
-			printf(UTIL_LINUX_VERSION);
+			output_version();
 			exit(EXIT_SUCCESS);
 		case HELP_OPTION:
-			usage(stdout);
+			usage();
 		default:
-			usage(stderr);
+			errtryhelp(EXIT_FAILURE);
 		}
 	}
 
@@ -795,7 +857,7 @@ static void parse_args(int argc, char **argv, struct options *op)
 
 	if (argc < optind + 1) {
 		log_warn(_("not enough arguments"));
-		usage(stderr);
+		errx(EXIT_FAILURE, _("not enough arguments"));
 	}
 
 	/* Accept "tty", "baudrate tty", and "tty baudrate". */
@@ -803,8 +865,8 @@ static void parse_args(int argc, char **argv, struct options *op)
 		/* Assume BSD style speed. */
 		parse_speeds(op, argv[optind++]);
 		if (argc < optind + 1) {
-			warn(_("not enough arguments"));
-			usage(stderr);
+			log_warn(_("not enough arguments"));
+			errx(EXIT_FAILURE, _("not enough arguments"));
 		}
 		op->tty = argv[optind++];
 	} else {
@@ -825,45 +887,6 @@ static void parse_args(int argc, char **argv, struct options *op)
 
 	if (argc > optind && argv[optind])
 		op->term = argv[optind];
-
-#ifdef DO_DEVFS_FIDDLING
-	/*
-	 * Some devfs junk, following Goswin Brederlow:
-	 *   turn ttyS<n> into tts/<n>
-	 *   turn tty<n> into vc/<n>
-	 * http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=72241
-	 */
-	if (op->tty && strlen(op->tty) < 90) {
-		char dev_name[100];
-		struct stat st;
-
-		if (strncmp(op->tty, "ttyS", 4) == 0) {
-			strcpy(dev_name, "/dev/");
-			strcat(dev_name, op->tty);
-			if (stat(dev_name, &st) < 0) {
-				strcpy(dev_name, "/dev/tts/");
-				strcat(dev_name, op->tty + 4);
-				if (stat(dev_name, &st) == 0) {
-					op->tty = strdup(dev_name + 5);
-					if (!op->tty)
-						log_err(_("failed to allocate memory: %m"));
-				}
-			}
-		} else if (strncmp(op->tty, "tty", 3) == 0) {
-			strcpy(dev_name, "/dev/");
-			strncat(dev_name, op->tty, 90);
-			if (stat(dev_name, &st) < 0) {
-				strcpy(dev_name, "/dev/vc/");
-				strcat(dev_name, op->tty + 3);
-				if (stat(dev_name, &st) == 0) {
-					op->tty = strdup(dev_name + 5);
-					if (!op->tty)
-						log_err(_("failed to allocate memory: %m"));
-				}
-			}
-		}
-	}
-#endif				/* DO_DEVFS_FIDDLING */
 
 	debug("exiting parseargs\n");
 }
@@ -1424,6 +1447,7 @@ static char *xgetdomainname(void)
 #endif
 }
 
+
 static char *read_os_release(struct options *op, const char *varname)
 {
 	int fd = -1;
@@ -1476,6 +1500,11 @@ static char *read_os_release(struct options *op, const char *varname)
 			continue;
 		}
 		p += varsz;
+		p += strspn(p, " \t\n\r");
+
+		if (*p != '=')
+			continue;
+
 		p += strspn(p, " \t\n\r=\"");
 		eol = p + strcspn(p, "\n\r");
 		*eol = '\0';
@@ -1638,18 +1667,117 @@ static int wait_for_term_input(int fd)
 	}
 }
 #endif  /* AGETTY_RELOAD */
+
+#ifdef ISSUEDIR_SUPPORT
+static int issuedir_filter(const struct dirent *d)
+{
+	size_t namesz;
+
+#ifdef _DIRENT_HAVE_D_TYPE
+	if (d->d_type != DT_UNKNOWN && d->d_type != DT_REG &&
+	    d->d_type != DT_LNK)
+		return 0;
+#endif
+	if (*d->d_name == '.')
+		return 0;
+
+	namesz = strlen(d->d_name);
+	if (!namesz || namesz < ISSUEDIR_EXTSIZ + 1 ||
+	    strcmp(d->d_name + (namesz - ISSUEDIR_EXTSIZ), ISSUEDIR_EXT))
+		return 0;
+
+	/* Accept this */
+	return 1;
+}
+
+static FILE *issuedir_next_file(int dd, struct dirent **namelist, int nfiles, int *n)
+{
+	while (*n < nfiles) {
+		struct dirent *d = namelist[*n];
+		struct stat st;
+		FILE *f;
+
+		(*n)++;
+
+		if (fstatat(dd, d->d_name, &st, 0) ||
+		    !S_ISREG(st.st_mode))
+			continue;
+
+		f = fopen_at(dd, d->d_name, O_RDONLY|O_CLOEXEC, "r" UL_CLOEXECSTR);
+		if (f)
+			return f;
+	}
+	return NULL;
+}
+
+#endif /* ISSUEDIR_SUPPORT */
+
+#ifndef ISSUE_SUPPORT
+static void print_issue_file(struct options *op, struct termios *tp __attribute__((__unused__)))
+{
+	if ((op->flags & F_NONL) == 0) {
+		/* Issue not in use, start with a new line. */
+		write_all(STDOUT_FILENO, "\r\n", 2);
+	}
+}
+#else /* ISSUE_SUPPORT */
+
 static void print_issue_file(struct options *op, struct termios *tp)
 {
-#ifdef	ISSUE
-	FILE *fd;
+	const char *filename, *dirname = NULL;
+	FILE *f = NULL;
+#ifdef ISSUEDIR_SUPPORT
+	int dd = -1, nfiles = 0, i;
+	struct dirent **namelist = NULL;
 #endif
 	if ((op->flags & F_NONL) == 0) {
 		/* Issue not in use, start with a new line. */
 		write_all(STDOUT_FILENO, "\r\n", 2);
 	}
 
-#ifdef	ISSUE
-	if ((op->flags & F_ISSUE) && (fd = fopen(op->issue, "r"))) {
+	if (!(op->flags & F_ISSUE))
+		return;
+
+	/*
+	 * The custom issue file or directory specified by: agetty -f <path>.
+	 * Note that nothing is printed if the file/dir does not exist.
+	 */
+	filename = op->issue;
+	if (filename) {
+		struct stat st;
+
+		if (stat(filename, &st) < 0)
+			return;
+		if (S_ISDIR(st.st_mode)) {
+			dirname = filename;
+			filename = NULL;
+		}
+	} else {
+		/* The default /etc/issue and optional /etc/issue.d directory
+		 * as extension to the file. The /etc/issue.d directory is
+		 * ignored if there is no /etc/issue file. The file may be
+		 * empty or symlink.
+		 */
+		if (access(_PATH_ISSUE, F_OK|R_OK) != 0)
+			return;
+		filename  = _PATH_ISSUE;
+		dirname = _PATH_ISSUEDIR;
+	}
+
+#ifdef ISSUEDIR_SUPPORT
+	if (dirname) {
+		dd = open(dirname, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+		if (dd >= 0)
+			nfiles = scandirat(dd, ".", &namelist, issuedir_filter, versionsort);
+		if (nfiles <= 0)
+			dirname = NULL;
+	}
+	i = 0;
+#endif
+	if (filename)
+		f = fopen(filename, "r");
+
+	if (f || dirname) {
 		int c, oflag = tp->c_oflag;	    /* Save current setting. */
 
 		if ((op->flags & F_VCONSOLE) == 0) {
@@ -1658,12 +1786,23 @@ static void print_issue_file(struct options *op, struct termios *tp)
 			tcsetattr(STDIN_FILENO, TCSADRAIN, tp);
 		}
 
-		while ((c = getc(fd)) != EOF) {
-			if (c == '\\')
-				output_special_char(getc(fd), op, tp, fd);
-			else
-				putchar(c);
-		}
+		do {
+#ifdef ISSUEDIR_SUPPORT
+			if (!f && i < nfiles)
+				f = issuedir_next_file(dd, namelist, nfiles, &i);
+#endif
+			if (!f)
+				break;
+			while ((c = getc(f)) != EOF) {
+				if (c == '\\')
+					output_special_char(getc(f), op, tp, f);
+				else
+					putchar(c);
+			}
+			fclose(f);
+			f = NULL;
+		} while (dirname);
+
 		fflush(stdout);
 
 		if ((op->flags & F_VCONSOLE) == 0) {
@@ -1672,10 +1811,17 @@ static void print_issue_file(struct options *op, struct termios *tp)
 			/* Wait till output is gone. */
 			tcsetattr(STDIN_FILENO, TCSADRAIN, tp);
 		}
-		fclose(fd);
 	}
-#endif	/* ISSUE */
+
+#ifdef ISSUEDIR_SUPPORT
+	for (i = 0; i < nfiles; i++)
+		free(namelist[i]);
+	free(namelist);
+	if (dd >= 0)
+		close(dd);
+#endif
 }
+#endif /* ISSUE_SUPPORT */
 
 /* Show login prompt, optionally preceded by /etc/issue contents. */
 static void do_prompt(struct options *op, struct termios *tp)
@@ -1694,9 +1840,8 @@ again:
 				termio_clear(STDOUT_FILENO);
 			goto again;
 		}
-#else
-		getc(stdin);
 #endif
+		getc(stdin);
 	}
 #ifdef KDGKBLED
 	if (!(op->flags & F_NOHINTS) && !op->autolog &&
@@ -1839,9 +1984,11 @@ static char *get_logname(struct options *op, struct termios *tp, struct chardata
 		while (cp->eol == '\0') {
 
 			char key;
+			ssize_t readres;
 
 			debug("read from FD\n");
-			if (read(STDIN_FILENO, &c, 1) < 1) {
+			readres = read(STDIN_FILENO, &c, 1);
+			if (readres < 0) {
 				debug("read failed\n");
 
 				/* The terminal could be open with O_NONBLOCK when
@@ -1856,11 +2003,14 @@ static char *get_logname(struct options *op, struct termios *tp, struct chardata
 				case ESRCH:
 				case EINVAL:
 				case ENOENT:
-					break;
+					exit_slowly(EXIT_SUCCESS);
 				default:
 					log_err(_("%s: read: %m"), op->tty);
 				}
 			}
+
+			if (readres == 0)
+				c = 0;
 
 			/* Do parity bit handling. */
 			if (eightbit)
@@ -1886,8 +2036,10 @@ static char *get_logname(struct options *op, struct termios *tp, struct chardata
 			switch (key) {
 			case 0:
 				*bp = 0;
-				if (op->numspeed > 1)
+				if (op->numspeed > 1 && !(op->flags & F_VCONSOLE))
 					return NULL;
+				if (readres == 0)
+					exit_slowly(EXIT_SUCCESS);
 				break;
 			case CR:
 			case NL:
@@ -2001,12 +2153,12 @@ static void termio_final(struct options *op, struct termios *tp, struct chardata
 	case 1:
 		/* odd parity */
 		tp->c_cflag |= PARODD;
-		/* do not break */
+		/* fallthrough */
 	case 2:
 		/* even parity */
 		tp->c_cflag |= PARENB;
 		tp->c_iflag |= INPCK | ISTRIP;
-		/* do not break */
+		/* fallthrough */
 	case (1 | 2):
 		/* no parity bit */
 		tp->c_cflag &= ~CSIZE;
@@ -2066,8 +2218,10 @@ static speed_t bcode(char *s)
 	return 0;
 }
 
-static void __attribute__ ((__noreturn__)) usage(FILE *out)
+static void __attribute__((__noreturn__)) usage(void)
 {
+	FILE *out = stdout;
+
 	fputs(USAGE_HEADER, out);
 	fprintf(out, _(" %1$s [options] <line> [<baud_rate>,...] [<termtype>]\n"
 		       " %1$s [options] <baud_rate>,... <line> [<termtype>]\n"), program_invocation_short_name);
@@ -2108,11 +2262,20 @@ static void __attribute__ ((__noreturn__)) usage(FILE *out)
 	fputs(_("     --delay <number>       sleep seconds before prompt\n"), out);
 	fputs(_("     --nice <number>        run login with this priority\n"), out);
 	fputs(_("     --reload               reload prompts on running agetty instances\n"), out);
-	fputs(_("     --help                 display this help and exit\n"), out);
-	fputs(_("     --version              output version information and exit\n"), out);
-	fprintf(out, USAGE_MAN_TAIL("agetty(8)"));
+	fputs(_("     --list-speeds          display supported baud rates\n"), out);
+	printf( "     --help                 %s\n", USAGE_OPTSTR_HELP);
+	printf( "     --version              %s\n", USAGE_OPTSTR_VERSION);
+	printf(USAGE_MAN_TAIL("agetty(8)"));
 
-	exit(out == stderr ? EXIT_FAILURE : EXIT_SUCCESS);
+	exit(EXIT_SUCCESS);
+}
+
+static void list_speeds(void)
+{
+	const struct Speedtab *sp;
+
+	for (sp = speedtab; sp->speed; sp++)
+		printf("%10ld\n", sp->speed);
 }
 
 /*
@@ -2162,6 +2325,13 @@ static void dolog(int priority, const char *fmt, va_list ap)
 #endif				/* USE_SYSLOG */
 }
 
+static void exit_slowly(int code)
+{
+	/* Be kind to init(8). */
+	sleep(10);
+	exit(code);
+}
+
 static void log_err(const char *fmt, ...)
 {
 	va_list ap;
@@ -2170,9 +2340,7 @@ static void log_err(const char *fmt, ...)
 	dolog(LOG_ERR, fmt, ap);
 	va_end(ap);
 
-	/* Be kind to init(8). */
-	sleep(10);
-	exit(EXIT_FAILURE);
+	exit_slowly(EXIT_FAILURE);
 }
 
 static void log_warn(const char *fmt, ...)

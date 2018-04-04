@@ -145,8 +145,8 @@ static struct last_timefmt timefmts[] = {
 	},
 	[LAST_TIMEFTM_ISO8601] = {
 		.name    = "iso",
-		.in_len  = 24,
-		.out_len = 26,
+		.in_len  = 25,
+		.out_len = 27,
 		.in_fmt  = LAST_TIMEFTM_ISO8601,
 		.out_fmt = LAST_TIMEFTM_ISO8601
 	}
@@ -349,7 +349,7 @@ static int time_formatter(int fmt, char *dst, size_t dlen, time_t *when)
 		ret = rtrim_whitespace((unsigned char *) dst);
 		break;
 	case LAST_TIMEFTM_ISO8601:
-		ret = strtime_iso(when, ISO_8601_DATE|ISO_8601_TIME|ISO_8601_TIMEZONE, dst, dlen);
+		ret = strtime_iso(when, ISO_TIMESTAMP_T, dst, dlen);
 		break;
 	default:
 		abort();
@@ -435,7 +435,7 @@ static int list(const struct last_control *ctl, struct utmpx *p, time_t logout_t
 		errx(EXIT_FAILURE, _("preallocation size exceeded"));
 
 	/* log-out time */
-	secs  = logout_time - utmp_time;
+	secs  = logout_time - utmp_time; /* Under strange circumstances, secs < 0 can happen */
 	mins  = (secs / 60) % 60;
 	hours = (secs / 3600) % 24;
 	days  = secs / 86400;
@@ -454,9 +454,13 @@ static int list(const struct last_control *ctl, struct utmpx *p, time_t logout_t
 			sprintf(length, "running");
 		}
 	} else if (days) {
-		sprintf(length, "(%d+%02d:%02d)", days, hours, mins);
+		sprintf(length, "(%d+%02d:%02d)", days, abs(hours), abs(mins)); /* hours and mins always shown as positive (w/o minus sign!) even if secs < 0 */
+	} else if (hours) {
+		sprintf(length, " (%02d:%02d)", hours, abs(mins));  /* mins always shown as positive (w/o minus sign!) even if secs < 0 */
+	} else if (secs >= 0) {
+		sprintf(length, " (%02d:%02d)", hours, mins); 
 	} else {
-		sprintf(length, " (%02d:%02d)", hours, mins);
+		sprintf(length, " (-00:%02d)", abs(mins));  /* mins always shown as positive (w/o minus sign!) even if secs < 0 */
 	}
 
 	switch(what) {
@@ -560,8 +564,9 @@ static int list(const struct last_control *ctl, struct utmpx *p, time_t logout_t
 }
 
 
-static void __attribute__((__noreturn__)) usage(const struct last_control *ctl, FILE *out)
+static void __attribute__((__noreturn__)) usage(const struct last_control *ctl)
 {
+	FILE *out = stdout;
 	fputs(USAGE_HEADER, out);
 	fprintf(out, _(
 		" %s [options] [<username>...] [<tty>...]\n"), program_invocation_short_name);
@@ -588,9 +593,8 @@ static void __attribute__((__noreturn__)) usage(const struct last_control *ctl, 
 		"                               notime|short|full|iso\n"), out);
 
 	fputs(USAGE_SEPARATOR, out);
-	fputs(USAGE_HELP, out);
-	fputs(USAGE_VERSION, out);
-	fprintf(out, USAGE_MAN_TAIL("last(1)"));
+	printf(USAGE_HELP_OPTIONS(22));
+	printf(USAGE_MAN_TAIL("last(1)"));
 
 	exit(out == stderr ? EXIT_FAILURE : EXIT_SUCCESS);
 }
@@ -598,7 +602,7 @@ static void __attribute__((__noreturn__)) usage(const struct last_control *ctl, 
 static int is_phantom(const struct last_control *ctl, struct utmpx *ut)
 {
 	struct passwd *pw;
-	char path[32];
+	char path[sizeof(ut->ut_line) + 16];
 	int ret = 0;
 
 	if (ut->ut_tv.tv_sec < ctl->boot_time.tv_sec)
@@ -830,7 +834,7 @@ static void process_wtmp_file(const struct last_control *ctl,
 					c = whydown;
 				quit = list(ctl, &ut, lastboot, c);
 			}
-			/* FALLTHRU */
+			/* fallthrough */
 
 		case DEAD_PROCESS:
 			/*
@@ -953,7 +957,7 @@ int main(int argc, char **argv)
 
 		switch(c) {
 		case 'h':
-			usage(&ctl, stdout);
+			usage(&ctl);
 			break;
 		case 'V':
 			printf(UTIL_LINUX_VERSION);

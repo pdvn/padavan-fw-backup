@@ -72,7 +72,7 @@ struct colinfo {
 static struct colinfo infos[] = {
 	[COL_SRC]  = { "COMMAND",15, 0, N_("command of the process holding the lock") },
 	[COL_PID]  = { "PID",     5, SCOLS_FL_RIGHT, N_("PID of the process holding the lock") },
-	[COL_TYPE] = { "TYPE",    5, SCOLS_FL_RIGHT, N_("kind of lock: FL_FLOCK or FL_POSIX.") },
+	[COL_TYPE] = { "TYPE",    5, SCOLS_FL_RIGHT, N_("kind of lock") },
 	[COL_SIZE] = { "SIZE",    4, SCOLS_FL_RIGHT, N_("size of the lock") },
 	[COL_MODE] = { "MODE",    5, 0, N_("lock access mode") },
 	[COL_M]    = { "M",       1, 0, N_("mandatory state of the lock: 0 (none), 1 (set)")},
@@ -484,8 +484,9 @@ static int show_locks(struct list_head *locks)
 }
 
 
-static void __attribute__ ((__noreturn__)) usage(FILE * out)
+static void __attribute__((__noreturn__)) usage(void)
 {
+	FILE *out = stdout;
 	size_t i;
 
 	fputs(USAGE_HEADER, out);
@@ -506,17 +507,16 @@ static void __attribute__ ((__noreturn__)) usage(FILE * out)
 	fputs(_(" -u, --notruncate       don't truncate text in columns\n"), out);
 
 	fputs(USAGE_SEPARATOR, out);
-	fputs(USAGE_HELP, out);
-	fputs(USAGE_VERSION, out);
+	printf(USAGE_HELP_OPTIONS(24));
 
-	fputs(_("\nAvailable columns (for --output):\n"), out);
+	fputs(USAGE_COLUMNS, out);
 
 	for (i = 0; i < ARRAY_SIZE(infos); i++)
 		fprintf(out, " %11s  %s\n", infos[i].name, _(infos[i].help));
 
-	fprintf(out, USAGE_MAN_TAIL("lslocks(8)"));
+	printf(USAGE_MAN_TAIL("lslocks(8)"));
 
-	exit(out == stderr ? EXIT_FAILURE : EXIT_SUCCESS);
+	exit(EXIT_SUCCESS);
 }
 
 int main(int argc, char *argv[])
@@ -569,7 +569,7 @@ int main(int argc, char *argv[])
 			printf(UTIL_LINUX_VERSION);
 			return EXIT_SUCCESS;
 		case 'h':
-			usage(stdout);
+			usage();
 		case 'n':
 			no_headings = 1;
 			break;

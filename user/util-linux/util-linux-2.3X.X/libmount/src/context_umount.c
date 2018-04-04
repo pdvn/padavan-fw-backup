@@ -67,18 +67,25 @@ int mnt_context_find_umount_fs(struct libmnt_context *cxt,
 		return 1; /* empty string is not an error */
 
 	/*
-	 * The mount table may be huge, and on systems with utab we have to merge
-	 * userspace mount options into /proc/self/mountinfo. This all is
-	 * expensive. The tab filter allows to filter out entries, then
-	 * a mount table and utab are very tiny files.
+	 * The mount table may be huge, and on systems with utab we have to
+	 * merge userspace mount options into /proc/self/mountinfo. This all is
+	 * expensive. The tab filter allows to filter out entries, then a mount
+	 * table and utab are very tiny files.
 	 *
-	 * *but*... the filter uses mnt_fs_streq_{target,srcpath} functions
-	 * where LABEL, UUID or symlinks are canonicalized. It means that
-	 * it's usable only for canonicalized stuff (e.g. kernel mountinfo).
+	 * The filter uses mnt_fs_streq_{target,srcpath} function where all
+	 * paths should be absolute and canonicalized. This is done within
+	 * mnt_context_get_mtab_for_target() where LABEL, UUID or symlinks are
+	 * canonicalized. If --no-canonicalize is enabled than the target path
+	 * is expected already canonical.
+	 *
+	 * Anyway it's better to read huge mount table than canonicalize target
+	 * paths. It means we use the filter only if --no-canonicalize enabled.
+	 *
+	 * It also means that we have to read mount table from kernel
+	 * (non-writable mtab).
 	 */
-	if (!mnt_context_mtab_writable(cxt) && *tgt == '/' &&
-	    !mnt_context_is_nocanonicalize(cxt) &&
-	    !mnt_context_is_force(cxt) && !mnt_context_is_lazy(cxt))
+	if (mnt_context_is_nocanonicalize(cxt) &&
+	    !mnt_context_mtab_writable(cxt) && *tgt == '/')
 		rc = mnt_context_get_mtab_for_target(cxt, &mtab, tgt);
 	else
 		rc = mnt_context_get_mtab(cxt, &mtab);
@@ -253,12 +260,16 @@ static int lookup_umount_fs(struct libmnt_context *cxt)
 
 		const char *type = mnt_fs_get_fstype(cxt->fs);
 
+		DBG(CXT, ul_debugobj(cxt, "umount: disable mtab"));
+
 		/* !mnt_context_mtab_writable(cxt) && has_utab_entry() verified that there
 		 * is no stuff in utab, so disable all mtab/utab related actions */
 		mnt_context_disable_mtab(cxt, TRUE);
 
 		if (!type) {
 			struct statfs vfs;
+
+			DBG(CXT, ul_debugobj(cxt, "umount: trying statfs()"));
 			if (statfs(tgt, &vfs) == 0)
 				type = mnt_statfs_get_fstype(&vfs);
 			if (type) {
@@ -474,7 +485,7 @@ static int evaluate_permissions(struct libmnt_context *cxt)
 	 */
 	if (u_flags & (MNT_MS_USER | MNT_MS_OWNER | MNT_MS_GROUP)) {
 
-		char *curr_user = NULL;
+		char *curr_user;
 		char *mtab_user = NULL;
 		size_t sz;
 
@@ -510,6 +521,7 @@ eperm:
 static int exec_helper(struct libmnt_context *cxt)
 {
 	int rc;
+	pid_t pid;
 
 	assert(cxt);
 	assert(cxt->fs);
@@ -525,17 +537,18 @@ static int exec_helper(struct libmnt_context *cxt)
 
 	DBG_FLUSH;
 
-	switch (fork()) {
+	pid = fork();
+	switch (pid) {
 	case 0:
 	{
 		const char *args[10], *type;
 		int i = 0;
 
 		if (setgid(getgid()) < 0)
-			exit(EXIT_FAILURE);
+			_exit(EXIT_FAILURE);
 
 		if (setuid(getuid()) < 0)
-			exit(EXIT_FAILURE);
+			_exit(EXIT_FAILURE);
 
 		type = mnt_fs_get_fstype(cxt->fs);
 
@@ -565,17 +578,23 @@ static int exec_helper(struct libmnt_context *cxt)
 							i, args[i]));
 		DBG_FLUSH;
 		execv(cxt->helper, (char * const *) args);
-		exit(EXIT_FAILURE);
+		_exit(EXIT_FAILURE);
 	}
 	default:
 	{
 		int st;
-		wait(&st);
-		cxt->helper_status = WIFEXITED(st) ? WEXITSTATUS(st) : -1;
 
-		DBG(CXT, ul_debugobj(cxt, "%s executed [status=%d]",
-					cxt->helper, cxt->helper_status));
-		cxt->helper_exec_status = rc = 0;
+		if (waitpid(pid, &st, 0) == (pid_t) -1) {
+			cxt->helper_status = -1;
+			rc = -errno;
+		} else {
+			cxt->helper_status = WIFEXITED(st) ? WEXITSTATUS(st) : -1;
+			cxt->helper_exec_status = rc = 0;
+		}
+		DBG(CXT, ul_debugobj(cxt, "%s executed [status=%d, rc=%d%s]",
+				cxt->helper,
+				cxt->helper_status, rc,
+				rc ? " waitpid failed" : ""));
 		break;
 	}
 
@@ -685,7 +704,7 @@ static int do_umount(struct libmnt_context *cxt)
 	if (mnt_context_is_lazy(cxt))
 		flags |= MNT_DETACH;
 
-	else if (mnt_context_is_force(cxt))
+	if (mnt_context_is_force(cxt))
 		flags |= MNT_FORCE;
 
 	DBG(CXT, ul_debugobj(cxt, "umount(2) [target='%s', flags=0x%08x]%s",
@@ -885,7 +904,7 @@ int mnt_context_finalize_umount(struct libmnt_context *cxt)
 
 	rc = mnt_context_prepare_update(cxt);
 	if (!rc)
-		rc = mnt_context_update_tabs(cxt);;
+		rc = mnt_context_update_tabs(cxt);
 	return rc;
 }
 
@@ -1052,6 +1071,10 @@ int mnt_context_get_umount_excode(
 			if (buf)
 				snprintf(buf, bufsz, _("not mounted"));
 			return MNT_EX_USAGE;
+		} else if (rc == -MNT_ERR_LOCK) {
+			if (buf)
+				snprintf(buf, bufsz, _("locking failed"));
+			return MNT_EX_FILEIO;
 		}
 		return mnt_context_get_generic_excode(rc, buf, bufsz,
 					_("umount failed: %m"));
@@ -1061,7 +1084,12 @@ int mnt_context_get_umount_excode(
 		 * umount(2) syscall success, but something else failed
 		 * (probably error in mtab processing).
 		 */
-		if (rc < 0)
+		if (rc == -MNT_ERR_LOCK) {
+			if (buf)
+				snprintf(buf, bufsz, _("filesystem was unmounted, but failed to update userspace mount table"));
+			return MNT_EX_FILEIO;
+
+		} else if (rc < 0)
 			return mnt_context_get_generic_excode(rc, buf, bufsz,
 				_("filesystem was unmounted, but any subsequent operation failed: %m"));
 

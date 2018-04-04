@@ -177,7 +177,8 @@ leave(int status) {
 }
 
 static void __attribute__((__noreturn__))
-usage(FILE *out) {
+usage(void) {
+	FILE *out = stdout;
 	fputs(USAGE_HEADER, out);
 	fprintf(out, _(" %s [options] <device>\n"), program_invocation_short_name);
 	fputs(USAGE_SEPARATOR, out);
@@ -191,10 +192,9 @@ usage(FILE *out) {
 	fputs(_(" -m, --uncleared  activate mode not cleared warnings\n"), out);
 	fputs(_(" -f, --force      force check\n"), out);
 	fputs(USAGE_SEPARATOR, out);
-	fputs(USAGE_HELP, out);
-	fputs(USAGE_VERSION, out);
-	fprintf(out, USAGE_MAN_TAIL("fsck.minix(8)"));
-	leave(out == stderr ? FSCK_EX_USAGE : FSCK_EX_OK);
+	printf(USAGE_HELP_OPTIONS(18));
+	printf(USAGE_MAN_TAIL("fsck.minix(8)"));
+	exit(FSCK_EX_OK);
 }
 
 static void die(const char *fmt, ...)
@@ -1293,6 +1293,8 @@ main(int argc, char **argv) {
 	textdomain(PACKAGE);
 	atexit(close_stdout);
 
+	strutils_set_exitcode(FSCK_EX_USAGE);
+
 	if (INODE_SIZE * MINIX_INODES_PER_BLOCK != MINIX_BLOCK_SIZE)
 		die(_("bad inode size"));
 	if (INODE2_SIZE * MINIX2_INODES_PER_BLOCK != MINIX_BLOCK_SIZE)
@@ -1327,7 +1329,7 @@ main(int argc, char **argv) {
 			printf(UTIL_LINUX_VERSION);
 			return FSCK_EX_OK;
 		case 'h':
-			usage(stdout);
+			usage();
 		default:
 			errtryhelp(FSCK_EX_USAGE);
 		}
@@ -1335,9 +1337,10 @@ main(int argc, char **argv) {
 	argv += optind;
 	if (0 < argc) {
 		device_name = argv[0];
-	} else
-		usage(stderr);
-
+	} else {
+		warnx(_("no device specified"));
+		errtryhelp(FSCK_EX_USAGE);
+	}
 	check_mount();		/* trying to check a mounted filesystem? */
 	if (repair && !automatic && (!isatty(STDIN_FILENO) || !isatty(STDOUT_FILENO)))
 		die(_("need terminal for interactive repairs"));

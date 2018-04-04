@@ -287,6 +287,8 @@ SYSTEMD_DAEMON_LIBS = @SYSTEMD_DAEMON_LIBS@
 SYSTEMD_JOURNAL_CFLAGS = @SYSTEMD_JOURNAL_CFLAGS@
 SYSTEMD_JOURNAL_LIBS = @SYSTEMD_JOURNAL_LIBS@
 SYSTEMD_LIBS = @SYSTEMD_LIBS@
+TINFOW_CFLAGS = @TINFOW_CFLAGS@
+TINFOW_LIBS = @TINFOW_LIBS@
 TINFO_CFLAGS = @TINFO_CFLAGS@
 TINFO_LIBS = @TINFO_LIBS@
 TINFO_LIBS_STATIC = @TINFO_LIBS_STATIC@
@@ -349,6 +351,7 @@ program_transform_name = @program_transform_name@
 psdir = @psdir@
 pyexecdir = @pyexecdir@
 pythondir = @pythondir@
+runstatedir = @runstatedir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 srcdir = @srcdir@
@@ -429,7 +432,7 @@ HTML_IMAGES =
 # e.g. content_files=running.sgml building.sgml changes-2.0.sgml
 content_files = $(builddir)/version.xml
 
-# SGML files where gtk-doc abbrevations (#GtkWidget) are expanded
+# SGML files where gtk-doc abbreviations (#GtkWidget) are expanded
 # These files must be listed here *and* in content_files
 # e.g. expand_content_files=running.sgml
 expand_content_files = 
@@ -786,6 +789,7 @@ html-build.stamp: sgml.stamp $(srcdir)/$(DOC_MAIN_SGML_FILE) $(content_files)
 		( cd $(srcdir) && cp $(HTML_IMAGES) $(abs_builddir)/html )
 
 	$(AM_V_GEN)gtkdoc-fixxref --module-dir=html \
+		       --module=$(DOC_MODULE) \
 	               --html-dir=$(HTML_DIR) \
 	               $(FIXXREF_OPTIONS)
 	@touch html-build.stamp

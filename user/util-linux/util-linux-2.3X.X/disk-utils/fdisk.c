@@ -21,6 +21,8 @@
 #include <sys/time.h>
 #include <time.h>
 #include <limits.h>
+#include <signal.h>
+#include <poll.h>
 #include <libsmartcols.h>
 #ifdef HAVE_LIBREADLINE
 # define _FUNCTION_DEF
@@ -52,6 +54,10 @@
 #endif
 
 int pwipemode = WIPEMODE_AUTO;
+int device_is_used;
+int is_interactive;
+struct fdisk_table *original_layout;
+
 static int wipemode = WIPEMODE_AUTO;
 
 /*
@@ -62,76 +68,114 @@ UL_DEBUG_DEFINE_MASKNAMES(fdisk) = UL_DEBUG_EMPTY_MASKNAMES;
 
 static void fdiskprog_init_debug(void)
 {
-	__UL_INIT_DEBUG(fdisk, FDISKPROG_DEBUG_, 0, FDISK_DEBUG);
+	__UL_INIT_DEBUG_FROM_ENV(fdisk, FDISKPROG_DEBUG_, 0, FDISK_DEBUG);
 }
 
-#ifdef HAVE_LIBREADLINE
-static char *rl_fgets(char *s, int n, FILE *stream, const char *prompt)
+static void reply_sighandler(int sig __attribute__((unused)))
 {
-	char *p;
+	DBG(ASK, ul_debug("got signal"));
+}
 
-	rl_outstream = stream;
-	p = readline(prompt);
-	if (!p)
-		return NULL;
+static int reply_running;
 
-	strncpy(s, p, n);
-	s[n - 1] = '\0';
-	free(p);
-	return s;
+#ifdef HAVE_LIBREADLINE
+static char *reply_line;
+
+static void reply_linehandler(char *line)
+{
+	reply_line = line;
+	reply_running = 0;
+	rl_callback_handler_remove();	/* avoid duplicate prompt */
 }
 #endif
 
-int get_user_reply(struct fdisk_context *cxt, const char *prompt,
-			  char *buf, size_t bufsz)
+int get_user_reply(const char *prompt, char *buf, size_t bufsz)
 {
-	char *p;
+	struct sigaction oldact, act = {
+		.sa_handler = reply_sighandler
+	};
+	struct pollfd fds[] = {
+		{ .fd = fileno(stdin), .events = POLLIN }
+	};
 	size_t sz;
+	int ret = 0;
 
-	do {
+	DBG(ASK, ul_debug("asking for user replay %s", is_interactive ? "[interactive]" : ""));
+
+	sigemptyset(&act.sa_mask);
+	sigaction(SIGINT, &act, &oldact);
+
 #ifdef HAVE_LIBREADLINE
-		if (isatty(STDIN_FILENO)) {
-			if (!rl_fgets(buf, bufsz, stdout, prompt)) {
-				if (fdisk_label_is_changed(fdisk_get_label(cxt, NULL))) {
-					if (rl_fgets(buf, bufsz, stderr,
-							_("\nDo you really want to quit? "))
-							&& !rpmatch(buf))
-						continue;
-				}
-				fdisk_unref_context(cxt);
-				exit(EXIT_FAILURE);
-			} else
-				break;
-		}
-		else
+	if (is_interactive)
+		rl_callback_handler_install(prompt, reply_linehandler);
+#endif
+	reply_running = 1;
+	do {
+		int rc;
+
+		*buf = '\0';
+#ifdef HAVE_LIBREADLINE
+		if (!is_interactive)
 #endif
 		{
 			fputs(prompt, stdout);
 			fflush(stdout);
-			if (!fgets(buf, bufsz, stdin)) {
-				if (fdisk_label_is_changed(fdisk_get_label(cxt, NULL))) {
-					fprintf(stderr, _("\nDo you really want to quit? "));
-
-					if (fgets(buf, bufsz, stdin) && !rpmatch(buf))
-						continue;
-				}
-				fdisk_unref_context(cxt);
-				exit(EXIT_FAILURE);
-			} else
-				break;
 		}
-	} while (1);
 
-	for (p = buf; *p && !isgraph(*p); p++);	/* get first non-blank */
+		rc = poll(fds, 1, -1);
+		if (rc == -1 && errno == EINTR)	{	/* interrupted by signal */
+			DBG(ASK, ul_debug("cancel by CTRL+C"));
+			ret = -ECANCELED;
+			goto done;
+		}
+		if (rc == -1 && errno != EAGAIN) {	/* error */
+			ret = -errno;
+			goto done;
+		}
+#ifdef HAVE_LIBREADLINE
+		if (is_interactive) {
+			/* read input and copy to buf[] */
+			rl_callback_read_char();
+			if (!reply_running && reply_line) {
+				sz = strlen(reply_line);
+				if (sz == 0)
+					buf[sz++] = '\n';
+				else
+					memcpy(buf, reply_line, min(sz, bufsz));
+				buf[min(sz, bufsz - 1)] = '\0';
+				free(reply_line);
+				reply_line = NULL;
+			}
+		} else
+#endif
+		{
+			if (!fgets(buf, bufsz, stdin))
+				*buf = '\0';
+			break;
+		}
+	} while (reply_running);
 
-	if (p > buf)
-		memmove(buf, p, p - buf);		/* remove blank space */
-	sz = strlen(buf);
+	if (!*buf) {
+		DBG(ASK, ul_debug("cancel by CTRL+D"));
+		ret = -ECANCELED;
+		goto done;
+	}
+
+	/*
+	 * cleanup the reply
+	 */
+	sz = ltrim_whitespace((unsigned char *) buf);
 	if (sz && *(buf + sz - 1) == '\n')
 		*(buf + sz - 1) = '\0';
 
 	DBG(ASK, ul_debug("user's reply: >>>%s<<<", buf));
-	return 0;
+done:
+#ifdef HAVE_LIBREADLINE
+	if (is_interactive)
+		rl_callback_handler_remove();
+#endif
+	sigaction(SIGINT, &oldact, NULL);
+	return ret;
 }
 
 static int ask_menu(struct fdisk_context *cxt, struct fdisk_ask *ask,
@@ -158,7 +202,7 @@ static int ask_menu(struct fdisk_context *cxt, struct fdisk_ask *ask,
 
 		/* ask for key */
 		snprintf(prompt, sizeof(prompt), _("Select (default %c): "), dft);
-		rc = get_user_reply(cxt, prompt, buf, bufsz);
+		rc = get_user_reply(prompt, buf, bufsz);
 		if (rc)
 			return rc;
 		if (!*buf) {
@@ -226,7 +270,7 @@ static int ask_number(struct fdisk_context *cxt,
 				q, low, high);
 
 	do {
-		int rc = get_user_reply(cxt, prompt, buf, bufsz);
+		int rc = get_user_reply(prompt, buf, bufsz);
 		uint64_t num;
 
 		if (rc)
@@ -289,7 +333,7 @@ static int ask_offset(struct fdisk_context *cxt,
 		char sig = 0, *p;
 		int pwr = 0;
 
-		int rc = get_user_reply(cxt, prompt, buf, bufsz);
+		int rc = get_user_reply(prompt, buf, bufsz);
 		if (rc)
 			return rc;
 		if (!*buf && dflt >= low && dflt <= high)
@@ -391,7 +435,7 @@ int ask_callback(struct fdisk_context *cxt, struct fdisk_ask *ask,
 		do {
 			int x;
 			fputs(fdisk_ask_get_query(ask), stdout);
-			rc = get_user_reply(cxt, _(" [Y]es/[N]o: "), buf, sizeof(buf));
+			rc = get_user_reply(_(" [Y]es/[N]o: "), buf, sizeof(buf));
 			if (rc)
 				break;
 			x = rpmatch(buf);
@@ -407,7 +451,7 @@ int ask_callback(struct fdisk_context *cxt, struct fdisk_ask *ask,
 		char prmt[BUFSIZ];
 		snprintf(prmt, sizeof(prmt), "%s: ", fdisk_ask_get_query(ask));
 		fputc('\n', stdout);
-		rc = get_user_reply(cxt, prmt, buf, sizeof(buf));
+		rc = get_user_reply(prmt, buf, sizeof(buf));
 		if (rc == 0)
 			fdisk_ask_string_set_result(ask, xstrdup(buf));
 		DBG(ASK, ul_debug("string ask: reply '%s' [rc=%d]", buf, rc));
@@ -436,7 +480,7 @@ static struct fdisk_parttype *ask_partition_type(struct fdisk_context *cxt)
 		_("Partition type (type L to list all types): ");
 	do {
 		char buf[256];
-		int rc = get_user_reply(cxt, q, buf, sizeof(buf));
+		int rc = get_user_reply(q, buf, sizeof(buf));
 
 		if (rc)
 			break;
@@ -749,8 +793,10 @@ void follow_wipe_mode(struct fdisk_context *cxt)
 			fdisk_get_collision(cxt));
 }
 
-static void __attribute__ ((__noreturn__)) usage(FILE *out)
+static void __attribute__((__noreturn__)) usage(void)
 {
+	FILE *out = stdout;
+
 	fputs(USAGE_HEADER, out);
 
 	fprintf(out,
@@ -783,13 +829,12 @@ static void __attribute__ ((__noreturn__)) usage(FILE *out)
 	fputs(_(" -S, --sectors <number>        specify the number of sectors per track\n"), out);
 
 	fputs(USAGE_SEPARATOR, out);
-	fputs(USAGE_HELP, out);
-	fputs(USAGE_VERSION, out);
+	printf(USAGE_HELP_OPTIONS(31));
 
 	list_available_columns(out);
 
-	fprintf(out, USAGE_MAN_TAIL("fdisk(8)"));
-	exit(out == stderr ? EXIT_FAILURE : EXIT_SUCCESS);
+	printf(USAGE_MAN_TAIL("fdisk(8)"));
+	exit(EXIT_SUCCESS);
 }
 
 
@@ -852,7 +897,7 @@ int main(int argc, char **argv)
 			size_t sz = strtou32_or_err(optarg,
 					_("invalid sector size argument"));
 			if (sz != 512 && sz != 1024 && sz != 2048 && sz != 4096)
-				usage(stderr);
+				errx(EXIT_FAILURE, _("invalid sector size argument"));
 			fdisk_save_user_sector_size(cxt, sz, sz);
 			break;
 		}
@@ -879,10 +924,8 @@ int main(int argc, char **argv)
 					fdisk_dos_enable_compatible(lb, TRUE);
 				else if (strcmp(p, "nondos") == 0)
 					fdisk_dos_enable_compatible(lb, FALSE);
-				else {
-					warnx(_("unknown compatibility mode '%s'"), p);
-					usage(stderr);
-				}
+				else
+					errx(EXIT_FAILURE, _("unknown compatibility mode '%s'"), p);
 			}
 			/* use default if no optarg specified */
 			break;
@@ -929,7 +972,7 @@ int main(int argc, char **argv)
 			if (optarg && *optarg == '=')
 				optarg++;
 			if (fdisk_set_unit(cxt, optarg) != 0)
-				usage(stderr);
+				errx(EXIT_FAILURE, _("unsupported unit"));
 			break;
 		case 'V': /* preferred for util-linux */
 		case 'v': /* for backward compatibility only */
@@ -946,7 +989,7 @@ int main(int argc, char **argv)
 				errx(EXIT_FAILURE, _("unsupported wipe mode"));
 			break;
 		case 'h':
-			usage(stdout);
+			usage();
 		case OPT_BYTES:
 			fdisk_set_size_unit(cxt, FDISK_SIZEUNIT_BYTES);
 			break;
@@ -960,6 +1003,7 @@ int main(int argc, char **argv)
 			" be used with one specified device only."));
 
 	colors_init(colormode, "fdisk");
+	is_interactive = isatty(STDIN_FILENO);
 
 	switch (act) {
 	case ACT_LIST:
@@ -985,9 +1029,10 @@ int main(int argc, char **argv)
 
 	case ACT_SHOWSIZE:
 		/* deprecated */
-		if (argc - optind <= 0)
-			usage(stderr);
-
+		if (argc - optind <= 0) {
+			warnx(_("bad usage"));
+			errtryhelp(EXIT_FAILURE);
+		}
 		for (i = optind; i < argc; i++) {
 			uintmax_t blks = get_dev_blocks(argv[i]);
 
@@ -999,8 +1044,10 @@ int main(int argc, char **argv)
 		break;
 
 	case ACT_FDISK:
-		if (argc-optind != 1)
-			usage(stderr);
+		if (argc-optind != 1) {
+			warnx(_("bad usage"));
+			errtryhelp(EXIT_FAILURE);
+		}
 
 		/* Here starts interactive mode, use fdisk_{warn,info,..} functions */
 		color_scheme_enable("welcome", UL_COLOR_GREEN);
@@ -1033,6 +1080,11 @@ int main(int argc, char **argv)
 				  "the hybrid MBR manually (expert command 'M')."));
 
 		init_fields(cxt, outarg, NULL);		/* -o <columns> */
+
+		if (!fdisk_is_readonly(cxt)) {
+			fdisk_get_partitions(cxt, &original_layout);
+			device_is_used = fdisk_device_is_used(cxt);
+		}
 
 		while (1)
 			process_fdisk_menu(&cxt);
