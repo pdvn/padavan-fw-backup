@@ -1,4 +1,4 @@
-SRC_NAME=libusb-1.0.21
+SRC_NAME=libusb-1.0.X
 
 all: config_test
 	$(MAKE) -C $(SRC_NAME)
