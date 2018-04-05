@@ -29,6 +29,15 @@ AH_TOP(
 cflags_set=${CFLAGS+set}
 
 AM_INIT_AUTOMAKE([gnu nostdinc subdir-objects 1.7.6 --warnings=all])
+AM_MAINTAINER_MODE([disable])
+
+AC_CONFIG_MACRO_DIR([m4])
+
+# Checks for programs.
+AC_LANG_CPLUSPLUS
+AC_PROG_CC
+AM_PROG_CC_C_O
+AC_PROG_INSTALL
 
 LIBUSB_VERSION=$VERSION
 
@@ -147,12 +156,6 @@ AC_ARG_ENABLE(debug, [  --enable-debug=[no/minimum/yes] turn on debugging [defau
 if test "x$enable_debug" = "xyes"; then
   test "$cflags_set" = set || CFLAGS="$CFLAGS -g"
 fi
-
-# Checks for programs.
-AC_LANG_CPLUSPLUS
-AC_PROG_CC
-AM_PROG_CC_C_O
-AC_PROG_INSTALL
 
 changequote(,)dnl
 if test "x$GCC" = "xyes"; then
