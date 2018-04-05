@@ -5,7 +5,7 @@ AC_INIT([libogg],[1.3.3],[ogg-dev@xiph.org])
 AC_CONFIG_SRCDIR(src/framing.c)
 
 AM_INIT_AUTOMAKE
-AM_MAINTAINER_MODE([enable])
+AM_MAINTAINER_MODE([disable])
 
 dnl Library versioning
 
