@@ -28,6 +28,8 @@ AC_CONFIG_SRCDIR([id3tag.h])
 
 AM_INIT_AUTOMAKE
 
+AM_MAINTAINER_MODE([disable])
+
 AM_CONFIG_HEADER([config.h])
 
 dnl System type.
