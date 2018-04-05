@@ -15,6 +15,8 @@ config_test:
 
 configure:
 	( cd $(SRC_NAME) ; \
+	autoheader; \
+	autoconf; \
 	./configure \
 		--prefix=/usr \
 		--sysconfdir=/etc/storage/privoxy \
