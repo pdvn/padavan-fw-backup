@@ -10,6 +10,8 @@ AM_INIT_AUTOMAKE([foreign tar-pax no-dist-gzip dist-bzip2 1.6 subdir-objects])
 dnl kernel style compile messages
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 
+AM_MAINTAINER_MODE([disable])
+
 AC_PROG_CC
 AM_PROG_CC_C_O
 AC_EXEEXT
