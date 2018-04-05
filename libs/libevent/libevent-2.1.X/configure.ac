@@ -13,6 +13,7 @@ AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE
 dnl AM_SILENT_RULES req. automake 1.11.  [no] defaults V=1
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
+AM_MAINTAINER_MODE([disable])
 AC_CONFIG_HEADERS(config.h  evconfig-private.h:evconfig-private.h.in)
 AC_DEFINE(NUMERIC_VERSION, 0x02010800, [Numeric representation of the version])
 

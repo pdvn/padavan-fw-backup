@@ -1,4 +1,4 @@
-SRC_NAME=libevent-2.1.8-stable
+SRC_NAME=libevent-2.1.X
 
 all: config_test
 	$(MAKE) -C $(SRC_NAME)
