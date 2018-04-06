@@ -1109,6 +1109,10 @@ VOID PeerPairMsg1Action(
 
 	/* Generate random SNonce*/
 	GenRandom(pAd, (UCHAR *)pCurrentAddr, pEntry->SNonce);
+	pEntry->AllowInsPTK = TRUE;
+	pEntry->AllowUpdateRSC = FALSE;
+	pEntry->LastGroupKeyId = 0;
+	NdisZeroMemory(pEntry->LastGTK, MAX_LEN_GTK);
 
 #ifdef DOT11R_FT_SUPPORT
 	if (IS_FT_RSN_STA(pEntry))
@@ -1644,6 +1648,13 @@ VOID PeerPairMsg3Action(
 	UCHAR CliIdx = 0xFF;
 #endif /* MAC_REPEATER_SUPPORT */
 	STA_TR_ENTRY *tr_entry;
+	UCHAR idx = 0;
+	BOOLEAN bWPA2 = FALSE;
+
+	/* Choose WPA2 or not*/
+	if ((pEntry->AuthMode == Ndis802_11AuthModeWPA2) ||
+		(pEntry->AuthMode == Ndis802_11AuthModeWPA2PSK))
+		bWPA2 = TRUE;
 
 	DBGPRINT(RT_DEBUG_TRACE, ("===> PeerPairMsg3Action \n"));
 
@@ -1695,6 +1706,23 @@ VOID PeerPairMsg3Action(
 	if (PeerWpaMessageSanity(pAd, pMsg3, MsgLen, EAPOL_PAIR_MSG_3, pEntry) == FALSE)
 		return;
 
+	if ((pEntry->AllowInsPTK == TRUE) && bWPA2) {
+		UCHAR kid = pEntry->LastGroupKeyId;
+
+		if (unlikely(kid >= ARRAY_SIZE(pEntry->CCMP_BC_PN))) {
+			DBGPRINT(RT_DEBUG_TRACE, ("%s invalid key id %u\n", __func__, kid));
+			return;
+		}
+
+		pEntry->CCMP_BC_PN[kid] = 0;
+		for (idx = 0; idx < (LEN_KEY_DESC_RSC - 2); idx++)
+			pEntry->CCMP_BC_PN[kid] += ((UINT64)pMsg3->KeyDesc.KeyRsc[idx] << (idx*8));
+		pEntry->AllowUpdateRSC = FALSE;
+		pEntry->Init_CCMP_BC_PN_Passed[kid] = FALSE;
+		DBGPRINT(RT_DEBUG_OFF, ("%s(%d)-%d: update CCMP_BC_PN to %llu\n",
+			__FUNCTION__, pEntry->wcid, kid, pEntry->CCMP_BC_PN[kid]));
+	}
+
 	/* Save Replay counter, it will use construct message 4*/
 	NdisMoveMemory(pEntry->R_Counter, pMsg3->KeyDesc.ReplayCounter, LEN_KEY_DESC_REPLAY);
 
@@ -1734,8 +1762,16 @@ VOID PeerPairMsg3Action(
 	IF_DEV_CONFIG_OPMODE_ON_AP(pAd)
 	{
 #ifdef APCLI_SUPPORT
-		if (IS_ENTRY_APCLI(pEntry))
-		 	APCliInstallPairwiseKey(pAd, pEntry);
+		if (IS_ENTRY_APCLI(pEntry)) {
+			if(pEntry->AllowInsPTK == TRUE) {
+				APCliInstallPairwiseKey(pAd, pEntry);
+				pEntry->AllowInsPTK = FALSE;
+			pEntry->AllowUpdateRSC = TRUE;
+			} else {
+				DBGPRINT(RT_DEBUG_ERROR, ("!!!%s : the M3 reinstall attack, skip install key\n",
+						__func__));
+			}
+		}
 #endif /* APCLI_SUPPORT */
 	}
 #endif /* CONFIG_AP_SUPPORT */
@@ -2184,6 +2220,7 @@ VOID	PeerGroupMsg1Action(
 	UCHAR CliIdx = 0xFF;
 #endif /* MAC_REPEATER_SUPPORT */
 	STA_TR_ENTRY *tr_entry;
+	UCHAR idx = 0;
 
 	DBGPRINT(RT_DEBUG_TRACE, ("===> PeerGroupMsg1Action \n"));
 
@@ -2231,6 +2268,23 @@ VOID	PeerGroupMsg1Action(
 	/* Sanity Check peer group message 1 - Replay Counter, MIC, RSNIE*/
 	if (PeerWpaMessageSanity(pAd, pGroup, MsgLen, EAPOL_GROUP_MSG_1, pEntry) == FALSE)
 		return;
+
+	if (pEntry->AllowUpdateRSC == TRUE) {
+		UCHAR kid = pEntry->LastGroupKeyId;
+
+		if (unlikely(kid >= ARRAY_SIZE(pEntry->CCMP_BC_PN))) {
+			DBGPRINT(RT_DEBUG_TRACE, ("%s invalid key id %u\n", __func__, kid));
+			return;
+		}
+
+		pEntry->CCMP_BC_PN[kid] = 0;
+		for (idx = 0; idx < (LEN_KEY_DESC_RSC - 2); idx++)
+			pEntry->CCMP_BC_PN[kid] += ((UINT64)pGroup->KeyDesc.KeyRsc[idx] << (idx*8));
+		pEntry->AllowUpdateRSC = FALSE;
+		pEntry->Init_CCMP_BC_PN_Passed[kid] = FALSE;
+		DBGPRINT(RT_DEBUG_OFF, ("%s(%d)-%d: update CCMP_BC_PN to %llu\n",
+			__FUNCTION__, pEntry->wcid, kid, pEntry->CCMP_BC_PN[kid]));
+	}
 
 	/* delete retry timer*/
 #ifdef CONFIG_AP_SUPPORT
@@ -4182,10 +4236,20 @@ BOOLEAN RTMPParseEapolKeyData(
 #ifdef APCLI_SUPPORT
 		if ((pAd->chipCap.hif_type == HIF_RLT || pAd->chipCap.hif_type == HIF_RTMP) && IS_ENTRY_APCLI(pEntry))
 		{
-			/* Set Group key material, TxMic and RxMic for AP-Client*/
-			if (!APCliInstallSharedKey(pAd, GTK, GTKLEN, DefaultIdx, pEntry))
-			{
-				return FALSE;
+			/* Prevent the GTK reinstall key attack */
+			if (pEntry->LastGroupKeyId != DefaultIdx ||
+					!NdisEqualMemory(pEntry->LastGTK, GTK, MAX_LEN_GTK)) {
+				/* Set Group key material, TxMic and RxMic for AP-Client*/
+				if (!APCliInstallSharedKey(pAd, GTK, GTKLEN, DefaultIdx, pEntry))
+				{
+					return FALSE;
+				}
+				pEntry->LastGroupKeyId = DefaultIdx;
+				NdisMoveMemory(pEntry->LastGTK, GTK, MAX_LEN_GTK);
+				pEntry->AllowUpdateRSC = TRUE;
+			} else {
+				DBGPRINT(RT_DEBUG_ERROR, ("!!!%s : the Group reinstall attack, skip install key\n",
+						__func__));
 			}
 		}
 #ifdef MT_MAC
@@ -4199,23 +4263,34 @@ BOOLEAN RTMPParseEapolKeyData(
 
             pApcli_entry = &pAd->ApCfg.ApCliTab[IfIdx];
 
-            WPAInstallSharedKey(pAd,
-                pApcli_entry->GroupCipher,
-#if defined(MULTI_APCLI_SUPPORT) || defined(APCLI_CONNECTION_TRIAL)
-		pEntry->func_tb_idx,
+			/* Prevent the GTK reinstall key attack */
+			if (pEntry->LastGroupKeyId != DefaultIdx ||
+				!NdisEqualMemory(pEntry->LastGTK, GTK, MAX_LEN_GTK)) {
+				/* Set Group key material, TxMic and RxMic for AP-Client*/
+				WPAInstallSharedKey(pAd,
+					pApcli_entry->GroupCipher,
+#ifdef MULTI_APCLI_SUPPORT
+					pEntry->func_tb_idx,
 #else /* MULTI_APCLI_SUPPORT */
-                BSS0,
+					BSS0,
 #endif /* !MULTI_APCLI_SUPPORT */
-                DefaultIdx,
-#if defined(MULTI_APCLI_SUPPORT) || defined(APCLI_CONNECTION_TRIAL)
-                APCLI_MCAST_WCID(IfIdx),
+					DefaultIdx,
+#ifdef MULTI_APCLI_SUPPORT
+					APCLI_MCAST_WCID(IfIdx),
 #else /* MULTI_APCLI_SUPPORT */
-                APCLI_MCAST_WCID,
+					APCLI_MCAST_WCID,
 #endif /* !MULTI_APCLI_SUPPORT */
-                FALSE,
-                GTK,
-                GTKLEN);
-        }
+					FALSE,
+					GTK,
+					GTKLEN);
+				pEntry->LastGroupKeyId = DefaultIdx;
+				NdisMoveMemory(pEntry->LastGTK, GTK, MAX_LEN_GTK);
+				pEntry->AllowUpdateRSC = TRUE;
+			} else {
+				DBGPRINT(RT_DEBUG_ERROR, ("!!!%s : the Group reinstall attack, skip install key\n",
+					__func__));
+			}
+	}
 #endif /* MT_MAC */
 #endif /* APCLI_SUPPORT */
 #endif /* CONFIG_AP_SUPPORT */

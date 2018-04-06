@@ -2487,6 +2487,10 @@ typedef struct _MAC_TABLE_ENTRY {
 	UCHAR R_Counter[LEN_KEY_DESC_REPLAY];
 	UCHAR PTK[64];
 	UCHAR ReTryCounter;
+	BOOLEAN AllowInsPTK;
+	UCHAR LastGroupKeyId;
+	UCHAR LastGTK[MAX_LEN_GTK];
+	UCHAR LastTK[LEN_TK];
 	RALINK_TIMER_STRUCT RetryTimer;
 	NDIS_802_11_AUTHENTICATION_MODE AuthMode;	/* This should match to whatever microsoft defined */
 	NDIS_802_11_WEP_STATUS WepStatus;
@@ -2801,7 +2805,9 @@ typedef struct _MAC_TABLE_ENTRY {
     RALINK_TIMER_STRUCT	EapReqIdRetryTimer; /* Sometimes EapReqId cannot sendout successfully after associate completed, we need to re-send again. */
 #endif /* WSC_INCLUDED */
 #endif /* MT_MAC */
-
+	UINT64 CCMP_BC_PN[SHARE_KEY_NUM];
+	BOOLEAN Init_CCMP_BC_PN_Passed[SHARE_KEY_NUM];
+	BOOLEAN AllowUpdateRSC;
 } MAC_TABLE_ENTRY, *PMAC_TABLE_ENTRY;
 
 
@@ -5038,6 +5044,7 @@ typedef struct _RX_BLK
 #ifdef RTMP_PCI_SUPPORT
 	UINT32 PDMALen;
 #endif
+	UINT64 CCMP_PN;
 
 #ifdef FORCE_ANNOUNCE_CRITICAL_AMPDU
 	UCHAR CriticalPkt;
