@@ -1,7 +1,6 @@
 SRC_NAME=dnscrypt-proxy-1.9.5
 
 CFLAGS +=$(COPT) -ffunction-sections -fdata-sections
-CFLAGS += -I$(STAGEDIR)/include
 LDFLAGS += -Wl,--gc-sections
 
 all: config_test build
@@ -15,6 +14,7 @@ config_test:
 
 configure:
 	( cd $(SRC_NAME) ; \
+	CPPFLAGS="-I$(STAGEDIR)/include" \
 	./configure \
 		--prefix=/usr \
 		--sysconfdir=/etc/storage/dnscrypt-proxy \
