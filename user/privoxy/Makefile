@@ -20,6 +20,7 @@ configure:
 	./configure \
 		--prefix=/usr \
 		--sysconfdir=/etc/storage/privoxy \
+		$(if $(CONFIG_IPV6),--enable-ipv6-support,--disable-ipv6-support) \
 		--host=$(HOST_TARGET) \
 		--build=$(HOST_BUILD); \
 	)
