@@ -1,7 +1,6 @@
 SRC_NAME=privoxy-3.0.26
 
 CFLAGS +=$(COPT) -ffunction-sections -fdata-sections
-CXXFLAGS += -I$(STAGEDIR)/include
 LDFLAGS += -Wl,--gc-sections
 
 all: config_test build
@@ -17,6 +16,7 @@ configure:
 	( cd $(SRC_NAME) ; \
 	autoheader; \
 	autoconf; \
+	CPPFLAGS="-I$(STAGEDIR)/include" \
 	./configure \
 		--prefix=/usr \
 		--sysconfdir=/etc/storage/privoxy \
