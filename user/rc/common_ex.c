@@ -126,6 +126,9 @@ get_eeprom_params(void)
 #if defined (VENDOR_ASUS)
 	int i;
 #endif
+#if defined (VENDOR_TPLINK)
+	unsigned char buffer_compare[32];
+#endif
 	int i_offset, i_ret;
 	unsigned char buffer[32];
 	unsigned char ea[ETHER_ADDR_LEN];
@@ -139,12 +142,36 @@ get_eeprom_params(void)
 	char productid[16];
 	char fwver[10], fwver_sub[36];
 
+	memset(buffer, 0xff, ETHER_ADDR_LEN);
+#if defined (VENDOR_TPLINK)
+	i_ret = flash_mtd_read("Romfile", 0xf100, buffer, ETHER_ADDR_LEN);
+	if (i_ret >=0 && !(buffer[0] & 0x01)) {
+		ether_etoa(buffer, macaddr_lan);
+		ether_etoa(buffer, macaddr_rt);
+		i_ret = flash_mtd_read(MTD_PART_NAME_FACTORY, OFFSET_MAC_ADDR_WSOC, buffer_compare, ETHER_ADDR_LEN);
+		if (i_ret >= 0 && memcmp(buffer, buffer_compare, ETHER_ADDR_LEN) != 0) {
+			// write mac to ralink eeprom 2,4 Ghz
+			flash_mtd_write(MTD_PART_NAME_FACTORY, OFFSET_MAC_ADDR_WSOC, buffer, ETHER_ADDR_LEN);
+		}
+		buffer[5] += 1;
+		ether_etoa(buffer, macaddr_wan);
+		buffer[5] -= 2;
+		ether_etoa(buffer, macaddr_wl);
+#if defined (BOARD_HAS_5G_RADIO)
+		i_ret = flash_mtd_read(MTD_PART_NAME_FACTORY, OFFSET_MAC_ADDR_INIC, buffer_compare, ETHER_ADDR_LEN);
+		if (i_ret >= 0 && memcmp(buffer, buffer_compare, ETHER_ADDR_LEN) != 0) {
+			// write mac to ralink eeprom 5 Ghz
+			flash_mtd_write(MTD_PART_NAME_FACTORY, OFFSET_MAC_ADDR_INIC, buffer, ETHER_ADDR_LEN);
+		}
+#endif
+	} else {
+		// no Romfile partition or error. Switch to ralink standart
+#endif
 #if (BOARD_5G_IN_SOC || !BOARD_HAS_5G_RADIO)
 	i_offset = OFFSET_MAC_ADDR_WSOC;
 #else
 	i_offset = OFFSET_MAC_ADDR_INIC;
 #endif
-	memset(buffer, 0xff, ETHER_ADDR_LEN);
 	i_ret = flash_mtd_read(MTD_PART_NAME_FACTORY, i_offset, buffer, ETHER_ADDR_LEN);
 	if (i_ret >= 0 && !(buffer[0] & 0x01))
 		ether_etoa(buffer, macaddr_wl);
@@ -200,6 +227,9 @@ get_eeprom_params(void)
 			ether_etoa(buffer, macaddr_wan);
 		}
 	}
+#if defined (VENDOR_TPLINK)
+	}
+#endif
 
 	nvram_set_temp("il0macaddr", macaddr_lan); // LAN
 	nvram_set_temp("il1macaddr", macaddr_wan); // WAN
