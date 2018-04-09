@@ -262,6 +262,7 @@ start_zram(void)
 	int disksize = get_zram_disksize();
 	if (disksize) {
 		module_smart_load("zram", "num_devices=1");
+		sleep(1);
 		fput_int("/sys/block/zram0/disksize", disksize);
 		doSystem("mkswap /dev/zram0");
 		doSystem("swapon -p 32767 -d /dev/zram0");
