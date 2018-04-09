@@ -28,7 +28,7 @@ eval `/sbin/blkid -s "TYPE" -s "UUID" -s "LABEL" -o udev $dev_full`
 
 if [ "$ID_FS_TYPE" == "swap" ] ; then
 	[ ! -x /sbin/swapon ] && exit 1
-	swap_used=`cat /proc/swaps | grep '^/dev/' | grep 'partition' 2>/dev/null`
+	swap_used=`cat /proc/swaps | grep '^/dev/' | grep -v 'zram' | grep 'partition' 2>/dev/null`
 	if [ -z "$swap_used" ] ; then
 		swapon $dev_full
 		if [ $? -eq 0 ] ; then

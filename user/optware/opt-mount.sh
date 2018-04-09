@@ -73,7 +73,7 @@ fi
 
 # check swap file exist
 if [ -z "$mtd_device" ] && [ -f /opt/.swap ] ; then
-	swap_part=`cat /proc/swaps | grep 'partition' 2>/dev/null`
+	swap_part=`cat /proc/swaps | grep -v 'zram' | grep 'partition' 2>/dev/null`
 	swap_file=`cat /proc/swaps | grep 'file' 2>/dev/null`
 	if [ -z "$swap_part" ] && [ -z "$swap_file" ] ; then
 		swapon /opt/.swap

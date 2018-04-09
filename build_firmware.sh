@@ -18,12 +18,16 @@ paragon_hfsplus=0
 
 func_enable_kernel_param()
 {
+	DEFPARAM="y"
+	if [ "$2"  != "" ] ; then
+		DEFPARAM="$2"
+	fi
 	if [ -n "`grep \^\"\# $1 is not set\" $kernel_tf`" ] ; then
-		sed -i "s/\# $1 is not set/$1=y/" $kernel_tf
+		sed -i "s/\# $1 is not set/$1=$DEFPARAM/" $kernel_tf
 	elif [ -n "`grep \^$1=m $kernel_tf`" ] ; then
-		sed -i "s/$1=m/$1=y/" $kernel_tf
+		sed -i "s/$1=m/$1=$DEFPARAM/" $kernel_tf
 	elif [ ! -n "`grep \^$1=y $kernel_tf`" ] ; then
-		echo "$1=y" >> $kernel_tf
+		echo "$1=$DEFPARAM" >> $kernel_tf
 	fi
 }
 
@@ -486,6 +490,7 @@ fi
 if [ "$CONFIG_FIRMWARE_INCLUDE_ZRAM" = "y" ] ; then
 	func_enable_kernel_param "CONFIG_SWAP"
 	func_enable_kernel_param "CONFIG_ZSMALLOC"
+	func_enable_kernel_param "CONFIG_MAX_SWAPFILES_SHIFT" "2"
 	func_enable_kernel_param_as_m "CONFIG_ZRAM"
 	func_enable_kernel_param_as_m "CONFIG_LZO_COMPRESS"
 	func_enable_kernel_param_as_m "CONFIG_LZO_DECOMPRESS"
@@ -495,6 +500,7 @@ if [ "$CONFIG_FIRMWARE_INCLUDE_ZRAM" = "y" ] ; then
 	func_enable_busybox_param "CONFIG_FEATURE_SWAPON_DISCARD"
 	func_enable_busybox_param "CONFIG_FEATURE_VOLUMEID_LINUXSWAP"
 	func_enable_busybox_param "CONFIG_FEATURE_SWAPONOFF_LABEL"
+	func_enable_busybox_param "CONFIG_FEATURE_SWAPON_PRI"
 fi
 #######################################################################
 echo --------------------------MAKE-DEP--------------------------------
