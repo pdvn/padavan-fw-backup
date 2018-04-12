@@ -1,4 +1,4 @@
-SRC_NAME=parted-3.1
+SRC_NAME=parted-3.X
 
 CFLAGS += -ffunction-sections -fdata-sections
 LDFLAGS += -Wl,--gc-sections
@@ -17,7 +17,8 @@ config_test:
 
 configure:
 	( cd $(SRC_NAME) ; \
-	PKG_CONFIG_PATH=$(STAGEDIR)/lib/pkgconfig \
+	PKG_CONFIG_PATH="$(STAGEDIR)/lib/pkgconfig" \
+	LIBS="-liconv" \
 	./configure \
 		--prefix=/usr \
 		--without-readline \
