@@ -71,7 +71,7 @@
 #define USB_TEXT_DIR_OLD "/sys/kernel/debug/usbmon"
 #define USB_TEXT_DIR "/sys/kernel/debug/usb/usbmon"
 #define SYS_USB_BUS_DIR "/sys/bus/usb/devices"
-#define PROC_USB_BUS_DIR "/proc/bus/usb"
+#define PROC_USB_BUS_DIR "/dev/bus/usb"
 #define USB_LINE_LEN 4096
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN

@@ -15,20 +15,17 @@ configure:
 	ac_cv_netfilter_can_compile=no \
 	./configure \
 		--prefix=$(STAGEDIR) \
-		--enable-static \
 		--disable-shared \
 		$(if $(CONFIG_IPV6),--enable-ipv6,--disable-ipv6) \
 		--disable-yydebug \
-		--disable-can \
 		--disable-usb \
-		--disable-canusb \
+		--disable-dbus \
 		--disable-bluetooth \
 		--with-pcap=linux \
-		--without-flex \
-		--without-bison \
 		--without-dag \
 		--without-septel \
 		--without-libnl \
+		--without-snf \
 		--host=$(HOST_TARGET) \
 		--build=$(HOST_BUILD) ; \
 	)

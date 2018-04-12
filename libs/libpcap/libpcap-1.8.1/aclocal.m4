@@ -470,7 +470,7 @@ AC_DEFUN(AC_LBL_SHLIBS_INIT,
 			esac
 			;;
 		    esac
-		    V_CCOPT="$V_CCOPT $PIC_OPT"
+		    V_CCOPT="$V_CCOPT"
 		    V_SONAME_OPT="-Wl,-soname,"
 		    V_RPATH_OPT="-Wl,-rpath,"
 		    ;;
@@ -533,7 +533,7 @@ AC_DEFUN(AC_LBL_SHLIBS_INIT,
 		    #
 		    # "cc" is GCC.
 		    #
-		    V_CCOPT="$V_CCOPT -fpic"
+		    V_CCOPT="$V_CCOPT"
 		    V_SHLIB_CMD="\$(CC)"
 		    V_SHLIB_OPT="-shared"
 		    V_SONAME_OPT="-Wl,-soname,"

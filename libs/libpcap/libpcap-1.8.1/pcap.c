@@ -578,6 +578,7 @@ pcap_create_common(char *ebuf, size_t size)
 	p->opt.promisc = 0;
 	p->opt.rfmon = 0;
 	p->opt.immediate = 0;
+	p->opt.proto = -1;
 	p->opt.tstamp_type = -1;	/* default to not setting time stamp type */
 	p->opt.tstamp_precision = PCAP_TSTAMP_PRECISION_MICRO;
 
@@ -768,6 +769,15 @@ int
 pcap_get_tstamp_precision(pcap_t *p)
 {
         return (p->opt.tstamp_precision);
+}
+
+int
+pcap_set_protocol(pcap_t *p, unsigned short proto)
+{
+	if (pcap_check_activated(p))
+		return PCAP_ERROR_ACTIVATED;
+	p->opt.proto = proto;
+	return 0;
 }
 
 int

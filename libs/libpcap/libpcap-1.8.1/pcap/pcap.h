@@ -68,6 +68,7 @@ extern "C" {
 #define PCAP_VERSION_MINOR 4
 
 #define PCAP_ERRBUF_SIZE 256
+#define HAS_PROTO_EXTENSION
 
 /*
  * Compatibility for systems that have a bpf.h that
@@ -287,6 +288,7 @@ PCAP_API int	pcap_set_timeout(pcap_t *, int);
 PCAP_API int	pcap_set_tstamp_type(pcap_t *, int);
 PCAP_API int	pcap_set_immediate_mode(pcap_t *, int);
 PCAP_API int	pcap_set_buffer_size(pcap_t *, int);
+PCAP_API int	pcap_set_protocol(pcap_t *, unsigned short);
 PCAP_API int	pcap_set_tstamp_precision(pcap_t *, int);
 PCAP_API int	pcap_get_tstamp_precision(pcap_t *);
 PCAP_API int	pcap_activate(pcap_t *);

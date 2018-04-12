@@ -111,6 +111,7 @@ struct pcap_opt {
 	char	*device;
 	int	timeout;	/* timeout for buffering */
 	u_int	buffer_size;
+	int	proto;		/* protocol for packet socket (linux) */
 	int	promisc;
 	int	rfmon;		/* monitor mode */
 	int	immediate;	/* immediate mode - deliver packets as soon as they arrive */

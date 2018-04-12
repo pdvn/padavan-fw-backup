@@ -1447,14 +1447,23 @@ swap_pseudo_headers(int linktype, struct pcap_pkthdr *hdr, u_char *data)
 		break;
 
 	case DLT_USB_LINUX:
+#ifndef PCAP_SUPPORT_USB
+		return;
+#endif
 		swap_linux_usb_header(hdr, data, 0);
 		break;
 
 	case DLT_USB_LINUX_MMAPPED:
+#ifndef PCAP_SUPPORT_USB
+		return;
+#endif
 		swap_linux_usb_header(hdr, data, 1);
 		break;
 
 	case DLT_NFLOG:
+#ifndef PCAP_SUPPORT_NETFILTER
+		return;
+#endif
 		swap_nflog_header(hdr, data);
 		break;
 	}
