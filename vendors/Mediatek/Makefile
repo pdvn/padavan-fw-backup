@@ -59,6 +59,8 @@ romfs:
 	for i in `ls $(BOARD_DIR)/SingleSKU*.dat` ; do \
 		[ -f $$i ] && cp -f $$i $(ROMFSDIR)/etc_ro/Wireless; \
 	done
+########### INSTALL LIBGCC_S.SO NEEDED FOR UCLIBC-NG ########
+	$(ROMFSINST) $(CONFIG_CROSS_COMPILER_ROOT)/mipsel-linux-uclibc/sysroot/lib/libgcc_s.so.1 /lib/libgcc_s.so.1
 ################# IF MAIN CPU IS MT7620 #####################
 ifdef CONFIG_RALINK_MT7620
 ifneq (,$(filter $(CONFIG_RT_FIRST_CARD),7620 2860))
