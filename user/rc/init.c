@@ -32,7 +32,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
-#include <sys/time.h>
+#include <time.h>
 
 #include "rc.h"
 #include "gpio_pins.h"
