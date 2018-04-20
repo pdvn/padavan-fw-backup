@@ -166,23 +166,22 @@ CFLAGS += -Wall -Wno-trigraphs -Wno-strict-aliasing -Wno-format-security
 # disable unused variable warnings in gcc >= 4.6.x
 CFLAGS += $(call check-gcc-nowarn,unused-but-set-variable,)
 
-# disable unused const warning
-CFLAGS += $(call check-gcc-nowarn,unused-const-variable,)
-
 # disable format truncation warning
 CFLAGS += $(call check-gcc-nowarn,format-truncation,)
 
-# disable format overflow warning
-CFLAGS += $(call check-gcc-nowarn,format-overflow,)
-
 # disable misleading indentation warning
 CFLAGS += $(call check-gcc-nowarn,misleading-indentation,)
+
+# disable unused const warning
+CFLAGS += $(call check-gcc-nowarn,unused-const-variable,)
 
 ############################################################################
 #
 # gcc version specific flags
 #
 ############################################################################
+CFLAGS += -funit-at-a-time -ffast-math -fforce-addr
+
 # conserve stack if available
 CFLAGS += $(call check-gcc-flag,-fconserve-stack,)
 
@@ -192,11 +191,12 @@ CFLAGS += $(call check-gcc-flag,-fno-strict-overflow,)
 # fix gcc-4.9.x miscompilation of some code
 CFLAGS += $(call check-gcc-flag,-fno-var-tracking-assignments,)
 
-CFLAGS += $(call check-gcc-flag,-fno-merge-all-constants,)
-CFLAGS += $(call check-gcc-flag,-fmerge-constants,)
+# fix ~10% performance regression in gcc >= 4.8.x
+CFLAGS += $(call check-gcc-flag,-fno-tree-slsr,)
+CFLAGS += $(call check-gcc-flag,-fno-tree-partial-pre,)
 
-# Make sure -fstack-check isn't enabled (like gentoo apparently did)
-CFLAGS += $(call check-gcc-flag,-fno-stack-check,)
+# disable new loop optimization mode in gcc >= 4.8.x (fix loop regressions)
+CFLAGS += $(call check-gcc-flag,-fno-aggressive-loop-optimizations,)
 
 # more safe codegeneration
 CFLAGS += $(call check-gcc-flag,-fno-delete-null-pointer-checks,)
