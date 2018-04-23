@@ -133,7 +133,12 @@ dir_$(CONFIG_FIRMWARE_INCLUDE_ARIA)		+= libxml2
 dir_$(CONFIG_FIRMWARE_INCLUDE_PRIVOXY)		+= libpcre
 
 # dnscrypt extra libs
-dir_$(CONFIG_FIRMWARE_INCLUDE_DNSCRYPT)	+= libsodium
+dir_$(CONFIG_FIRMWARE_INCLUDE_DNSCRYPT)		+= libsodium
+
+# nfs rpc lib
+ifneq (,$(filter y,$(CONFIG_FIRMWARE_INCLUDE_NFSD) $(CONFIG_FIRMWARE_INCLUDE_NFSC)))
+dir_y						+= libtirpc
+endif
 
 all:
 	for i in $(dir_y) ; do \
