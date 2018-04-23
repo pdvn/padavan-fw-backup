@@ -84,7 +84,7 @@ arpbind_clear(void)
 		while (fgets(buffer, sizeof(buffer), fp)) {
 			arp_flags = 0;
 			if (sscanf(buffer, "%15s %*s 0x%x %*s %*s %31s", arp_ip, &arp_flags, arp_if) == 3) {
-				if ((arp_flags & 0x04) && strcmp(arp_if, IFNAME_BR) == 0)
+				if ((arp_flags & 0x04) && (arp_flags != 0xc) && strcmp(arp_if, IFNAME_BR) == 0)
 					doSystem("arp -i %s -d %s", IFNAME_BR, arp_ip);
 			}
 		}
