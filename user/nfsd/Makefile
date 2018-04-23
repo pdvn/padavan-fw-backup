@@ -30,23 +30,23 @@ config_test:
 configure:
 	( cd $(SRC_NAME1) && \
 	knfsd_cv_bsd_signals=no \
+	PKG_CONFIG_PATH=$(STAGEDIR)/lib/pkgconfig \
 	./configure \
 		--prefix=/ \
 		--disable-ipv6 \
-		--disable-tirpc \
 		--disable-mount \
 		--disable-libmount \
 		--disable-mountconfig \
 		--disable-nfsdcltrack \
-		--disable-ldap \
 		--disable-nfsv4 \
 		--disable-nfsv41 \
 		--disable-uuid \
 		--disable-gss \
+		--enable-tirpc \
 		--without-gssglue \
 		--without-krb5 \
-		--without-systemd \
 		--without-tcp-wrappers \
+		LIBS="-ltirpc" \
 		--host=$(HOST_TARGET) \
 		--build=$(HOST_BUILD) ; \
 	)
