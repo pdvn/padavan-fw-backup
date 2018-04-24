@@ -115,9 +115,9 @@ get_ifname_descriptor(const char* ifname, int ap_mode, int *ifindex, int *wan_no
 
 int is_usbnet_interface(const char *ifname)
 {
-	if(!strncmp(ifname, "weth", 4))
-		return 1;
-	if(!strncmp(ifname, "wwan", 4))
+	if (!strncmp(ifname, "eth", 3) ||
+		!strncmp(ifname, "weth", 4) ||
+		!strncmp(ifname, "wwan", 4))
 		return 1;
 	return 0;
 }
