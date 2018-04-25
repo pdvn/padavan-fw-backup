@@ -129,7 +129,10 @@ dir_$(CONFIG_FIRMWARE_INCLUDE_U2EC)		+= u2ec
 endif
 
 ifeq ($(STORAGE_ENABLED),y)
-dir_y						+= nfsd
+dir_$(CONFIG_FIRMWARE_INCLUDE_NFSD)		+= nfs-utils
+ifneq (,$(filter y,$(CONFIG_FIRMWARE_INCLUDE_NFSD) $(CONFIG_FIRMWARE_INCLUDE_NFSC)))
+dir_y						+= rpcbind
+endif
 dir_y						+= util-linux
 dir_y						+= optware
 dir_$(FS_EXT_ENABLED)				+= e2fsprogs
