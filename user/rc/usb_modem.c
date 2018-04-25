@@ -36,9 +36,6 @@
 #define MAX_USB_NODE		(15)
 #define MAX_QMI_TRIES		(3)
 
-#define MODEM_NODES_COUNT 3
-static char *modem_nodes[] = { "wwan", "weth", "eth" };
-
 static int
 get_modem_vid_pid(const char *modem_node, int *vid, int *pid)
 {
@@ -301,14 +298,20 @@ get_modem_devnum(void)
 int
 get_modem_ndis_ifname(char ndis_ifname[16], int *devnum_out)
 {
-	int node_idx = 0, valid_node = 0;
-	while(node_idx < MODEM_NODES_COUNT &&
-		(valid_node = find_modem_node(modem_nodes[node_idx], 0, 0, -1, devnum_out)) < 0)
-		node_idx++;
-	if (node_idx != MODEM_NODES_COUNT) {
-		sprintf(ndis_ifname, "%s%d", modem_nodes[node_idx], valid_node);
+	int valid_node = 0;
+
+	valid_node = find_modem_node("wwan", 0, 0, -1, devnum_out); // first exist node
+	if (valid_node >= 0) {
+		sprintf(ndis_ifname, "wwan%d", valid_node);
 		return 1;
+	} else {
+		valid_node = find_modem_node("weth", 0, 0, -1, devnum_out); // first exist node
+		if (valid_node >= 0) {
+			sprintf(ndis_ifname, "weth%d", valid_node);
+			return 1;
+		}
 	}
+
 	return 0;
 }
 
@@ -474,7 +477,7 @@ ncm_control_network(const char* control_node, int is_start)
 	if (fp) {
 		if (fwrite(node_msg, 1, strlen(node_msg), fp) > 0)
 			result = 0;
-
+		
 		fclose(fp);
 	}
 
@@ -510,10 +513,10 @@ ndis_control_network(char *ndis_ifname, int devnum, int is_start)
 	if (strlen(control_node_wdm) > 0) {
 		if (is_usbnet_has_module(ndis_ifname, "qmi_wwan"))
 			return qmi_control_network(control_node_wdm, is_start);
-
+		
 		if (is_usbnet_has_module(ndis_ifname, "cdc_mbim"))
 			return mbim_control_network(control_node_wdm, is_start);
-
+		
 		if (is_usbnet_has_module(ndis_ifname, "huawei_cdc_ncm"))
 			return ncm_control_network(control_node_wdm, is_start);
 	}
@@ -521,7 +524,7 @@ ndis_control_network(char *ndis_ifname, int devnum, int is_start)
 	if (strlen(control_node_tty) > 0) {
 		if (is_usbnet_has_module(ndis_ifname, "cdc_ncm"))
 			return ncm_control_network(control_node_tty, is_start);
-
+		
 		if (is_usbnet_has_module(ndis_ifname, "sierra_net"))
 			return sierra_control_network(control_node_tty, is_start);
 	}
@@ -540,7 +543,7 @@ unlink_modem_ras(void)
 	{
 		snprintf(node_fname, sizeof(node_fname), "%s/ttyUSB%d", MODEM_NODE_DIR, i);
 		unlink(node_fname);
-
+		
 		snprintf(node_fname, sizeof(node_fname), "%s/ttyACM%d", MODEM_NODE_DIR, i);
 		unlink(node_fname);
 	}
@@ -549,21 +552,22 @@ unlink_modem_ras(void)
 static void
 unlink_modem_ndis(void)
 {
-	int i, j;
+	int i;
 	char node_fname[64];
 
 	for (i=0; i<MAX_USB_NODE; i++)
 	{
 		snprintf(node_fname, sizeof(node_fname), "%s/ttyUSB%d", MODEM_NODE_DIR, i);
 		unlink(node_fname);
-
+		
 		snprintf(node_fname, sizeof(node_fname), "%s/cdc-wdm%d", MODEM_NODE_DIR, i);
 		unlink(node_fname);
-
-		for (j = 0; j < MODEM_NODES_COUNT; j++) {
-			snprintf(node_fname, sizeof(node_fname), "%s/%s%d", MODEM_NODE_DIR, modem_nodes[j], i);
-			unlink(node_fname);
-		}
+		
+		snprintf(node_fname, sizeof(node_fname), "%s/weth%d", MODEM_NODE_DIR, i);
+		unlink(node_fname);
+		
+		snprintf(node_fname, sizeof(node_fname), "%s/wwan%d", MODEM_NODE_DIR, i);
+		unlink(node_fname);
 	}
 }
 #endif
