@@ -4,11 +4,11 @@ SHDIR = $(ROOTDIR)/user/shared
 EXEC = networkmap
 OBJS = function.o networkmap.o
 
-CFLAGS  += -Wall -I. -I$(SHDIR) -I$(SHDIR)/include
+CFLAGS  += -ffunction-sections -fdata-sections -Wall -I. -I$(SHDIR) -I$(SHDIR)/include
 CFLAGS  += -s -DNO_PARALLEL
 #CFLAGS  += -DDEBUG -DDEBUG_MORE
 
-LDFLAGS += -L$(SHDIR) -lshared
+LDFLAGS += -Wl,--gc-sections -L$(SHDIR) -lshared
 
 all: $(EXEC)
 

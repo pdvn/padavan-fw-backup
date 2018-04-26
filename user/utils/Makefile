@@ -1,3 +1,6 @@
+CFLAGS  += -ffunction-sections -fdata-sections
+LDFLAGS += -Wl,--gc-sections
+
 utils_dir_y =
 utils_dir_  =
 

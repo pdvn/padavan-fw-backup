@@ -3,9 +3,7 @@ SRC_NAME=parted-3.X
 CFLAGS += -ffunction-sections -fdata-sections
 LDFLAGS += -Wl,--gc-sections
 
-THISDIR = $(shell pwd)
-
-all:	config_test
+all: config_test
 	$(MAKE) -C $(SRC_NAME)
 
 config_test:
@@ -18,7 +16,6 @@ config_test:
 configure:
 	( cd $(SRC_NAME) ; \
 	PKG_CONFIG_PATH="$(STAGEDIR)/lib/pkgconfig" \
-	LIBS="-liconv" \
 	./configure \
 		--prefix=/usr \
 		--without-readline \
@@ -26,6 +23,7 @@ configure:
 		--disable-device-mapper \
 		--disable-nls \
 		--disable-debug \
+		LIBS="-liconv" \
 		--host=$(HOST_TARGET) \
 		--build=$(HOST_BUILD) ; \
 	)
@@ -37,5 +35,5 @@ clean:
 	rm -f config_done
 
 romfs:
-	$(ROMFSINST) $(THISDIR)/$(SRC_NAME)/parted/parted /sbin/parted
+	$(ROMFSINST) $(SRC_NAME)/parted/parted /sbin/parted
 

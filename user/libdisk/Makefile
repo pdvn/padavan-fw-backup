@@ -8,10 +8,10 @@ SHDIR = $(ROOTDIR)/user/shared
 include $(SHDIR)/boards.mk
 include $(SHDIR)/cflags.mk
 
-CFLAGS += -fPIC
+CFLAGS += -fPIC -ffunction-sections -fdata-sections
 CFLAGS += -I. -I$(SHDIR) -I$(SHDIR)/include
 
-LDFLAGS = -L$(SHDIR) -lshared
+LDFLAGS += -Wl,--gc-sections -L$(SHDIR) -lshared
 
 OBJS = dev_info.o disk_io_tools.o disk_initial.o disk_share.o
 ifdef CONFIG_USB_SUPPORT

@@ -17,10 +17,10 @@ endif
 
 SHDIR = $(ROOTDIR)/user/shared
 
-CFLAGS	+= -Wall -I.
+CFLAGS	+= -ffunction-sections -fdata-sections -Wall -I.
 CFLAGS	+= -I$(SHDIR) -I$(ROOTDIR)/$(LINUXDIR)/include/nvram
 CFLAGS	+= -s
-LDFLAGS	+= -L. -L../shared -lshared
+LDFLAGS	+= -Wl,--gc-sections -L. -L../shared -lshared
 
 ifdef CONFIG_MTD_NAND_RALINK
 CFLAGS	+= -DCONFIG_MTD_NAND_RALINK

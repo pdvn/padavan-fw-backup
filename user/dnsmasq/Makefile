@@ -12,7 +12,7 @@ COPTS += -DNO_IPSET
 endif
 
 all:
-	$(MAKE) -C $(SRC_NAME) COPTS="$(COPTS)"
+	$(MAKE) -C $(SRC_NAME) CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" COPTS="$(COPTS)"
 
 clean:
 	$(MAKE) -C $(SRC_NAME) clean

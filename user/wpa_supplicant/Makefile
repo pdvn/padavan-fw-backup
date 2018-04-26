@@ -8,7 +8,7 @@ ifeq ($(CONFIG_FIRMWARE_INCLUDE_EAP_PEAP),y)
 	echo CONFIG_EAP_PEAP=y >> $(SRC_NAME)/.config
 	echo CONFIG_EAP_MSCHAPV2=y >> $(SRC_NAME)/.config
 endif
-	$(MAKE) -C $(SRC_NAME)
+	$(MAKE) -C $(SRC_NAME) EXTRACFLAGS="$(CFLAGS)"
 
 clean:
 	$(MAKE) -C $(SRC_NAME) clean

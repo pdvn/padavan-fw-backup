@@ -16,8 +16,8 @@ DESTDIR=$(ROOTDIR)/stage
 LIBC_DIR = uClibc-1.0.29
 
 all:
-	$(MAKE) -j$(HOST_NCPU) -C $(LIBC_DIR) && \
-	$(MAKE) -C $(LIBC_DIR) utils || \
+	$(MAKE) -j$(HOST_NCPU) -C $(LIBC_DIR) UCLIBC_EXTRA_CFLAGS="$(CFLAGS)" && \
+	$(MAKE) -C $(LIBC_DIR) utils UCLIBC_EXTRA_CFLAGS="$(CFLAGS)" || \
 	exit $$? ; \
 	if [ ! -f $(DESTDIR)/.installed_$(LIBC_DIR) ] ; then \
 		$(MAKE) -C $(LIBC_DIR) install_runtime && \

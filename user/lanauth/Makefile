@@ -1,5 +1,5 @@
-CCFLAGS+=-Os -Wall -I. $(EXTRACFLAGS)
-LDFLAGS+=-s
+CCFLAGS+=-Os -Wall -I. -ffunction-sections -fdata-sections $(CFLAGS)
+LDFLAGS+=-s -Wl,--gc-sections
 LIBS=md5.o rmd160.o
 
 lanauth: lanauth.o $(LIBS)
