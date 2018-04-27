@@ -1,6 +1,7 @@
 AC_INIT(rpcbind, 0.2.4)
  
 AM_INIT_AUTOMAKE
+AM_MAINTAINER_MODE([disable])
 AC_CONFIG_SRCDIR([src/rpcbind.c])
 AC_PREFIX_DEFAULT(/usr)
 AC_PROG_CC
