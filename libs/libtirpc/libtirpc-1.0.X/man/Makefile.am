@@ -27,4 +27,3 @@ endif
 EXTRA_DIST		= publickey.3t publickey.5 rpc.5
 
 CLEANFILES		= cscope.* *~
-DISTCLEANFILES		= Makefile.in

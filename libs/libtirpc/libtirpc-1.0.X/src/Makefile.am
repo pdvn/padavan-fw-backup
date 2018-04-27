@@ -45,4 +45,3 @@ endif
 #libtirpc_la_SOURCES += netname.c netnamer.c rpcdname.c rtime.c
 
 CLEANFILES	       = cscope.* *~
-DISTCLEANFILES	       = Makefile.in

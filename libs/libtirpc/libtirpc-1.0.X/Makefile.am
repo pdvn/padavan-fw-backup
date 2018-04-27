@@ -49,4 +49,4 @@ pkgconfigdir=$(libdir)/pkgconfig
 pkgconfig_DATA = libtirpc.pc
 
 CLEANFILES	       = cscope.* *~
-DISTCLEANFILES	       = Makefile.in libtirpc*.tar.gz
+DISTCLEANFILES	       = libtirpc*.tar.gz
