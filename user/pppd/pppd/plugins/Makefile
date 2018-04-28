@@ -1,6 +1,6 @@
 COPTS	= -O2 -g
 CFLAGS	= $(COPTS) -I.. -I../../include -fPIC
-LDFLAGS	= -shared
+LDFLAGS	+= -shared
 INSTALL	= install
 
 DESTDIR = $(INSTROOT)/usr

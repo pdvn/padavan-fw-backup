@@ -11,15 +11,16 @@ ETCDIR = $(INSTROOT)/tmp/ppp
 
 # uid 0 = root
 INSTALL= install
-
+CFLAGS += -ffunction-sections -fdata-sections
+LDFLAGS += -Wl,--gc-sections
 MFLAGS=$(if $(CONFIG_IPV6),HAVE_INET6=y,)
 
 all:
-	cd chat; $(MAKE) $(MFLAGS) all
-	cd pppd/plugins; $(MAKE) $(MFLAGS) all
-	cd pppd; $(MAKE) $(MFLAGS) all
-	cd pppstats; $(MAKE) $(MFLAGS) all
-	cd pppdump; $(MAKE) $(MFLAGS) all
+	cd chat; $(MAKE) COPTS="$(CFLAGS)" $(MFLAGS) all
+	cd pppd/plugins; $(MAKE) COPTS="$(CFLAGS)" $(MFLAGS) all
+	cd pppd; $(MAKE) COPTS="$(CFLAGS)" $(MFLAGS) all
+	cd pppstats; $(MAKE) COPTS="$(CFLAGS)" $(MFLAGS) all
+	cd pppdump; $(MAKE) COPTS="$(CFLAGS)" $(MFLAGS) all
 
 romfs:
 	cd pppd; $(MAKE) $(MFLAGS) all

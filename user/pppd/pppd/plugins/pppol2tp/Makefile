@@ -1,6 +1,6 @@
 COPTS	= -O2 -g
 CFLAGS	= $(COPTS) -I. -I../.. -I../../../include -fPIC
-LDFLAGS	= -shared
+LDFLAGS	+= -shared
 INSTALL	= install
 
 #***********************************************************************
@@ -19,7 +19,7 @@ endif
 all: $(PLUGINS)
 
 %.so: %.o
-	$(CC) $(CFLAGS) -o $@ -shared $^ $(LIBS)
+	$(CC) $(CFLAGS) -o $@ -shared $(LDFLAGS) $^ $(LIBS)
 
 install: all
 	$(INSTALL) -d -m 755 $(LIBDIR)
