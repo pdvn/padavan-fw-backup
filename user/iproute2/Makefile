@@ -12,7 +12,7 @@ endif
 
 all:
 ifeq ($(IPROUTE2_ENABLED),y)
-	$(MAKE) -C $(SRC_NAME)
+	$(MAKE) -j$(HOST_NCPU) -C $(SRC_NAME)
 else
 	exit 0
 endif

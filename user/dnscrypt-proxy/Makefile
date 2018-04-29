@@ -3,7 +3,8 @@ SRC_NAME=dnscrypt-proxy-1.9.5
 CFLAGS +=$(COPT) -ffunction-sections -fdata-sections
 LDFLAGS += -Wl,--gc-sections
 
-all: config_test build
+all: config_test
+	$(MAKE) -j$(HOST_NCPU) -C $(SRC_NAME)
 
 config_test:
 	( if [ -f ./config_done ]; then \
@@ -21,9 +22,6 @@ configure:
 		--host=$(HOST_TARGET) \
 		--build=$(HOST_BUILD); \
 	)
-
-build:
-	$(MAKE) V=1 -C $(SRC_NAME)
 
 clean:
 	if [ -f $(SRC_NAME)/Makefile ] ; then \

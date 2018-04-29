@@ -3,7 +3,8 @@ SRC_NAME=tcpdump-4.9.2
 CFLAGS += -Os -ffunction-sections -fdata-sections -DTCPDUMP_MINI
 LDFLAGS += -Wl,--gc-sections
 
-all: config_test build
+all: config_test
+	$(MAKE) -j$(HOST_NCPU) -C $(SRC_NAME) TCPDUMP_MINI=1
 
 config_test:
 	( if [ -f ./config_done ]; then \
@@ -28,9 +29,6 @@ configure:
 		--host=$(HOST_TARGET) \
 		--build=$(HOST_BUILD) ; \
 	)
-
-build:
-	$(MAKE) -C $(SRC_NAME) TCPDUMP_MINI=1
 
 clean:
 	if [ -f $(SRC_NAME)/Makefile ] ; then \

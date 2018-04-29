@@ -1,7 +1,7 @@
 SRC_NAME=jpeg-6b
 
 all: config_test
-	$(MAKE) -C $(SRC_NAME) LIBTOOL="" O=o A=a libjpeg.a
+	$(MAKE) -j$(HOST_NCPU) -C $(SRC_NAME) LIBTOOL="" O=o A=a libjpeg.a
 
 config_test:
 	( if [ -f ./config_done ]; then \

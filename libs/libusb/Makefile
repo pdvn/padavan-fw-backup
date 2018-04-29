@@ -1,7 +1,7 @@
 SRC_NAME=libusb-0.1.12
 
-all:	config_test
-	$(MAKE) -C $(SRC_NAME)
+all: config_test
+	$(MAKE) -j$(HOST_NCPU) -C $(SRC_NAME)
 
 config_test:
 	( if [ -f ./config_done ]; then \

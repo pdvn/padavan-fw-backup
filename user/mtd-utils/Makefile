@@ -3,7 +3,7 @@ SRC_NAME=mtd-utils-1.5.x
 THISDIR = $(shell pwd)
 
 all:
-	$(MAKE) -C $(SRC_NAME) WITHOUT_XATTR=1 BUILDDIR=$(THISDIR)/build
+	$(MAKE) -j$(HOST_NCPU) -C $(SRC_NAME) WITHOUT_XATTR=1 BUILDDIR=$(THISDIR)/build
 
 clean:
 	$(MAKE) -C $(SRC_NAME) clean

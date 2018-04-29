@@ -3,7 +3,8 @@ SRC_NAME=tor-0.3.2.10
 CFLAGS +=$(COPT) -ffunction-sections -fdata-sections
 LDFLAGS += -Wl,--gc-sections
 
-all: config_test build
+all: config_test
+	$(MAKE) -j$(HOST_NCPU) -C $(SRC_NAME)
 
 config_test:
 	( if [ -f ./config_done ]; then \
@@ -26,9 +27,6 @@ configure:
 		--disable-systemd \
 		--disable-lzma; \
 	)
-
-build:
-	$(MAKE) V=1 -C $(SRC_NAME)
 
 clean:
 	if [ -f $(SRC_NAME)/Makefile ] ; then \

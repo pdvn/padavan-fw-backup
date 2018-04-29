@@ -3,8 +3,8 @@ SRC_NAME=igmpproxy-0.1
 CFLAGS += -ffunction-sections -fdata-sections
 LDFLAGS += -Wl,--gc-sections
 
-all:	config_test
-	$(MAKE) -C $(SRC_NAME)
+all: config_test
+	$(MAKE) -j$(HOST_NCPU) -C $(SRC_NAME)
 
 config_test:
 	( if [ -f ./config_done ]; then \
