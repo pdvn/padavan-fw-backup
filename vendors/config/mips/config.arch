@@ -108,7 +108,7 @@ ifdef UCLINUX_BUILD_LIB
 	CFLAGS  += $(VENDOR_CFLAGS)
 	CFLAGS  += -DEMBED
 	CFLAGS  += -I$(ROOTDIR)/stage/include
-	LDFLAGS += -L$(ROOTDIR)/stage/lib -static-libstdc++
+	LDFLAGS += -L$(ROOTDIR)/stage/lib
 
 	# don't want all the CFLAGS for uClibc/Config
 	ARCH_CFLAGS = $(CFLAGS)
@@ -132,7 +132,7 @@ ifdef UCLINUX_BUILD_USER
 	CFLAGS  += $(VENDOR_CFLAGS)
 	CFLAGS  += -Dlinux -D__linux__ -Dunix -DEMBED
 	CFLAGS  += -I$(ROOTDIR)/stage/include
-	LDFLAGS += -L$(ROOTDIR)/stage/lib -static-libstdc++
+	LDFLAGS += -L$(ROOTDIR)/stage/lib
 
 #	LDLIBS   = $(LIBC) $(LIBGCC) $(CRTN)
 
@@ -207,7 +207,7 @@ CFLAGS += $(call check-gcc-flag,-fno-delete-null-pointer-checks,)
 #
 ############################################################################
 
-CXXFLAGS := $(CFLAGS) $(INCCXX)
+CXXFLAGS := $(CFLAGS) $(INCCXX) -static-libstdc++
 CXXLIBS   = -Wl,-Bstatic $(LIBSTDCPP) -Wl,-Bdynamic $(LIBC) $(LIBGCC) $(CRTN)
 
 ############################################################################
