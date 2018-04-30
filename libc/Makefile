@@ -16,12 +16,11 @@ DESTDIR=$(ROOTDIR)/stage
 LIBC_DIR = uClibc-1.0.29
 
 all:
-	$(MAKE) -j$(HOST_NCPU) -C $(LIBC_DIR) UCLIBC_EXTRA_CFLAGS="$(CFLAGS)" && \
-	$(MAKE) -C $(LIBC_DIR) utils UCLIBC_EXTRA_CFLAGS="$(CFLAGS)" || \
+	sed -i 's/UCLIBC_EXTRA_CFLAGS=\"\"/UCLIBC_EXTRA_CFLAGS=\"$(CFLAGS)\"/' $(LIBC_DIR)/.config && \
+	$(MAKE) -j$(HOST_NCPU) -C $(LIBC_DIR) all utils || \
 	exit $$? ; \
 	if [ ! -f $(DESTDIR)/.installed_$(LIBC_DIR) ] ; then \
-		$(MAKE) -C $(LIBC_DIR) install_runtime && \
-		$(MAKE) -C $(LIBC_DIR) install_utils && \
+		$(MAKE) -C $(LIBC_DIR) install_runtime install_utils && \
 		touch $(DESTDIR)/.installed_$(LIBC_DIR) ; \
 	fi
 
