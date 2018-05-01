@@ -13,7 +13,7 @@ include $(ARCH_CONFIG)
 
 DESTDIR=$(ROOTDIR)/stage
 
-LIBC_DIR = uClibc-1.0.29
+LIBC_DIR = uClibc-1.0.30
 
 all:
 	sed -i 's/UCLIBC_EXTRA_CFLAGS=\"\"/UCLIBC_EXTRA_CFLAGS=\"$(CFLAGS)\"/' $(LIBC_DIR)/.config && \
