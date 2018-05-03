@@ -505,6 +505,7 @@
 #endif
 			{"telnetd", "", NULL, EVM_RESTART_TELNETD},
 			{"sshd_enable", "", NULL, EVM_RESTART_SSHD},
+			{"sshd_enable_gp", "", NULL, EVM_RESTART_SSHD},
 #if defined(APP_TOR)
 			{"tor_enable", "", NULL, EVM_RESTART_TOR},
 			{"torconf.torrc", "File", NULL, EVM_RESTART_TOR|EVM_BLOCK_UNSAFE},

@@ -114,6 +114,9 @@ EOF
 
 func_start()
 {
+	key_passwordauth=""
+	key_gatewayports=""
+
 	[ ! -d "$dir_storage" ] && mkdir -p -m 755 $dir_storage
 
 	old_path="/etc/storage"
@@ -133,11 +136,16 @@ func_start()
 
 	touch /var/run/utmp
 
-	if [ -n "$1" ] ; then
-		/usr/sbin/sshd -o PasswordAuthentication=no
-	else
-		/usr/sbin/sshd
+	if [ -n "$1" ]; then
+		key_passwordauth="-o PasswordAuthentication=no"
 	fi
+
+        gateway_ports=`nvram get sshd_enable_gp`
+        if [ "$gateway_ports" != "0" ]; then
+                key_gatewayports="-o GatewayPorts=yes"
+        fi
+
+	/usr/sbin/sshd $key_passwordauth $key_gatewayports
 }
 
 func_stop()

@@ -25,6 +25,7 @@ var $j = jQuery.noConflict();
 
 $j(document).ready(function() {
 	init_itoggle('telnetd');
+	init_itoggle('sshd_enable_gp');
 	init_itoggle('wins_enable', change_wins_enabled);
 	init_itoggle('lltd_enable');
 	init_itoggle('adsc_enable');
@@ -270,6 +271,7 @@ function create_server_cert() {
 function sshd_auth_change(){
 	var auth = document.form.sshd_enable.value;
 	var v = (auth != "0") ? 1 : 0;
+	showhide_div('row_ssh_gp', v);
 	showhide_div('row_ssh_keys', v);
 	if (!login_safe())
 		v = 0;
@@ -505,6 +507,20 @@ function change_crond_enabled(){
                                                     <option value="1" <% nvram_match_x("", "sshd_enable", "1","selected"); %>><#checkbox_Yes#></option>
                                                     <option value="2" <% nvram_match_x("", "sshd_enable", "2","selected"); %>><#checkbox_Yes#> (authorized_keys only)</option>
                                                 </select>
+                                            </td>
+                                        </tr>
+                                        <tr id="row_ssh_gp">
+                                            <th width="50%"><#Adm_System_sshd_gp#></th>
+                                            <td>
+                                                <div class="main_itoggle">
+                                                    <div id="sshd_enable_gp_on_of">
+                                                        <input type="checkbox" id="sshd_enable_gp_fake" <% nvram_match_x("", "sshd_enable_gp", "1", "value=1 checked"); %><% nvram_match_x("", "sshd_enable_gp", "0", "value=0"); %>>
+                                                    </div>
+                                                </div>
+                                                <div style="position: absolute; margin-left: -10000px;">
+                                                    <input type="radio" name="sshd_enable_gp" id="sshd_enable_gp_1" class="input" value="1" <% nvram_match_x("", "sshd_enable_gp", "1", "checked"); %>/><#checkbox_Yes#>
+                                                    <input type="radio" name="sshd_enable_gp" id="sshd_enable_gp_0" class="input" value="0" <% nvram_match_x("", "sshd_enable_gp", "0", "checked"); %>/><#checkbox_No#>
+                                                </div>
                                             </td>
                                         </tr>
                                         <tr id="row_ssh_keys" style="display:none">

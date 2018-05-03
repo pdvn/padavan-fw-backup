@@ -22,6 +22,7 @@ func_createkeys()
 
 func_start()
 {
+	key_a=""
 	key_s=""
 	key_4=""
 
@@ -50,7 +51,12 @@ func_start()
 		key_4="-4"
 	fi
 
-	/usr/sbin/dropbear $key_4 $key_s
+	gateway_ports=`nvram get sshd_enable_gp`
+	if [ "$gateway_ports" != "0" ]; then
+		key_a="-a"
+	fi
+
+	/usr/sbin/dropbear $key_4 $key_s $key_a
 }
 
 func_stop()

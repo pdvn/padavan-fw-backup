@@ -233,6 +233,7 @@ Adm_System_anon=Anonymity and content filtering
 Adm_System_misc=Miscellaneous Services
 Adm_System_telnetd=Enable Telnet Server?
 Adm_System_sshd=Enable SSH Server?
+Adm_System_sshd_gp=Allow SSH GatewayPorts?
 Adm_System_sshd_wopen=Access SSH Server from WAN?
 Adm_System_sshd_wport=SSH Server Port from WAN:
 Adm_System_sshd_wbfp=SSH Server Brute Force Protection:
