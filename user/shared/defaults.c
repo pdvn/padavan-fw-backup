@@ -578,12 +578,20 @@ struct nvram_pair router_defaults[] = {
 	{ "telnetd", "1" },
 	{ "sshd_enable", "0" },
 	{ "wins_enable", "0" },
+#if defined (APP_TOR)
 	{ "tor_enable", "0" },
+#endif
+#if defined (APP_PRIVOXY)
 	{ "privoxy_enable", "0" },
+#endif
+#if defined (APP_DNSCRYPT)
 	{ "dnscrypt_enable", "0" },
 	{ "dnscrypt_resolver", "cisco" },
 	{ "dnscrypt_ipaddr", "127.0.0.1" },
 	{ "dnscrypt_port", "65053" },
+	{ "dnscrypt_force_dns", "0" },
+	{ "dnscrypt_options", "-e 4096 -S -m 0" },
+#endif
 	{ "lltd_enable", "1" },
 	{ "adsc_enable", "0" },
 	{ "crond_enable", "0" },

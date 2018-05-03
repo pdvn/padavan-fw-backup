@@ -1726,6 +1726,10 @@ ipt_nat_rules(char *man_if, char *man_ip,
 	i_vpnc_type = nvram_get_int("vpnc_type");
 	i_vpnc_sfw = nvram_get_int("vpnc_sfw");
 
+#if defined (APP_DNSCRYPT)
+	int is_dnscrypt_enabled = nvram_match("dnscrypt_enable", "1");
+#endif
+
 	vpnc_if = NULL;
 	if (i_vpnc_enable) {
 #if defined (APP_OPENVPN)
@@ -1777,6 +1781,14 @@ ipt_nat_rules(char *man_if, char *man_ip,
 		
 		snprintf(dmz_ip, sizeof(dmz_ip), "%s", nvram_safe_get("dmz_ip"));
 		is_use_dmz = (is_valid_ipv4(dmz_ip)) ? 1 : 0;
+
+#if defined (APP_DNSCRYPT)
+		/* redirect all LAN clients' DNS queries to dnscrypt if WAN and dnscrypt-proxy are up (PREROUTING) */
+		if (wan_ip && is_dnscrypt_enabled && nvram_match("dnscrypt_force_dns", "1")) {
+			fprintf(fp, "-I %s -i %s -p tcp --dport 53 -j DNAT --to-destination %s\n", "PREROUTING", lan_if, lan_ip);
+			fprintf(fp, "-I %s -i %s -p udp --dport 53 -j DNAT --to-destination %s\n", "PREROUTING", lan_if, lan_ip);
+		}
+#endif
 		
 		/* BattleNET (PREROUTING + POSTROUTING) */
 		if (wan_ip && nvram_match("sp_battle_ips", "1")) {

@@ -379,10 +379,10 @@ stop_dnscrypt(void)
 void
 start_dnscrypt(void)
 {
-	int dnscrypt_mode = nvram_get_int("dnscrypt_enable");
+	if (nvram_invmatch("dnscrypt_enable", "1"))
+		return 1;
 
-	if (dnscrypt_mode > 0)
-		eval("/usr/bin/dnscrypt-proxy.sh", "start");
+	return eval("/usr/bin/dnscrypt-proxy.sh", "start");
 }
 
 void
@@ -395,6 +395,13 @@ restart_dnscrypt(void)
 	start_dnscrypt();
 
 	is_run_after = is_dnscrypt_run();
+
+	/* add-remove iptables rules for DNS forwarding when switching-on-off DNSCrypt-Proxy control in WebUI */
+	if ((is_run_after != is_run_before) && nvram_match("dnscrypt_force_dns", "1"))
+		restart_firewall();
+
+	/* add-remove needed dnsmasq params when dnscrypt-proxy is enabled-disabled */
+	restart_dhcpd();
 }
 #endif
 

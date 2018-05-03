@@ -338,7 +338,13 @@ start_dns_dhcpd(int is_ap_mode)
 		/* listen DNS queries from clients of VPN server */
 		fprintf(fp, "listen-address=%s\n", ipaddr);
 	}
-
+#if defined(APP_DNSCRYPT)
+	if (!is_ap_mode && nvram_match("dnscrypt_enable", "1")) {
+		/* don't use resolv-file to resovle DNS queries if dnscrypt-proxy is enabled */
+		fprintf(fp, "no-resolv\n"
+			    "server=%s#%d\n", nvram_safe_get("dnscrypt_ipaddr"), nvram_get_int("dnscrypt_port"));
+	}
+#endif
 	if (!is_ap_mode) {
 		is_dns_used = 1;
 		fprintf(fp, "min-port=%d\n", 4096);

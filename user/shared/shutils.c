@@ -204,6 +204,7 @@ void recreate_passwd_unix(int force_create)
 		fprintf(fp1, "%s:x:%d:%d::%s:%s\n", rootnm, 0, 0, SYS_HOME_PATH_ROOT, SYS_SHELL);
 		fprintf(fp1, "%s:x:%d:%d::%s:%s\n", SYS_USER_NOBODY, 99, 99, "/media", "/bin/false");
 		fprintf(fp1, "%s:x:%d:%d::%s:%s\n", "sshd", 100, 99, "/var/empty", "/bin/false");
+		fprintf(fp1, "%s:x:%d:%d::%s:%s\n", "dnscrypt", 101, 99, "/var/empty", "/bin/false");
 		fprintf(fp2, "%s:x:%d:%s\n", SYS_GROUP_ROOT, 0, rootnm);
 		fprintf(fp2, "%s:x:%d:\n", SYS_GROUP_NOGROUP, 99);
 		
@@ -215,7 +216,8 @@ void recreate_passwd_unix(int force_create)
 			if (*usernm && strcmp(usernm, "root") &&
 				       strcmp(usernm, rootnm) &&
 				       strcmp(usernm, SYS_USER_NOBODY) &&
-				       strcmp(usernm, "sshd")) {
+				       strcmp(usernm, "sshd") &&
+				       strcmp(usernm, "dnscrypt")) {
 				fprintf(fp1, "%s:x:%d:%d:::\n", usernm, uid, uid);
 				fprintf(fp2, "%s:x:%d:\n", usernm, uid);
 				uid++;
@@ -237,6 +239,7 @@ void recreate_passwd_unix(int force_create)
 			fprintf(fp1, "%s:%s:%d:0:99999:7:::\n", rootnm, "", 16000);
 			fprintf(fp1, "%s:%s:%d:0:99999:7:::\n", SYS_USER_NOBODY, "*", 16000);
 			fprintf(fp1, "%s:%s:%d:0:99999:7:::\n", "sshd", "*", 16000);
+			fprintf(fp1, "%s:%s:%d:0:99999:7:::\n", "dnscrypt", "*", 16000);
 			
 			fclose(fp1);
 		}

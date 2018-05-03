@@ -25,7 +25,9 @@ romfs:
 	echo "ASUSTeK" > $(ROMFS_DIR)/www/httpd_check.htm
 	cd $(ROMFS_DIR)/www && ln -sf /opt/share/www/custom custom
 	cp dict/EN.header $(ROMFS_DIR)/www
+ifeq ($(CONFIG_FIRMWARE_INCLUDE_DNSCRYPT),y)
 	cd $(ROMFS_DIR)/www && ln -sf /usr/share/dnscrypt-proxy/dnscrypt-resolvers.csv dnscrypt-resolvers.csv
+endif
 ifeq ($(CONFIG_FIRMWARE_INCLUDE_WPAD),y)
 	ln -s /etc/storage/wpad.dat $(ROMFS_DIR)/www/wpad.dat
 	ln -s /etc/storage/wpad.dat $(ROMFS_DIR)/www/wpad.da

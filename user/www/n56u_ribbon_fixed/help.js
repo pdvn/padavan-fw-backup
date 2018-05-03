@@ -176,7 +176,9 @@ helpcontent[24] = new Array("",
 
 // DNSCrypt
 helpcontent[25] = new Array("",
-				"<#Adm_Svc_dnscrypt_desc#>");
+				"<#Adm_Svc_dnscrypt_desc#>",
+				"<#Adm_Svc_dnscrypt_force_dns_desc#>",
+				"<#Adm_Svc_dnscrypt_options_desc#>");
 
 
 function openTooltip(obj, hint_array_id, hint_show_id)

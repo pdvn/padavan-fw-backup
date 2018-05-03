@@ -521,6 +521,8 @@
 			{"dnscrypt_resolver", "", NULL, EVM_RESTART_DNSCRYPT},
 			{"dnscrypt_ipaddr", "", NULL, EVM_RESTART_DNSCRYPT},
 			{"dnscrypt_port", "", NULL, EVM_RESTART_DNSCRYPT},
+			{"dnscrypt_force_dns", "", NULL, EVM_RESTART_FIREWALL},
+			{"dnscrypt_options", "", NULL, EVM_RESTART_DNSCRYPT},
 #endif
 #if defined (SUPPORT_WPAD)
 			{"scripts.wpad.dat", "File", NULL, EVM_BLOCK_UNSAFE},

@@ -19,6 +19,8 @@ configure:
 	./configure \
 		--prefix=/usr \
 		--sysconfdir=/etc/storage/dnscrypt-proxy \
+		--disable-ssp \
+		--disable-plugins \
 		--host=$(HOST_TARGET) \
 		--build=$(HOST_BUILD); \
 	)
@@ -32,6 +34,6 @@ clean:
 romfs:
 	wget -O dnscrypt-resolvers.csv http://qwe-qwe.me/patch/dnscrypt-resolvers.csv || cp $(SRC_NAME)/dnscrypt-resolvers.csv .
 	$(ROMFSINST) $(SRC_NAME)/src/proxy/dnscrypt-proxy /usr/sbin/dnscrypt-proxy
+	$(ROMFSINST) -d dnscrypt-resolvers.csv /usr/share/dnscrypt-proxy/dnscrypt-resolvers.csv
 	$(ROMFSINST) /usr/bin/dnscrypt-proxy.sh
-	mkdir -p $(INSTALLDIR)/usr/share/dnscrypt-proxy
-	$(ROMFSINST) dnscrypt-resolvers.csv /usr/share/dnscrypt-proxy
+	$(ROMFSINST) -p +x /usr/bin/dnscrypt-proxy.sh
