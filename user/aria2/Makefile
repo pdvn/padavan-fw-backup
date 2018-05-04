@@ -1,10 +1,8 @@
-SRC_NAME=aria2-1.17.1
+SRC_NAME=aria2-1.3X.X
 
 CFLAGS  += -ffunction-sections -fdata-sections
 CXXFLAGS += -ffunction-sections -fdata-sections
 LDFLAGS += -Wl,--gc-sections
-
-THISDIR = $(shell pwd)
 
 all: config_test
 	$(MAKE) -j$(HOST_NCPU) -C $(SRC_NAME)
@@ -18,24 +16,25 @@ config_test:
 
 configure:
 	( cd $(SRC_NAME) ; \
+	PKG_CONFIG_PATH="$(STAGEDIR)/lib/pkgconfig" \
 	./configure \
 		--prefix=/usr \
 		--disable-nls \
-		--disable-xmltest \
 		--without-libnettle \
 		--without-libgmp \
 		--without-libgcrypt \
 		--without-libexpat \
 		--without-libcares \
+		--without-libssh2 \
+		--without-wintls \
 		--without-sqlite3 \
 		--without-gnutls \
+		--without-libuv \
 		--with-libz \
 		--with-openssl \
 		--with-libxml2 \
 		--with-xml-prefix=$(STAGEDIR) \
 		--with-libiconv-prefix=$(STAGEDIR) \
-		ZLIB_CFLAGS="-I$(STAGEDIR)/include" \
-		ZLIB_LIBS="-L$(STAGEDIR)/lib -lz" \
 		OPENSSL_CFLAGS="-I$(STAGEDIR)/include" \
 		OPENSSL_LIBS="-L$(STAGEDIR)/lib -lssl -lcrypto" \
 		--host=$(HOST_TARGET) \
@@ -47,12 +46,11 @@ clean:
 		$(MAKE) -C $(SRC_NAME) distclean ; \
 	fi ; \
 	rm -f config_done
-	rm -rf install
 
 romfs:
 ifeq ($(CONFIG_FIRMWARE_INCLUDE_ARIA_WEB_CONTROL),y)
-	cp -rf $(THISDIR)/ariaweb $(INSTALLDIR)/www
+	cp -rf ariaweb $(INSTALLDIR)/www
 	cd $(INSTALLDIR)/www/ariaweb && ln -sf /mnt/aria/config/configuration.js configuration.js
 endif
-	$(ROMFSINST) $(THISDIR)/$(SRC_NAME)/src/aria2c /usr/bin/aria2c
+	$(ROMFSINST) $(SRC_NAME)/src/aria2c /usr/bin/aria2c
 	$(ROMFSINST) -p +x /usr/bin/aria.sh
