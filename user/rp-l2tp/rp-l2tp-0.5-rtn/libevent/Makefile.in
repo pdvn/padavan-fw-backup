@@ -12,7 +12,7 @@
 OBJS=event.o event_tcp.o hash.o event_sig.o
 SRCS=$(OBJS:.o=.c)
 HDRS=event.h event_tcp.h eventpriv.h hash.h
-CFLAGS=@CFLAGS@ -I..
+CFLAGS=-I.. @CFLAGS@
 
 all: libevent.a
 
