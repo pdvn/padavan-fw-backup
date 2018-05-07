@@ -108,13 +108,15 @@ dir_$(OPENSSH_ENABLED)				+= openssh
 dir_$(DROPBEAR_ENABLED)				+= dropbear
 dir_$(CONFIG_FIRMWARE_INCLUDE_OPENVPN)		+= openvpn
 dir_$(CONFIG_FIRMWARE_INCLUDE_SSWAN)		+= strongswan
-dir_$(CONFIG_FIRMWARE_INCLUDE_XUPNPD)		+= xupnpd
 dir_$(CONFIG_FIRMWARE_INCLUDE_TCPDUMP)		+= tcpdump
 dir_$(SAMBA_ENABLED)				+= samba3
 dir_$(CONFIG_FIRMWARE_INCLUDE_TOR)		+= tor
 dir_$(CONFIG_FIRMWARE_INCLUDE_PRIVOXY)		+= privoxy
 dir_$(CONFIG_FIRMWARE_INCLUDE_DNSCRYPT)	+= dnscrypt-proxy
-dir_$(CONFIG_FIRMWARE_INCLUDE_LUA)		+= lua
+ifneq (,$(filter y,$(CONFIG_FIRMWARE_INCLUDE_XUPNPD) $(CONFIG_FIRMWARE_INCLUDE_LUA)))
+dir_y						+= lua
+dir_$(CONFIG_FIRMWARE_INCLUDE_XUPNPD)           += xupnpd
+endif
 
 ifdef CONFIG_BLK_DEV_SD
 dir_$(CONFIG_FIRMWARE_INCLUDE_HDPARM)		+= hdparm
