@@ -69,6 +69,9 @@ install:
 	$(MAKE) -C $(SRC_NAME) install DESTDIR="$(STAGEDIR)"
 	rm -f $(DESTDIR)/lib/libssl.a
 	rm -f $(DESTDIR)/lib/libcrypto.a
+	sed -i 's,^prefix=.*,prefix=$(STAGEDIR),g' $(STAGEDIR)/lib/pkgconfig/libcrypto.pc
+	sed -i 's,^prefix=.*,prefix=$(STAGEDIR),g' $(STAGEDIR)/lib/pkgconfig/libssl.pc
+	sed -i 's,^prefix=.*,prefix=$(STAGEDIR),g' $(STAGEDIR)/lib/pkgconfig/openssl.pc
 
 romfs:
 	cp -fP $(DESTDIR)/lib/libssl.so* $(ROMFSDIR)/lib
