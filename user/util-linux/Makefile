@@ -8,6 +8,8 @@ LDFLAGS += -Wl,--gc-sections
 all: config_test
 	$(MAKE) -j$(HOST_NCPU) -C $(SRC_NAME) && \
 	$(MAKE) -C $(SRC_NAME) install DESTDIR=$(THISDIR)/install && \
+	sed -i 's,^prefix=.*,prefix=$(STAGEDIR),g; s,^exec_prefix=.*,exec_prefix=\$${prefix},g; s,^libdir=.*,libdir=\$${exec_prefix}/lib,g; s,^includedir=.*,includedir=\$${prefix}/include,g' $(THISDIR)/install/lib/pkgconfig/blkid.pc && \
+	sed -i 's,^prefix=.*,prefix=$(STAGEDIR),g; s,^exec_prefix=.*,exec_prefix=\$${prefix},g; s,^libdir=.*,libdir=\$${exec_prefix}/lib,g; s,^includedir=.*,includedir=\$${prefix}/include,g' $(THISDIR)/install/lib/pkgconfig/uuid.pc && \
 	cp -rfP $(THISDIR)/install/lib $(STAGEDIR) && \
 	cp -rfP $(THISDIR)/install/include $(STAGEDIR)
 
@@ -68,9 +70,9 @@ clean:
 	rm -rf install
 
 romfs:
-	$(ROMFSINST) $(THISDIR)/install/sbin/blkid /sbin/blkid
-	$(ROMFSINST) $(THISDIR)/install/lib/libblkid.so.1.1.0 /lib/libblkid.so.1.1.0
-	$(ROMFSINST) $(THISDIR)/install/lib/libuuid.so.1.3.0 /lib/libuuid.so.1.3.0
+	$(ROMFSINST) install/sbin/blkid /sbin/blkid
+	$(ROMFSINST) install/lib/libblkid.so.1.1.0 /lib/libblkid.so.1.1.0
+	$(ROMFSINST) install/lib/libuuid.so.1.3.0 /lib/libuuid.so.1.3.0
 	$(ROMFSINST) -s libblkid.so.1.1.0 /lib/libblkid.so
 	$(ROMFSINST) -s libblkid.so.1.1.0 /lib/libblkid.so.1
 	$(ROMFSINST) -s libuuid.so.1.3.0 /lib/libuuid.so
