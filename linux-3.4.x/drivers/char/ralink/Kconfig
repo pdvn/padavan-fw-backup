@@ -9,56 +9,80 @@ config RALINK_GPIO
 config RALINK_GPIOMODE_EPHY
 	bool "Configure EPHY as GPIO mode"
 	depends on RALINK_GPIO
-	depends on (RALINK_MT7620 || RALINK_MT7628)
+	depends on RALINK_MT7620
+	depends on !RALINK_MT7628
 	default n
+
 config RALINK_GPIOMODE_PCI
 	bool "Configure PCI as GPIO mode"
 	depends on RALINK_GPIO
 	depends on RALINK_RT3883
 	default n
+
 config RALINK_GPIOMODE_LNA_G
 	bool "Configure LNA_G as GPIO mode"
 	depends on RALINK_GPIO
 	depends on (RALINK_RT3352 || RALINK_RT3883)
 	default n
+
 config RALINK_GPIOMODE_LNA_A
 	bool "Configure LNA_A as GPIO mode"
 	depends on RALINK_GPIO
 	depends on RALINK_RT3883
 	default n
+
 config RALINK_GPIOMODE_MDIO
 	bool "Configure MDIO as GPIO mode"
 	depends on RALINK_GPIO
 	depends on !(RALINK_RT5350 || RALINK_MT7621 || RALINK_MT7628)
 	default n
+
 config RALINK_GPIOMODE_PA_G
 	bool "Configure PA_G as GPIO mode"
 	depends on RALINK_GPIO
-	depends on (RALINK_RT3352 || RALINK_MT7620 || RALINK_MT7628)
+	depends on (RALINK_RT3352 || RALINK_MT7620)
+	depends on !RALINK_MT7628
 	default n
+
 config RALINK_GPIOMODE_JTAG
 	bool "Configure JTAG as GPIO mode"
 	depends on RALINK_GPIO
 	depends on !(RALINK_MT7620 || RALINK_MT7628)
 	default n
+
 config RALINK_GPIOMODE_UARTF
 	bool "Configure UARTF as GPIO mode"
 	depends on RALINK_GPIO
 	depends on !(RALINK_MT7621 || RALINK_MT7628)
 	default y
+
 config RALINK_GPIOMODE_SPI
 	bool "Configure SPI as GPIO mode"
 	depends on RALINK_GPIO
 	depends on !(RALINK_MT7621)
 	default n
+
 config RALINK_GPIOMODE_SPI_REFCLK
 	bool "Configure SPI CS1 as REFCLK_OUT"
 	depends on RALINK_GPIO && !RALINK_GPIOMODE_SPI
 	depends on RALINK_MT7620
 	default y
+
 config RALINK_GPIOMODE_I2C
 	bool "Configure I2C as GPIO mode"
 	depends on RALINK_GPIO
+	default n
+
+config RALINK_GPIOMODE_I2S
+	bool "Configure I2S as GPIO mode"
+	depends on RALINK_GPIO
+	depends on RALINK_MT7628
+	default n
+
+config RALINK_GPIOMODE_UART0
+	bool "Configure UART0 as GPIO mode"
+	depends on RALINK_GPIO
+	depends on RALINK_MT7628
 	default n
 
 config RALINK_GPIO_IRQ

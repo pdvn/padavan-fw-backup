@@ -1501,6 +1501,9 @@ file_operations ralink_gpio_fops =
 int __init ralink_gpio_init(void)
 {
 	u32 gpiomode;
+#if defined (CONFIG_RALINK_MT7628)
+	u32 gpiomode2;
+#endif
 	int r = register_chrdev(ralink_gpio_major, RALINK_GPIO_DEVNAME, &ralink_gpio_fops);
 	if (r < 0) {
 		printk(KERN_ERR "%s: unable to register character device\n", RALINK_GPIO_NAME);
@@ -1514,7 +1517,7 @@ int __init ralink_gpio_init(void)
 	//config these pins to gpio mode
 	gpiomode = le32_to_cpu(*(volatile u32 *)(RALINK_REG_GPIOMODE));
 	gpiomode &= ~(RALINK_GPIOMODE_DFT);		// clear bit[2:4] UARTF_SHARE_MODE
-#if defined (CONFIG_RALINK_MT7620) || defined (CONFIG_RALINK_MT7628)
+#if defined (CONFIG_RALINK_MT7620)
 	gpiomode &= ~(RALINK_GPIOMODE_WLED);		// clear bit[13] WLAN_LED
 #endif
 #if defined (CONFIG_RALINK_MT7620)
@@ -1536,6 +1539,9 @@ int __init ralink_gpio_init(void)
 #endif
 #elif defined(CONFIG_RALINK_GPIOMODE_SPI_REFCLK) && defined(RALINK_GPIOMODE_SPI_REFCLK)
 	gpiomode |= RALINK_GPIOMODE_SPI_REFCLK;
+#endif
+#if defined(CONFIG_RALINK_GPIOMODE_I2S) && defined(RALINK_GPIOMODE_I2S)
+	gpiomode |= RALINK_GPIOMODE_I2S;
 #endif
 #if defined(CONFIG_RALINK_GPIOMODE_UARTF) && defined(RALINK_GPIOMODE_UARTF)
 	gpiomode |= RALINK_GPIOMODE_UARTF;
@@ -1561,7 +1567,13 @@ int __init ralink_gpio_init(void)
 #if defined(CONFIG_RALINK_GPIOMODE_PA_G) && defined(RALINK_GPIOMODE_PA_G)
 	gpiomode |= RALINK_GPIOMODE_PA_G;
 #endif
+#if defined(CONFIG_RALINK_GPIOMODE_UART0) && defined(RALINK_GPIOMODE_UART0)
+	gpiomode |= RALINK_GPIOMODE_UART0;
+#endif
 	*(volatile u32 *)(RALINK_REG_GPIOMODE) = cpu_to_le32(gpiomode);
+#if defined (CONFIG_RALINK_MT7628)
+	gpiomode2 = le32_to_cpu(*(volatile u32 *)(RALINK_REG_GPIOMODE2));
+#endif
 
 #ifdef CONFIG_RALINK_GPIO_IRQ
 	ralink_gpio_init_irq();
@@ -1571,8 +1583,13 @@ int __init ralink_gpio_init(void)
 	ralink_gpio_init_led();
 #endif
 
+#if defined (CONFIG_RALINK_MT7628)
+	printk("Ralink GPIO driver initialized. Number of GPIO: %d, GPIO mode1: %08X mode2: %08X\n",
+		RALINK_GPIO_NUMBER, gpiomode, gpiomode2);
+#else
 	printk("Ralink GPIO driver initialized. Number of GPIO: %d, GPIO mode: %08X\n",
 		RALINK_GPIO_NUMBER, gpiomode);
+#endif
 	return 0;
 }
 
