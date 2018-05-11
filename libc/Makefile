@@ -16,10 +16,9 @@ include $(ROOTDIR)/include/configedit.mk
 DESTDIR=$(ROOTDIR)/stage
 
 LIBC_DIR = uClibc-1.0.30
-LIBC_CONFIG = $(ROOTDIR)/configs/boards/$(CONFIG_FIRMWARE_PRODUCT_ID)/libc.config
 
 all:
-	cp -fL $(LIBC_CONFIG) $(LIBC_DIR)/.config
+	cp -fL $(ROOTDIR)/configs/boards/uclibc-mipsel.config $(LIBC_DIR)/.config
 ifeq ($(CONFIG_IPV6),y)
 	$(call KconfigEnableOption,UCLIBC_HAS_IPV6,$(LIBC_DIR)/.config)
 else
