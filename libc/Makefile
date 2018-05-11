@@ -10,13 +10,22 @@ endif
 
 include $(PROJECT_CONFIG)
 include $(ARCH_CONFIG)
+include $(LINUX_CONFIG)
+include $(ROOTDIR)/include/configedit.mk
 
 DESTDIR=$(ROOTDIR)/stage
 
 LIBC_DIR = uClibc-1.0.30
+LIBC_CONFIG = $(ROOTDIR)/configs/boards/$(CONFIG_FIRMWARE_PRODUCT_ID)/libc.config
 
 all:
-	sed -i 's/UCLIBC_EXTRA_CFLAGS=\"\"/UCLIBC_EXTRA_CFLAGS=\"$(CPUFLAGS)$(CFLAGS)\"/' $(LIBC_DIR)/.config && \
+	cp -fL $(LIBC_CONFIG) $(LIBC_DIR)/.config
+ifeq ($(CONFIG_IPV6),y)
+	$(call KconfigEnableOption,UCLIBC_HAS_IPV6,$(LIBC_DIR)/.config)
+else
+	$(call KconfigDisableOption,UCLIBC_HAS_IPV6,$(LIBC_DIR)/.config)
+endif
+	$(call KconfigSetOption,UCLIBC_EXTRA_CFLAGS,"$(CPUFLAGS)$(CFLAGS)",$(LIBC_DIR)/.config)
 	$(MAKE) -j$(HOST_NCPU) -C $(LIBC_DIR) all utils || \
 	exit $$? ; \
 	if [ ! -f $(DESTDIR)/.installed_$(LIBC_DIR) ] ; then \

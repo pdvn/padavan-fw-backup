@@ -6,9 +6,6 @@ export ROOTDIR=$ROOTDIR
 kernel_id="3.4.x"
 kernel_cf=""
 kernel_tf=""
-uclibc_id="1.0.30"
-uclibc_cf=""
-uclibc_tf="$ROOTDIR/libc/uClibc-${uclibc_id}/.config"
 busybox_id="1.2X.X"
 busybox_cf="$ROOTDIR/configs/boards/busybox.config"
 busybox_tf="$ROOTDIR/user/busybox/busybox-${busybox_id}/.config"
@@ -51,13 +48,6 @@ func_disable_kernel_param()
 	fi
 }
 
-func_disable_libc_param()
-{
-	if [ -n "`grep \^$1=y $uclibc_tf`" ] ; then
-		sed -i "s/$1=y/\# $1 is not set/" $uclibc_tf
-	fi
-}
-
 func_enable_busybox_param()
 {
 	if [ -n "`grep \^\"\# $1 is not set\" $busybox_tf`" ] ; then
@@ -91,7 +81,6 @@ fi
 
 board_h="$ROOTDIR/configs/boards/$CONFIG_FIRMWARE_PRODUCT_ID/board.h"
 board_mk="$ROOTDIR/configs/boards/$CONFIG_FIRMWARE_PRODUCT_ID/board.mk"
-uclibc_cf="$ROOTDIR/configs/boards/$CONFIG_FIRMWARE_PRODUCT_ID/libc.config"
 kernel_cd="$ROOTDIR/configs/boards/$CONFIG_FIRMWARE_PRODUCT_ID"
 kernel_tf="$ROOTDIR/linux-$kernel_id/.config"
 
@@ -103,11 +92,6 @@ fi
 
 if [ ! -f "$kernel_cf" ] ; then
 	echo "Target kernel config ($kernel_cf) not found! Terminate."
-	exit 1
-fi
-
-if [ ! -f "$uclibc_cf" ] ; then
-	echo "Target uClibc config ($uclibc_cf) not found! Terminate."
 	exit 1
 fi
 
@@ -137,7 +121,6 @@ mkdir -p $ROOTDIR/images
 echo --------------------------COPY-CONFIG-----------------------------
 ######################### FOR-ALL-DEVICES #############################
 cp -fL "$kernel_cf" "$kernel_tf"
-cp -fL "$uclibc_cf" "$uclibc_tf"
 cp -fL "$busybox_cf" "$busybox_tf"
 cp -fL "$board_mk" "$ROOTDIR/user/shared/board.mk"
 cp -fL "$board_h" "$ROOTDIR/user/shared/include/ralink_board.h"
@@ -267,7 +250,6 @@ fi
 if [ "$CONFIG_FIRMWARE_ENABLE_IPV6" != "y" ] ; then
 	func_disable_kernel_param "CONFIG_INET_TUNNEL"
 	func_disable_kernel_param "CONFIG_IPV6"
-	func_disable_libc_param "UCLIBC_HAS_IPV6"
 	func_disable_busybox_param "CONFIG_PING6"
 	func_disable_busybox_param "CONFIG_FEATURE_IPV6"
 	func_disable_busybox_param "CONFIG_FEATURE_PREFER_IPV4_ADDRESS"
