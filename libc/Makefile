@@ -25,6 +25,11 @@ ifeq ($(CONFIG_IPV6),y)
 else
 	$(call KconfigDisableOption,UCLIBC_HAS_IPV6,$(LIBC_DIR)/.config)
 endif
+ifneq (,$(filter y,$(CONFIG_MMC_BLOCK) $(CONFIG_BLK_DEV_SD)))
+	$(call KconfigEnableOption,UCLIBC_HAS_LIBICONV,$(LIBC_DIR)/.config)
+else
+	$(call KconfigDisableOption,UCLIBC_HAS_LIBICONV,$(LIBC_DIR)/.config)
+endif
 	$(call KconfigSetOption,UCLIBC_EXTRA_CFLAGS,"$(CPUFLAGS)$(CFLAGS)",$(LIBC_DIR)/.config)
 	$(MAKE) -j$(HOST_NCPU) -C $(LIBC_DIR) all utils || \
 	exit $$? ; \

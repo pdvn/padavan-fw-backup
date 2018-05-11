@@ -23,7 +23,6 @@ configure:
 		--disable-device-mapper \
 		--disable-nls \
 		--disable-debug \
-		LIBS="-liconv" \
 		--host=$(HOST_TARGET) \
 		--build=$(HOST_BUILD) ; \
 	)

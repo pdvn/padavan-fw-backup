@@ -19,7 +19,6 @@ configure:
 		--enable-compat-symlinks \
 		--exec-prefix=/ \
 		--without-udev \
-		LIBS="-liconv" \
 		--host=$(HOST_TARGET) \
 		--build=$(HOST_BUILD) ; \
 	)
