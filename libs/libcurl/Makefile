@@ -1,4 +1,4 @@
-SRC_NAME=curl-7.5X.X
+SRC_NAME=curl-7.6X.X
 
 all: config_test
 	$(MAKE) -j$(HOST_NCPU) -C $(SRC_NAME)
@@ -20,6 +20,7 @@ configure:
 		--disable-gopher \
 		--disable-ldap \
 		--disable-ldaps \
+		--disable-rt \
 		--disable-rtsp \
 		--disable-telnet \
 		--disable-tftp \
@@ -38,22 +39,26 @@ configure:
 		--disable-libcurl-option \
 		--disable-threaded-resolver \
 		--without-axtls \
+		--without-brotli \
 		--without-gnutls \
 		--without-ca-path \
 		--without-ca-fallback \
 		--without-ca-bundle \
 		--without-cyassl \
 		--without-darwinssl \
-		--without-libidn \
+		--without-default-ssl-backend \
+		--without-libidn2 \
 		--without-libmetalink \
 		--without-libpsl \
 		--without-librtmp \
+		--without-libssh \
 		--without-libssh2 \
 		--without-krb4 \
 		--without-nghttp2 \
 		--without-nss \
 		--without-mbedtls \
 		--without-polarssl \
+		--without-wolfssl \
 		--without-winidn \
 		--without-winssl \
 		--without-zsh-functions-dir \
