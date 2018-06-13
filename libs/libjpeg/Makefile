@@ -1,7 +1,7 @@
-SRC_NAME=jpeg-6b
+SRC_NAME=jpeg-9X
 
 all: config_test
-	$(MAKE) -j$(HOST_NCPU) -C $(SRC_NAME) LIBTOOL="" O=o A=a libjpeg.a
+	$(MAKE) -j$(HOST_NCPU) -C $(SRC_NAME)
 
 config_test:
 	( if [ -f ./config_done ]; then \
@@ -27,7 +27,7 @@ clean:
 	rm -f config_done
 
 install:
-	$(MAKE) -C $(SRC_NAME) DESTDIR="" LIBTOOL="" O=o A=a install-lib
+	$(MAKE) -C $(SRC_NAME) install DESTDIR=""
 
 romfs:
 
