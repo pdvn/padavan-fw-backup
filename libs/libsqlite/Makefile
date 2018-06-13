@@ -18,6 +18,8 @@ configure:
 		$(if $(LIBS_BUILD_SHARED),--enable-shared,--disable-shared) \
 		--disable-readline \
 		--disable-dynamic-extensions \
+		--disable-fts5 \
+		--disable-json1 \
 		--host=$(HOST_TARGET) \
 		--build=$(HOST_BUILD) ; \
 	)
