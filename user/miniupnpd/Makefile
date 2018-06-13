@@ -15,9 +15,6 @@ all:
 
 clean:
 	$(MAKE) -f Makefile.linux -C $(SRC_NAME) clean
-	rm -f miniupnpd
 
 romfs:
-	cp $(SRC_NAME)/miniupnpd .
-	$(ROMFSINST) /usr/bin/miniupnpd
-
+	$(ROMFSINST) $(SRC_NAME)/miniupnpd /usr/bin/miniupnpd
