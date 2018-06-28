@@ -1,8 +1,8 @@
 /* NEXX WT3020 */
 
-#define BOARD_PID		"WT3020"
-#define BOARD_NAME		"WT3020"
-#define BOARD_DESC		"NEXX WT3020 Mobile Router"
+#define BOARD_PID		"WT3020H"
+#define BOARD_NAME		"WT3020H"
+#define BOARD_DESC		"NEXX WT3020H Mobile Router"
 #define BOARD_VENDOR_NAME	"NEXX WIRELESS CO., LTD"
 #define BOARD_VENDOR_URL	"http://www.nexx.com.cn/"
 #define BOARD_MODEL_URL		"http://www.nexx.com.cn/index.php/home/detail?pid=199"
