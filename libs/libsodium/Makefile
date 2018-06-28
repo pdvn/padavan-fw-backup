@@ -16,6 +16,7 @@ configure:
 		--prefix=$(STAGEDIR) \
 		--disable-shared \
 		--enable-static \
+		--disable-ssp \
 		--enable-minimal \
 		--host=$(HOST_TARGET) \
 		--build=$(HOST_BUILD) ; \
