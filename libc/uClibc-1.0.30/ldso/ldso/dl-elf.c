@@ -117,6 +117,7 @@ int _dl_unmap_cache(void)
 void
 _dl_protect_relro (struct elf_resolve *l)
 {
+#ifdef __ARCH_USE_MMU__
 	ElfW(Addr) base = (ElfW(Addr)) DL_RELOC_ADDR(l->loadaddr, l->relro_addr);
 	ElfW(Addr) start = (base & PAGE_ALIGN);
 	ElfW(Addr) end = ((base + l->relro_size) & PAGE_ALIGN);
@@ -126,6 +127,7 @@ _dl_protect_relro (struct elf_resolve *l)
 		_dl_dprintf(2, "%s: cannot apply additional memory protection after relocation", l->libname);
 		_dl_exit(0);
 	}
+#endif
 }
 
 /* This function's behavior must exactly match that
@@ -861,11 +863,11 @@ struct elf_resolve *_dl_load_elf_shared_library(unsigned int rflags,
 		{
 # ifdef __SUPPORT_LD_DEBUG_EARLY__
 			char *tmp = (char *) tpnt->l_tls_initimage;
-			tpnt->l_tls_initimage = (char *) tlsppnt->p_vaddr + tpnt->loadaddr;
+			tpnt->l_tls_initimage = (char *) DL_RELOC_ADDR(tpnt->loadaddr, tlsppnt->p_vaddr;
 			_dl_debug_early("Relocated TLS initial image from %x to %x (size = %x)\n", tmp, tpnt->l_tls_initimage, tpnt->l_tls_initimage_size);
 			tmp = 0;
 # else
-			tpnt->l_tls_initimage = (char *) tlsppnt->p_vaddr + tpnt->loadaddr;
+			tpnt->l_tls_initimage = (char *) DL_RELOC_ADDR(tpnt->loadaddr, tlsppnt->p_vaddr);
 # endif
 		}
 	}

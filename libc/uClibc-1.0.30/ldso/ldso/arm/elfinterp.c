@@ -34,6 +34,67 @@
 
 extern int _dl_linux_resolve(void);
 
+#if __FDPIC__
+unsigned long _dl_linux_resolver (struct elf_resolve *tpnt, int reloc_offet)
+{
+	ELF_RELOC *this_reloc;
+	char *strtab;
+	ElfW(Sym) *symtab;
+	int symtab_index;
+	char *rel_addr;
+	char *new_addr;
+	struct funcdesc_value funcval;
+	struct funcdesc_value volatile *got_entry;
+	char *symname;
+	struct symbol_ref sym_ref;
+
+	rel_addr = (char *)tpnt->dynamic_info[DT_JMPREL];
+
+	this_reloc = (ELF_RELOC *)(intptr_t)(rel_addr + reloc_offet);
+	symtab_index = ELF_R_SYM(this_reloc->r_info);
+
+	symtab = (ElfW(Sym) *) tpnt->dynamic_info[DT_SYMTAB];
+	strtab = (char *) tpnt->dynamic_info[DT_STRTAB];
+	sym_ref.sym = &symtab[symtab_index];
+	sym_ref.tpnt = NULL;
+	symname= strtab + symtab[symtab_index].st_name;
+
+	/* Address of GOT entry fix up */
+	got_entry = (struct funcdesc_value *) DL_RELOC_ADDR(tpnt->loadaddr, this_reloc->r_offset);
+
+	/* Get the address to be used to fill in the GOT entry.  */
+	new_addr = _dl_find_hash(symname, &_dl_loaded_modules->symbol_scope, NULL, 0, &sym_ref);
+	if (!new_addr) {
+		new_addr = _dl_find_hash(symname, NULL, NULL, 0, &sym_ref);
+		if (!new_addr) {
+			_dl_dprintf(2, "%s: can't resolve symbol '%s'\n", _dl_progname, symname);
+			_dl_exit(1);
+		}
+	}
+
+	funcval.entry_point = new_addr;
+	funcval.got_value = sym_ref.tpnt->loadaddr.got_value;
+
+#if defined (__SUPPORT_LD_DEBUG__)
+	if (_dl_debug_bindings) {
+		_dl_dprintf(_dl_debug_file, "\nresolve function: %s", symname);
+		if (_dl_debug_detail)
+			_dl_dprintf(_dl_debug_file,
+				    "\n\tpatched (%x,%x) ==> (%x,%x) @ %x\n",
+				    got_entry->entry_point, got_entry->got_value,
+				    funcval.entry_point, funcval.got_value,
+				    got_entry);
+	}
+	if (1 || !_dl_debug_nofixups) {
+		*got_entry = funcval;
+	}
+#else
+	*got_entry = funcval;
+#endif
+
+	return got_entry;
+}
+#else
 unsigned long _dl_linux_resolver(struct elf_resolve *tpnt, int reloc_entry)
 {
 	ELF_RELOC *this_reloc;
@@ -89,6 +150,7 @@ unsigned long _dl_linux_resolver(struct elf_resolve *tpnt, int reloc_entry)
 
 	return new_addr;
 }
+#endif
 
 static int
 _dl_parse(struct elf_resolve *tpnt, struct r_scope_elem *scope,
@@ -181,7 +243,7 @@ _dl_do_reloc (struct elf_resolve *tpnt,struct r_scope_elem *scope,
 	struct elf_resolve *def_mod = 0;
 	int goof = 0;
 
-	reloc_addr = (unsigned long *) (tpnt->loadaddr + (unsigned long) rpnt->r_offset);
+	reloc_addr = (unsigned long *) DL_RELOC_ADDR(tpnt->loadaddr, rpnt->r_offset);
 
 	reloc_type = ELF_R_TYPE(rpnt->r_info);
 	symtab_index = ELF_R_SYM(rpnt->r_info);
@@ -191,25 +253,30 @@ _dl_do_reloc (struct elf_resolve *tpnt,struct r_scope_elem *scope,
 	symname = strtab + symtab[symtab_index].st_name;
 
 	if (symtab_index) {
-		symbol_addr = (unsigned long)_dl_find_hash(symname, scope, tpnt,
-						elf_machine_type_class(reloc_type), &sym_ref);
+		if (ELF_ST_BIND (symtab[symtab_index].st_info) == STB_LOCAL) {
+			symbol_addr = (unsigned long) DL_RELOC_ADDR(tpnt->loadaddr, symtab[symtab_index].st_value);
+			def_mod = tpnt;
+		} else {
+			symbol_addr =  (unsigned long)_dl_find_hash(symname, scope, tpnt,
+							elf_machine_type_class(reloc_type), &sym_ref);
 
-		/*
-		 * We want to allow undefined references to weak symbols - this might
-		 * have been intentional.  We should not be linking local symbols
-		 * here, so all bases should be covered.
-		 */
-		if (!symbol_addr && (ELF_ST_TYPE(symtab[symtab_index].st_info) != STT_TLS)
-			&& (ELF_ST_BIND(symtab[symtab_index].st_info) != STB_WEAK)) {
-			/* This may be non-fatal if called from dlopen.  */
-			return 1;
+			/*
+			 * We want to allow undefined references to weak symbols - this might
+			 * have been intentional.  We should not be linking local symbols
+			 * here, so all bases should be covered.
+			 */
+			if (!symbol_addr && (ELF_ST_TYPE(symtab[symtab_index].st_info) != STT_TLS)
+				&& (ELF_ST_BIND(symtab[symtab_index].st_info) != STB_WEAK)) {
+				/* This may be non-fatal if called from dlopen.  */
+				return 1;
 
+			}
+			if (_dl_trace_prelink) {
+				_dl_debug_lookup (symname, tpnt, &symtab[symtab_index],
+						&sym_ref, elf_machine_type_class(reloc_type));
+			}
+			def_mod = sym_ref.tpnt;
 		}
-		if (_dl_trace_prelink) {
-			_dl_debug_lookup (symname, tpnt, &symtab[symtab_index],
-					&sym_ref, elf_machine_type_class(reloc_type));
-		}
-		def_mod = sym_ref.tpnt;
 	} else {
 		/*
 		 * Relocs against STN_UNDEF are usually treated as using a
@@ -222,7 +289,10 @@ _dl_do_reloc (struct elf_resolve *tpnt,struct r_scope_elem *scope,
 
 #if defined (__SUPPORT_LD_DEBUG__)
 	{
-		unsigned long old_val = *reloc_addr;
+		unsigned long old_val;
+
+		if (reloc_type != R_ARM_NONE)
+			old_val = *reloc_addr;
 #endif
 		switch (reloc_type) {
 			case R_ARM_NONE:
@@ -267,12 +337,42 @@ _dl_do_reloc (struct elf_resolve *tpnt,struct r_scope_elem *scope,
 				*reloc_addr = symbol_addr;
 				break;
 			case R_ARM_RELATIVE:
-				*reloc_addr += (unsigned long) tpnt->loadaddr;
+				*reloc_addr = DL_RELOC_ADDR(tpnt->loadaddr, *reloc_addr);
 				break;
 			case R_ARM_COPY:
 				_dl_memcpy((void *) reloc_addr,
 					   (void *) symbol_addr, symtab[symtab_index].st_size);
 				break;
+#ifdef __FDPIC__
+			case R_ARM_FUNCDESC_VALUE:
+				{
+					struct funcdesc_value funcval;
+					struct funcdesc_value *dst = (struct funcdesc_value *) reloc_addr;
+
+					funcval.entry_point = (void*)symbol_addr;
+					/* Add offset to section address for local symbols.  */
+					if (ELF_ST_BIND(symtab[symtab_index].st_info) == STB_LOCAL)
+					  funcval.entry_point += *reloc_addr;
+					funcval.got_value = def_mod->loadaddr.got_value;
+					*dst = funcval;
+				}
+				break;
+			case R_ARM_FUNCDESC:
+				{
+				  unsigned long reloc_value = *reloc_addr;
+
+				  if (symbol_addr)
+					reloc_value = (unsigned long) _dl_funcdesc_for(symbol_addr + reloc_value, sym_ref.tpnt->loadaddr.got_value);
+				  else
+					/* Relocation against an
+					   undefined weak symbol:
+					   set funcdesc to zero.  */
+					reloc_value = 0;
+
+				  *reloc_addr = reloc_value;
+				}
+				break;
+#endif
 #if defined USE_TLS && USE_TLS
 			case R_ARM_TLS_DTPMOD32:
 				*reloc_addr = def_mod->l_tls_modid;
@@ -291,7 +391,7 @@ _dl_do_reloc (struct elf_resolve *tpnt,struct r_scope_elem *scope,
 				return -1; /*call _dl_exit(1) */
 		}
 #if defined (__SUPPORT_LD_DEBUG__)
-		if (_dl_debug_reloc && _dl_debug_detail)
+		if (_dl_debug_reloc && _dl_debug_detail && reloc_type != R_ARM_NONE)
 			_dl_dprintf(_dl_debug_file, "\tpatch: %x ==> %x @ %x", old_val, *reloc_addr, reloc_addr);
 	}
 
@@ -307,30 +407,43 @@ _dl_do_lazy_reloc (struct elf_resolve *tpnt, struct r_scope_elem *scope,
 	int reloc_type;
 	unsigned long *reloc_addr;
 
-	reloc_addr = (unsigned long *) (tpnt->loadaddr + (unsigned long) rpnt->r_offset);
+	reloc_addr = (unsigned long *) DL_RELOC_ADDR(tpnt->loadaddr, rpnt->r_offset);
 	reloc_type = ELF_R_TYPE(rpnt->r_info);
 
 #if defined (__SUPPORT_LD_DEBUG__)
 	{
-		unsigned long old_val = *reloc_addr;
+		unsigned long old_val;
+
+		if (reloc_type != R_ARM_NONE)
+			old_val = *reloc_addr;
 #endif
 		switch (reloc_type) {
 			case R_ARM_NONE:
 				break;
+
 			case R_ARM_JUMP_SLOT:
-				*reloc_addr += (unsigned long) tpnt->loadaddr;
+				*reloc_addr = DL_RELOC_ADDR(tpnt->loadaddr, *reloc_addr);
 				break;
+#ifdef __FDPIC__
+			case R_ARM_FUNCDESC_VALUE:
+				{
+					struct funcdesc_value *dst = (struct funcdesc_value *) reloc_addr;
+
+					dst->entry_point = DL_RELOC_ADDR(tpnt->loadaddr, dst->entry_point);
+					dst->got_value = tpnt->loadaddr.got_value;
+				}
+				break;
+#endif
 			default:
 				return -1; /*call _dl_exit(1) */
 		}
 #if defined (__SUPPORT_LD_DEBUG__)
-		if (_dl_debug_reloc && _dl_debug_detail)
+		if (_dl_debug_reloc && _dl_debug_detail && reloc_type != R_ARM_NONE)
 			_dl_dprintf(_dl_debug_file, "\tpatch: %x ==> %x @ %x", old_val, *reloc_addr, reloc_addr);
 	}
 
 #endif
 	return 0;
-
 }
 
 void _dl_parse_lazy_relocation_information(struct dyn_elf *rpnt,
@@ -345,3 +458,6 @@ int _dl_parse_relocation_information(struct dyn_elf *rpnt,
 	return _dl_parse(rpnt->dyn, scope, rel_addr, rel_size, _dl_do_reloc);
 }
 
+#ifndef IS_IN_libdl
+# include "../../libc/sysdeps/linux/arm/crtreloc.c"
+#endif

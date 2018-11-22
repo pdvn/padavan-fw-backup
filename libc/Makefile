@@ -30,10 +30,9 @@ else
 	$(call KconfigDisableOption,UCLIBC_HAS_LIBICONV,$(LIBC_DIR)/.config)
 endif
 	$(call KconfigSetOption,UCLIBC_EXTRA_CFLAGS,"$(CPUFLAGS)$(CFLAGS)",$(LIBC_DIR)/.config)
-	$(MAKE) -j$(HOST_NCPU) -C $(LIBC_DIR) all utils || \
-	exit $$? ; \
+	$(MAKE) -j$(HOST_NCPU) -C $(LIBC_DIR) oldconfig || exit $$? ; \
 	if [ ! -f $(DESTDIR)/.installed_$(LIBC_DIR) ] ; then \
-		$(MAKE) -C $(LIBC_DIR) install_runtime install_utils && \
+		$(MAKE) -C $(LIBC_DIR) PREFIX=$(DESTDIR) DEVEL_PREFIX=/ MULTILIB_DIR=lib install_runtime install_utils && \
 		touch $(DESTDIR)/.installed_$(LIBC_DIR) ; \
 	fi
 

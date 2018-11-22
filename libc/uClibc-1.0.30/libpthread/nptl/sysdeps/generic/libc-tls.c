@@ -26,7 +26,7 @@
 #include <link.h>
 #include <string.h>
 #include <stdlib.h>
-
+#include <sys/mman.h>
 
 #ifdef SHARED
  #error makefile bug, this file is for static only
@@ -36,6 +36,11 @@
 extern ElfW(Phdr) *_dl_phdr;
 extern size_t _dl_phnum;
 
+#ifdef __FDPIC__
+/* phdr->p_vaddr is not valid in FDPIC mode. To find tdata start we
+   use the linker script defined symbol __tdata_start.  */
+extern int __tdata_start;
+#endif
 
 static dtv_t static_dtv[2 + TLS_SLOTINFO_SURPLUS];
 
@@ -130,7 +135,11 @@ __libc_setup_tls (size_t tcbsize, size_t tcbalign)
 	  /* Remember the values we need.  */
 	  memsz = phdr->p_memsz;
 	  filesz = phdr->p_filesz;
+#ifdef __FDPIC__
+	  initimage = (void *) &__tdata_start;
+#else
 	  initimage = (void *) phdr->p_vaddr;
+#endif
 	  align = phdr->p_align;
 	  if (phdr->p_align > max_align)
 	    max_align = phdr->p_align;
@@ -146,13 +155,29 @@ __libc_setup_tls (size_t tcbsize, size_t tcbalign)
      The initialized value of _dl_tls_static_size is provided by dl-open.c
      to request some surplus that permits dynamic loading of modules with
      IE-model TLS.  */
+  /* Use mmap instead of sbrk since this commit disables sbrk area
+     for FDPIC MMU-less platforms:
+     fs/binfmt_elf_fdpic.c: fix brk area overlap with stack on NOMMU
+     https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/fs/binfmt_elf_fdpic.c?id=4ac313111018cb44ecc250445de5ccb93026a980
+   */
 # if defined(TLS_TCB_AT_TP)
   tcb_offset = roundup (memsz + GL(dl_tls_static_size), tcbalign);
+#  if defined(__FDPIC__)
+  tlsblock = mmap (NULL, tcb_offset + tcbsize + max_align,
+                   PROT_READ|PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+#  else
   tlsblock = sbrk (tcb_offset + tcbsize + max_align);
+#  endif
 # elif defined(TLS_DTV_AT_TP)
   tcb_offset = roundup (tcbsize, align ?: 1);
+#  if defined(__FDPIC__)
+  tlsblock = mmap (NULL, tcb_offset + memsz + max_align + TLS_PRE_TCB_SIZE + GL(dl_tls_static_size),
+                   PROT_READ|PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+#  else
   tlsblock = sbrk (tcb_offset + memsz + max_align
 		     + TLS_PRE_TCB_SIZE + GL(dl_tls_static_size));
+#  endif
+  memset(tlsblock, '\0', tcb_offset + memsz + max_align + TLS_PRE_TCB_SIZE + GL(dl_tls_static_size));
   tlsblock += TLS_PRE_TCB_SIZE;
 # else
   /* In case a model with a different layout for the TCB and DTV

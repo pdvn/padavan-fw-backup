@@ -109,7 +109,13 @@ static unsigned char *_dl_mmap_zero   = NULL;	/* Also used by _dl_malloc */
 static struct elf_resolve **init_fini_list;
 static struct elf_resolve **scope_elem_list;
 static unsigned int nlist; /* # items in init_fini_list */
+#ifdef __FDPIC__
+/* We need to take the address of _start instead of its FUNCDESC:
+   declare it as void* to control the relocation emitted.  */
+extern void *_start;
+#else
 extern void _start(void);
+#endif
 
 #ifdef __UCLIBC_HAS_SSP__
 # include <dl-osinfo.h>
@@ -438,6 +444,11 @@ void *_dl_get_ready_to_run(struct elf_resolve *tpnt, DL_LOADADDR_TYPE load_addr,
 	size_t relro_size = 0;
 	struct r_scope_elem *global_scope;
 	struct elf_resolve **local_scope;
+#if defined(__FDPIC__)
+	int rtype_class = ELF_RTYPE_CLASS_DLSYM;
+#else
+	int rtype_class = ELF_RTYPE_CLASS_PLT;
+#endif
 
 #if defined(USE_TLS) && USE_TLS
 	void *tcbp = NULL;
@@ -766,7 +777,7 @@ of this helper program; chances are you did not intend to run this program.\n\
 		char *tmp attribute_unused =
 			(char *) app_tpnt->l_tls_initimage;
 		app_tpnt->l_tls_initimage =
-			(char *) app_tpnt->l_tls_initimage + app_tpnt->loadaddr;
+			(char *) DL_RELOC_ADDR(app_tpnt->loadaddr, app_tpnt->l_tls_initimage);
 		_dl_debug_early("Relocated TLS initial image from %x to %x (size = %x)\n",
 			tmp, app_tpnt->l_tls_initimage, app_tpnt->l_tls_initimage_size);
 	}
@@ -1416,21 +1427,21 @@ of this helper program; chances are you did not intend to run this program.\n\
 
 	/* Find the real malloc function and make ldso functions use that from now on */
 	_dl_malloc_function = (void* (*)(size_t)) (intptr_t) _dl_find_hash(__C_SYMBOL_PREFIX__ "malloc",
-			global_scope, NULL, ELF_RTYPE_CLASS_PLT, NULL);
+			global_scope, NULL, rtype_class, NULL);
 
 #if defined(USE_TLS) && USE_TLS
 	/* Find the real functions and make ldso functions use them from now on */
 	_dl_calloc_function = (void* (*)(size_t, size_t)) (intptr_t)
-		_dl_find_hash(__C_SYMBOL_PREFIX__ "calloc", global_scope, NULL, ELF_RTYPE_CLASS_PLT, NULL);
+		_dl_find_hash(__C_SYMBOL_PREFIX__ "calloc", global_scope, NULL, rtype_class, NULL);
 
 	_dl_realloc_function = (void* (*)(void *, size_t)) (intptr_t)
-		_dl_find_hash(__C_SYMBOL_PREFIX__ "realloc", global_scope, NULL, ELF_RTYPE_CLASS_PLT, NULL);
+		_dl_find_hash(__C_SYMBOL_PREFIX__ "realloc", global_scope, NULL, rtype_class, NULL);
 
 	_dl_free_function = (void (*)(void *)) (intptr_t)
-		_dl_find_hash(__C_SYMBOL_PREFIX__ "free", global_scope, NULL, ELF_RTYPE_CLASS_PLT, NULL);
+		_dl_find_hash(__C_SYMBOL_PREFIX__ "free", global_scope, NULL, rtype_class, NULL);
 
 	_dl_memalign_function = (void* (*)(size_t, size_t)) (intptr_t)
-		_dl_find_hash(__C_SYMBOL_PREFIX__ "memalign", global_scope, NULL, ELF_RTYPE_CLASS_PLT, NULL);
+		_dl_find_hash(__C_SYMBOL_PREFIX__ "memalign", global_scope, NULL, rtype_class, NULL);
 
 #endif
 
